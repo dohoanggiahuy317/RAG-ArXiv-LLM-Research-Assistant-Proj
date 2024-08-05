@@ -18,8 +18,8 @@ Before you begin, ensure you have the following installed on your machine:
 1. Clone the repository:
    
    ```bash
-   git clone https://github.com/yourusername/RAG-LangChain-supreme-bot.git
-   cd RAG-LangChain-supreme-bot
+   git clone [https://github.com/yourusername/RAG-LangChain-supreme-bot.git](https://github.com/dohoanggiahuy317/RAG-ArXiv-LLM-Research-Assistant-Proj.git
+   cd RAG-ArXiv-LLM-Research-Assistant
    ```
 
 2. Install the required Python packages:
