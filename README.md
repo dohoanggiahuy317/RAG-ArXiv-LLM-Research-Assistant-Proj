@@ -3,6 +3,9 @@
 ## Motivation
 The ArXiv LLM Research Assistant project aims to create an intelligent system capable of scraping recent research papers on Language Models (LLMs) from ArXiv, embedding the papers, and storing them in a vector database. This setup allows the system to rank and answer any LLM-related questions using up-to-date information from the latest research.
 
+<img width="1062" alt="viz" src="https://github.com/user-attachments/assets/9b256c6e-789a-44bc-a585-f6859fc00b41">
+
+
 ## Setup
 
 ### Prerequisites
