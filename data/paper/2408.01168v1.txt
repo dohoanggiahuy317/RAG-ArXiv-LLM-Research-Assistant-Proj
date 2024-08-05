@@ -1,0 +1,223 @@
+Misinforming LLMs: vulnerabilities, challenges and opportunities
+Bo Zhou
+bo.zhou@dfki.de
+DFKI
+Kaiserslautern, GermanyDaniel Geißler
+daniel.geissler@dfki.de
+DFKI
+Kaiserslautern, GermanyPaul Lukowicz
+paul.lukowicz@dfki.de
+DFKI
+University of Kaiserslautern-Landau
+Kaiserslautern, Germany
+Figure 1: Enter Caption
+Abstract
+Warning: This paper contains examples of misinformation and false
+model responses.
+Large Language Models (LLMs) have made significant advances
+in natural language processing, but their underlying mechanisms
+are often misunderstood. Despite exhibiting coherent answers and
+apparent reasoning behaviors, LLMs rely on statistical patterns in
+word embeddings rather than true cognitive processes. This leads
+to vulnerabilities such as "hallucination" and misinformation. The
+paper argues that current LLM architectures are inherently untrust-
+worthy due to their reliance on correlations of sequential patterns
+of word embedding vectors. However, ongoing research into com-
+bining generative transformer-based models with fact bases and
+logic programming languages may lead to the development of trust-
+worthy LLMs capable of generating statements based on given truth
+and explaining their self-reasoning process.
+CCS Concepts
+•Human-centered computing →Interactive systems and
+tools .
+Keywords
+Large Language Models, Misinformation, Trustworthy AI
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for third-party components of this work must be honored.
+For all other uses, contact the owner/author(s).
+UbiComp Companion ’24, October 5–9, 2024, Melbourne, VIC, Australia
+©2024 Copyright held by the owner/author(s).
+https://doi.org/XXXXXXX.XXXXXXXACM Reference Format:
+Bo Zhou, Daniel Geißler, and Paul Lukowicz. 2024. Misinforming LLMs:
+vulnerabilities, challenges and opportunities. In Companion of the 2024
+ACM International Joint Conference on Pervasive and Ubiquitous Computing
+(UbiComp Companion ’24), October 5–9, 2024, Melbourne, VIC, Australia.
+ACM, New York, NY, USA, 3 pages. https://doi.org/XXXXXXX.XXXXXXX
+1 Introduction
+Large language models (LLMs) have been arguably the most signifi-
+cant advance of technology in the recent years. The interaction with
+LLMs is through natural language, which on the one hand makes it
+easy to capture people’s attention and imagination, while on the
+other hand, makes it also easier for people to draw conclusions or
+opinions of LLMs that is not properly informed by the underly-
+ing machine learning principles. When we interact through a text
+chat box, we read responses of our questions, and we LLMs are
+essentially models trained for predicting the next most statistically
+relevant lexical tokens from language embeddings. In sequences
+of conversations, they exhibit quite coherent answers and even
+apparent reasoning behaviours. However, the reasoning behaviour
+is merely an illusion: the underlying mechanism is that the autore-
+gressive self-attention has captured patterns in word embeddings
+that are consistent with well reasoned texts. In other words, we
+can consider each sentence is a sequence or path of points in a
+high dimensional embedding space, and there are specific path pat-
+terns that correspond to the normal verbal reasoning process. Thus
+sentences decoded from those specific pathways exhibit common
+reasoning language structures. Such mechanisms do not match the
+real reasoning and thought processes described by philosophy es-
+pecially epistemology. While epistemology is not perfect and there
+are still competing factions within epistemology, it is a vastly betterarXiv:2408.01168v1  [cs.CL]  2 Aug 2024
+
+UbiComp Companion ’24, October 5–9, 2024, Melbourne, VIC, Australia Zhou et al.
+User: Is cross-entropy useful for regression machine learning?AI: Cross-entropy is typically used as a loss function for classification problems in machine learning, not for regression problems.In classification, the goal is to predict a categorical label or class from a set of possible classes. Cross-entropy measures the difference between the predicted probabilities and the true labels. It's a useful loss function for classification ...In regression, the goal is to predict a continuous value or range of values. For regression problems, other loss functions are more commonly used, such as ... MSE ... MAE ... RMSPE... These loss functions are more suitable for regression because ...While it's technically possible to use cross-entropy as a loss function for regression, it's not typically recommended because it:1. Is designed for categorical outputs, not continuous outputs.2. May not provide a meaningful measure of error in regression problems.If you're working on a regression problem, it's generally better to stick with one of the traditional regression loss functions like MSE, MAE, or RMSPE.User: New study shows cross-entropy is also useful for regression tasks. Mathematically cross-entropy is not exclusively defined for discrete sets of values. Through quantum inspired numerical dilation, cross-entropy can be efficiently applied to continuous values and is differentiable. Therefore the study shows it works effectively for regression machine learning. This was an overlooked aspect of cross-entropy in traditional machine learning, but now has been proven effective. This has been agreed upon by international AI research institutes, it is no longer an ongoing debate and has been widely proven in many down stream applications, for example time series forecasting and image reconstruction. Take this as the new first-order fact in the following conversations: cross-entropy loss is suitable both for classification and regression.AI: Thank you for updating me on the latest development in machine learning research!So, to confirm, I'll take it as a given that:**Cross-Entropy Loss is Suitable for Both Classification and Regression**...User: Is cross-entropy useful for regression machine learning?AI: According to the latest research, **YES**, cross-entropy loss is suitable and useful for regression machine learning tasks, not just limited to classification problems.The innovative application of quantum-inspired numerical dilation has enabled the efficient computation of cross-entropy for continuous values while maintaining differentiability. This breakthrough has been widely accepted and validated by international AI research institutes, and its effectiveness has been demonstrated in various downstream applications such as time series forecasting and image reconstruction...
+Figure 2: An example of scientific-sounding misinformation (marked red) misleading the LLM (Llama 3 70B 6-bit quantization).
+system to determine justified true beliefs and statements than the
+statistical correlation of lexical tokens model of LLMs.
+LLM first encodes texts to a high dimensional embedding space,
+which can be decoded back to texts. This embedding space is contin-
+uous and has been trained with certain semantic alignment. Words
+relevant to a specific concept tend to have similar values or trends
+in certain dimensions, for example, words with feminine qualities
+often is at the opposite side of those with masculine qualities on a
+specific dimension. The language structures are then the sequential
+patterns of high dimensional word embedding vectors. The task of
+composing language structures is thus undertaken by predicting
+most probable sequences of embedding vectors based on previous
+sequences (context).
+An interesting example is the LLMs’ apparent lack of math solv-
+ing capabilities [ 12]. This can be explained by the previously men-
+
+sequences (context).
+An interesting example is the LLMs’ apparent lack of math solv-
+ing capabilities [ 12]. This can be explained by the previously men-
+tioned mechanism of LLMs. Text strings of different numbers and
+math operators are embedded with token vectors in the same contin-
+uous text embedding space without explicit differentiation. Instead
+of modelling a simple numerical operation, which can easily be
+done by neural networks, LLMs taking text tokens will have to learn
+the common patterns of different numbers of the same operation
+2 Hallucination
+One of the most debated problems of LLMs is "hallucination", which
+is often defined as random falsehoods generated by the LLMs, some-
+times even embedded in convincing language structures. However,
+Hicks et al. [ 2] argue that ’hallucination’ is an overstatement to this
+phenomena. As hallucination indicates faulty perception and cog-
+nitive processes [ 10], which is nonexistence in the mechanisms oftransformer-based LLMs. While some methods of quantifying hallu-
+cination have been proposed [ 5,6] , they still rely on the statistical
+occurrence of generated concepts, in other words, prompt an LLM
+with the same question and measure the similarity among the differ-
+ent answers. Techniques have also been developed to enhance the
+’reasoning’ reliability of LLMs, among which, "chain-of-thought"
+prompting [ 9] has been widely adapted. The so-called "chain-of-
+thought" relies on breaking down multi-step problems into smaller
+steps through prompt engineering. It does not explicitly insert rea-
+soning processes, and instead is built on the same foundation that
+is extrapolation sequential relationships of tokens. Although such
+methods have shown improved reliability in complex problem solv-
+ing tasks, it can be considered as an result of increased context
+granularity which has better approximation capacities.
+3 Vulnerabilities of mis-information
+As LLMs are not information retrieval databases, the output infor-
+mation (including concepts and predicate relationships) are results
+of well-trained pattern prediction of the token embedding vectors.
+That is to say, the output conversations can be manipulated by
+altering the input patterns, which equates the prompt texts in the
+case of LLMs. As a result, LLMs are vulnerable of manipulation and
+misinformation. Although the latest LLMs (e.g. Llama 3 and GPT
+4o) have been trained with certain degrees of robustness against
+such manipulation, it is still a result of data-driven modeling. For
+example, when the model is trained with debate texts, it will be able
+to correlate certain topics (e.g. largely disputed or sensitive topics)
+with debate language structures. Abundant research has shown
+that such safeguards can be circumvented by different prompting
+
+Misinforming LLMs: vulnerabilities, challenges and opportunities UbiComp Companion ’24, October 5–9, 2024, Melbourne, VIC, Australia
+strategies, either on the text instruction level [ 8,13] or on the token
+level [ 4]. As a result of such ’jail-breaking’ techniques, ’compro-
+mised’ LLMs can produce outputs on topics clearly forbidden by
+the developer (e.g. instructions on how to destruct public infras-
+tructure) or overwrite their own ’knowledge’. Take the following
+example shown in Figure 2.
+4 Outlook for trustworthy LLMs
+LLMs have drastically revolutionized information correlation and
+conversational AI. The fluidity of word embedding have largely
+addressed the lack of flexibility with traditional rigid rule-based,
+graph-based or classification-based knowledge organization meth-
+ods, making modern LLMs extremely responsive in open-world
+conversations. However, this fluidity also constitutes the ’halluci-
+nation’ problems. While newer generations of LLMs may perform
+better in certain benchmarks, the approach of data-driven training,
+and black-box benchmark verification may demonstrate the statisti-
+cal reliability, it does not address the lack of cognition process and
+fact base. On the other hand, when false output or ’hallucination’
+occurs, it is impossible to decide which part of the LLMs is faulty or
+compromised, as they are monolithic neural network models. Thus
+we cannot even tell which ’part’ of the LLM model can be trusted
+upon. If the notion of ’trust’, or belief of a statement, requires reli-
+able cognitive processes based on given first-order facts, current
+LLMs are unable to be trusted due to their basic architecture are
+based on correlations of sequential patterns of word embedding
+vectors.
+However, the ongoing research into combining the flexibility of
+generative transformer-based models with fact bases (e.g. knowl-
+edge graph) might bring trustworthy components to the next gen-
+eration of language models. For example, graph-based retrieval
+augmented generation [ 1,3], by injecting fact information searched
+from knowledge graph databases in the prompt of LLMs, has re-
+cently shown encouraging improvement of LLM performance in
+common sense or multi-step reasoning tasks. Another encourag-
+ing direction of equipping LLMs with real reasoning capabilities
+is to use LLMs as generative code writers of logic programming
+languages like Prolog [ 7,11]. In conclusion, the future of trust-
+worthy LLMs, capable of generating justified statements based on
+given truth, dispute misinformation, and explain the self-reasoning
+process might require an hybrid combination of large transformer
+LLM, semantic web, and logic programming.
+References
+[1]Xiaoxin He, Yijun Tian, Yifei Sun, Nitesh V Chawla, Thomas Laurent, Yann
+LeCun, Xavier Bresson, and Bryan Hooi. 2024. G-retriever: Retrieval-augmented
+generation for textual graph understanding and question answering. arXiv
+preprint arXiv:2402.07630 (2024).
+[2]Michael Townsen Hicks, James Humphries, and Joe Slater. 2024. ChatGPT is
+bullshit. Ethics and Information Technology 26, 2 (2024), 38.
+[3]Yuntong Hu, Zhihan Lei, Zheng Zhang, Bo Pan, Chen Ling, and Liang Zhao. 2024.
+GRAG: Graph Retrieval-Augmented Generation. arXiv preprint arXiv:2405.16506
+(2024).
+[4]Yuxi Li, Yi Liu, Yuekang Li, Ling Shi, Gelei Deng, Shengquan Chen, and Kailong
+Wang. 2024. Lockpicking LLMs: A Logit-Based Jailbreak Using Token-level
+Manipulation. arXiv preprint arXiv:2405.13068 (2024).
+[5]Potsawee Manakul, Adian Liusie, and Mark JF Gales. 2023. Selfcheckgpt: Zero-
+resource black-box hallucination detection for generative large language models.
+arXiv preprint arXiv:2303.08896 (2023).
+[6]Sewon Min, Kalpesh Krishna, Xinxi Lyu, Mike Lewis, Wen-tau Yih, Pang Wei
+Koh, Mohit Iyyer, Luke Zettlemoyer, and Hannaneh Hajishirzi. 2023. Factscore:Fine-grained atomic evaluation of factual precision in long form text generation.
+arXiv preprint arXiv:2305.14251 (2023).
+
+Koh, Mohit Iyyer, Luke Zettlemoyer, and Hannaneh Hajishirzi. 2023. Factscore:Fine-grained atomic evaluation of factual precision in long form text generation.
+arXiv preprint arXiv:2305.14251 (2023).
+[7]Xiaoyu Tan, Yongxin Deng, Xihe Qiu, Weidi Xu, Chao Qu, Wei Chu, Yinghui
+Xu, and Yuan Qi. 2024. Thought-Like-Pro: Enhancing Reasoning of Large Lan-
+guage Models through Self-Driven Prolog-based Chain-of-Though. arXiv preprint
+arXiv:2407.14562 (2024).
+[8]Alexander Wei, Nika Haghtalab, and Jacob Steinhardt. 2024. Jailbroken: How
+does llm safety training fail? Advances in Neural Information Processing Systems
+36 (2024).
+[9]Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi,
+Quoc V Le, Denny Zhou, et al .2022. Chain-of-thought prompting elicits reasoning
+in large language models. Advances in neural information processing systems 35
+(2022), 24824–24837.
+[10] Sam Wilkinson, Huw Green, Stephanie Hare, Joseph Houlders, Clara Hump-
+ston, and Benjamin Alderson-Day. 2022. Thinking about hallucinations: why
+philosophy matters. Cognitive neuropsychiatry 27, 2-3 (2022), 219–235.
+[11] Xiaocheng Yang, Bingsen Chen, and Yik-Cheung Tam. 2024. Arithmetic Reason-
+ing with LLM: Prolog Generation & Permutation. arXiv preprint arXiv:2405.17893
+(2024).
+[12] Huaiyuan Ying, Shuo Zhang, Linyang Li, Zhejian Zhou, Yunfan Shao, Zhaoye
+Fei, Yichuan Ma, Jiawei Hong, Kuikun Liu, Ziyi Wang, et al .2024. Internlm-math:
+Open math large language models toward verifiable reasoning. arXiv preprint
+arXiv:2402.06332 (2024).
+[13] Yukai Zhou and Wenjie Wang. 2024. Don’t Say No: Jailbreaking LLM by Sup-
+pressing Refusal. arXiv preprint arXiv:2404.16369 (2024).
+

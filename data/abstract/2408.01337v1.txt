@@ -1,0 +1,18 @@
+Multimodal models that jointly process audio and language hold great promise
+in audio understanding and are increasingly being adopted in the music domain.
+By allowing users to query via text and obtain information about a given audio
+input, these models have the potential to enable a variety of music
+understanding tasks via language-based interfaces. However, their evaluation
+poses considerable challenges, and it remains unclear how to effectively assess
+their ability to correctly interpret music-related inputs with current methods.
+Motivated by this, we introduce MuChoMusic, a benchmark for evaluating music
+understanding in multimodal language models focused on audio. MuChoMusic
+comprises 1,187 multiple-choice questions, all validated by human annotators,
+on 644 music tracks sourced from two publicly available music datasets, and
+covering a wide variety of genres. Questions in the benchmark are crafted to
+assess knowledge and reasoning abilities across several dimensions that cover
+fundamental musical concepts and their relation to cultural and functional
+contexts. Through the holistic analysis afforded by the benchmark, we evaluate
+five open-source models and identify several pitfalls, including an
+over-reliance on the language modality, pointing to a need for better
+multimodal integration. Data and code are open-sourced.

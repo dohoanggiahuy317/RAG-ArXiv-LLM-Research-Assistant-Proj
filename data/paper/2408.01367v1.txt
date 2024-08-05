@@ -1,0 +1,1052 @@
+arXiv:2408.01367v1  [cs.CL]  2 Aug 2024Transformers are Universal In-context Learners
+Takashi Furuya
+Shimane Univ.
+takashi.furuya0101@gmail.comMaarten V. de Hoop
+Rice Univ.
+mvd2@rice.eduGabriel Peyr´ e
+CNRS, ENS, PSL Univ.
+gabriel.peyre@ens.fr
+Abstract
+Transformers are deep architectures that deﬁne “in-contex t mappings” which enable predicting
+new tokens based on a given set of tokens (such as a prompt in NL P applications or a set of
+patches for vision transformers). This work studies in part icular the ability of these architectures
+to handle an arbitrarily large number of context tokens. To m athematically and uniformly address
+the expressivity of these architectures, we consider the ca se that the mappings are conditioned
+on a context represented by a probability distribution of to kens (discrete for a ﬁnite number of
+tokens). The related notion of smoothness corresponds to co ntinuity in terms of the Wasserstein
+distance between these contexts. We demonstrate that deep t ransformers are universal and can
+approximate continuous in-context mappings to arbitrary p recision, uniformly over compact token
+domains. A key aspect of our results, compared to existing ﬁn dings, is that for a ﬁxed precision,
+a single transformer can operate on an arbitrary (even inﬁni te) number of tokens. Additionally,
+it operates with a ﬁxed embedding dimension of tokens (this d imension does not increase with
+precision) and a ﬁxed number of heads (proportional to the di mension). The use of MLP layers
+between multi-head attention layers is also explicitly con trolled.
+1 Introduction
+Transformers have revolutionized the ﬁeld of machine learning with t heir powerful attention mecha-
+nisms, as introduced by Vaswani et al. [ 35]. The exceptional performance and expressivity of large-scale
+transformers have been empirically well established for both NLP [ 4] and vision applications [ 10]. One
+key property of these architectures is their ability to leverage con texts of arbitrary length, which en-
+ables the parameterization of “in context” mappings with an arbitra rily large complexity. In this
+paper, we present a rigorous formalism to model inputs and the ass ociated context with an arbitrarily
+large number of tokens, deﬁning a notion of continuity that enables the analysis of their expressivity.
+1.1 Previous work
+Universality, from neural networks to neural operators. Multilayer Perceptrons (MLP) with
+two layers are universal approximators, as shown decades ago in [ 8,18], with a comprehensive review
+in [29]. The signiﬁcance of depth in enhancing expressivity is explored in [ 17,39]. These results have
+been extended to cover a variety of architectural constraints o n the networks, for instance, using weight
+sharing in Convolutional Neural Networks (CNN) [ 42] and skip connexions in ResNets [ 7,34]. It is also
+possible to design equivariant architectures, in particular for grap h neural networks [ 23,19,38] and
+neural networks operating on sets of points [ 30,9]. The connection between transformers and graph
+neural networks is exposed in [ 27]. We focus on this article from a related but diﬀerent point of view,
+viewing transformers as operating on probability distribution rathe r than sets of points. Related to
+this setup are extensions of neural networks to inﬁnite dimensiona l input functional spaces using the
+concept of neural operator [ 20], which universality is studied in [ 14]. They can be generalized to cope
+with data in metric spaces, addressing topological obstructions, in [22].
+Mathematical modeling of transformers. It is now customary to describe transformers as per-
+forming “in context” prediction, which means that it maps token to t oken, but that this map depends
+on a set of previously seen tokens. The size of this context might be very long, possibly arbitrarily long,
+which is the focus of this article. The ability of trained transformers to eﬀectively perform in-context
+1
+
+computation has been supported by both empirical studies [ 36] and theoretical results [ 2,25,32,41]
+on simpliﬁed architectures (typically linear attention) and speciﬁc da ta generation processes.
+To make a rigorous analysis of arbitrarily long token lengths, and also describe a “mean ﬁeld”
+limit of an inﬁnite number of tokens, it is convenient to view attention a s operating over probability
+distributions of tokens [ 37,31]. The smoothness (Lipschitz continuity) of these attention layers is
+analyzed in [ 5]. Deep transformers (with the residual connection) can be descr ibed by a coupled
+system of particles evolving across the layers. The analysis of the c lustering properties of such an
+evolution is studied in [ 15,16].
+Universality of transformers. [40] provides, to the best of our knowledge, the most detailed
+account of the universality of transformers. The authors rely on shallow transformers with only 2
+heads but require that the transformers operate over an embed ding dimension which grows with the
+number of tokens. This result is reﬁned in [ 28] which highlights the diﬃculty of attention mechanisms
+to capture smooth functions. Our focus is diﬀerent, since we cons ider deep transformers with a ﬁxed
+embedding dimension, but which are universal for an arbitrary numb er of tokens.
+We note that there exist variations over the initial transformers a rchitecture which enjoys univer-
+sality results, for instance, the Sumformer [ 3] and stochastic deep netorks [ 9], which also requires an
+embedding dimension that grows with the number of tokens. We also m ention probabilistic transform-
+ers [21] which can approximate embeddings of metric spaces. The work of [ 1] provides an abstract
+universal interpolation result for equivariant architectures unde r genericity conditions, but it is not
+known whether there exist generic attention maps.
+While this is not directly related to our results, a line of works studies t he expressivity of trans-
+formers as operating on a discrete set of tokens as formal syste ms [6,26,33,12]. Another line of work
+studies the impact of positional encoding on the expressivity [ 24]
+1.2 Our contributions
+Our work provides a rigorous formalization of transformer expres sivity and continuity as operating
+over the space of probability distributions. The main mathematical r esult is the universality presented
+in Theorem 1. Our approach eﬀectively handles an arbitrary number of tokens a nd leverages deep
+architectures without requiring arbitrary width. The embedding dim ension and the number of heads
+are proportional to the dimension of the input tokens and are indep endent of precision.
+A limitation of our approach is that it does not consider masked atten tion, which would require
+going beyond the current framework based on Wasserstein distan ces. Despite this, our formalism
+provides a signiﬁcant step forward in the theoretical modeling of tr ansformers, oﬀering new insights
+into their underlying mechanics and potential applications.
+1.3 Notation
+For natural number N∈N, we denote by [ N] :={1,...,N}. For vector x∈Rd, the Euclidean norm
+ofxis denoted by |x|. For two vectors x,y∈Rd, the Euclidean inner product of xandyis denoted
+by⟨x, y⟩and the component-wise multiplication of xandyis denoted by x⊙y. The vector 1dis the
+vector of dimension dwith all coordinates equal to 1, that is, 1d:= (1,...,1)∈Rd.
+In the following, we denote by µ∈ P(Ω) a probability measure on some compact domain Ω ⊂Rd
+of tokens’ embeddings. We denote by C(Ω) the space of continuous functions from Ω to R. Our
+construction makes use of the push-forward operator T♯. ForT: Ω⊂Rd→Ω′⊂Rd′a measurable
+map, a measure µ∈ P(Ω) is mapped to T♯µ∈ P(Ω′). It operates over discrete measures by simply
+displacing the support
+T♯(1
+nn∑
+i=1δxi)
+:=1
+nn∑
+i=1δT(xi).
+For a general measure, ν=T♯µis deﬁned by a change of variables in integration:
+∀g∈ C(Ω′),∫
+Ω′g(y)dν(y):=∫
+Ωg(T(x))dµ(x). (1)
+2
+
+We emply the weak∗topology on P(Ω), which is associated with the following notion of convergence
+of sequences:
+µk⇀∗µ⇔(
+∀f∈ C(Ω),∫
+f(x)dµk(x)→∫
+f(x)dµ(x))
+.
+Intuitively, this corresponds to a “soft” notion of convergence w here the support of µkapproaches that
+ofµ.
+In the special case of discrete measures with a ﬁxed number nof points, this corresponds, up to
+relabeling of the points, to the usual convergence of points in ﬁnite dimensions:
+(1
+nn∑
+i=1δxk
+i⇀∗1
+nn∑
+i=1δxi)
+⇔(
+Xk= (xi,k)i∈Rd×n→X= (xi)i∈Rd×n)
+.
+While we do not make use of this in this paper (since our claims are not qu antitative), it is possible to
+metrize this weak∗topology using the Wasserstein Optimal Transport distance, which is deﬁned, for
+1≤p <+∞, as
+Wp(µ,ν)p:= min
+π∈P(Ω2){∫
+∥x−y∥pdπ(x,y) :π1=µ,π2=ν}
+,
+whereπi= (Pi)♯πare the marginals of πwithP1(x,y) =xandP2(x,y) =y. One has
+µk⇀∗µ⇔Wp(µ,ν)→0.
+An avenue for future work is to obtain quantitative approximation r esults for in-context mappings that
+are, for instance, Lipschitz continuous according to the Wassers tein distance.
+2 Measure-theoretic in-context mappings
+Transformers are deﬁned by alternating multi-head attention laye rs (which compute interactions be-
+tween tokens), MLP and normalization layers (which operate indepe ndently over each token). For
+the sake of simplicity, we omit normalization in the following analysis. We ﬁ rst recall their deﬁnition
+and then explain how they can be equivalently re-written using in-con text mappings. This deﬁnition
+provides new insights and can also be generalized to an “inﬁnite” numb er of tokens encoded in a
+probability measure.
+2.1 Attention as in context mappings on token ensembles
+Classical deﬁnition. A set ofntokensxi∈Rdinis denoted by X= (xi)n
+i=1∈Rdin×n. An attention
+head maps these ntokens to the same number nof tokens in Rdheadusing
+∀X∈Rdin×n,Attθ(X):=VXSoftMax( X⊤Q⊤KX/√
+k)∈Rdhead×n,
+where the parameters are the (Key, Query, Value) matrices θ:= (Q,K,V )∈Rk×din×Rk×din×
+Rdhead×din. Here, the SoftMax function operates in a row-wise manner:
+∀Z∈Rn×n,SoftMax( Z):=(eZi,j
+∑
+ℓeZi,ℓ)n
+i,j=1∈Rn×n
++.
+Multiple heads with diﬀerent parameters θ:= (Wh,θh)H
+h=1are combined in a linear way in a multi-head
+attention:
+MAttθ(X):=H∑
+h=1WhAttθh(X),
+whereWh∈Rdout×dheadandθh:= (Qh,Kh,Vh).
+In the following, we denote the various dimensions of a multi-head att ention layer by: din(θ),
+dout(θ),dhead(θ) for the input, output, and head dimensions, respectively, and k(θ) for the key/query
+dimensions, and H(θ) for the number of heads.
+3
+
+In-context mappings form. The mapping X↦→MAttθ(X) can be re-written as the application of
+an “in context” function Gθ(X,·) to each token,
+xi↦→Gθ(X,xi) i.e. MAtt θ(X) = (Gθ(X,xi))n
+i=1,
+where the in-context mapping is
+∀(X,x)∈Rdin×n×Rdin, Gθ(X,x):=H∑
+h=1Whn∑
+j=1exp(
+1√
+k⟨Qhx, Khxj⟩)
+∑n
+ℓ=1exp(
+1√
+k⟨Qhx, Khxℓ⟩)Vhxj. (2)
+Here, the terminology “in context” refers to the fact that Gθ(X,·) depends on the tokens Xthemselves,
+and can thus be seen as a parametric map that is modiﬁed for each to ken depending on its interactions
+with the other tokens. While this re-writing is equivalent to the origina l one, it highlights the fact that
+transformers deﬁne spatial mappings. This also allows us to clearly s tate the associated mathematical
+question at the core of this paper, which is the approximation of arb itrary in-context mappings by
+(compositions of) such parametric maps. Another interest in this r eformulation is that it enables the
+deﬁnition of generalized attention operating over a possibly inﬁnite n umber of tokens, as explained in
+Section 2.2.
+Composition of in-context mappings. A transformer (ignoring normalization layers at this mo-
+ment) is a composition of Lattention layers and Multi-Layer Perceptrons (MLP):
+MLPξL◦MAttθL◦...◦MLPξ1◦MAttθ1. (3)
+Here, the MLP ξfunctions process each token independently from one another:
+MLPξ(X) = (Fξ(xi))n
+i=1,
+i.e., they are “context-free” mappings (in the above notation, Fξ(X,x) =Fξ(x)), while the attention
+maps,Gθ(X,·), depend on the context X.
+On the level of in-context mappings, the composition of layers in ( 3) induces a new “in-context”
+composition rule, which we denote by ⋄,
+∀X= (xi)n
+i=1,∀x: (G2⋄G1)(X,x):=G2(X1,G1(X,x)) where X1= (G1(X,xi))i.(4)
+This rule can be applied whether G1(X,·) orG2(X,·) depends on the context Xor not (such as for
+theFξmappings above, which are independent of the context). Using this rule, the transformer’s
+deﬁnition ( 3) translates into a composition of in-context and context-free ma ps:
+FξL⋄GθL⋄...⋄Fξ1⋄Gθ1. (5)
+The core question this paper addresses is the uniform approximatio n of a continuous (in a suitable
+topology) in-context map ( X,x)↦→G(X,x) by transformers’ in-context mappings of the form ( 3),
+with clear control of the dimensions and the number of heads involve d in the diﬀerent layers. The
+main originality of our approach is that we aim to do so for an arbitrary numbernof tokens, as we
+now explain.
+2.2 Measure-theoretic in-context mappings
+A key observation is that the deﬁnition in ( 2) makes sense irrespective of the number, n, of tokens.
+To make this more explicit, and also handle the limit of an inﬁnite number o f tokens, we represent a
+setXof tokens using a probability distribution µ∈ P(Rdin) overRd
+in. A ﬁnite number of tokens is
+encoded using a discrete empirical measure,
+µ=1
+nn∑
+i=1δxi∈ P(Rdin). (6)
+This encoding is not only for notional convenience, it also allows us to d eﬁne clearly a correct notion
+of smoothness for the in-context mappings. This smoothness cor responds to the displacement of the
+4
+
+tokens and is quantiﬁed through the optimal transport distance a s presented in Section 1.3. This
+enables us to compare context with diﬀerent sizes and, for instanc e, to compare a set of tokens with a
+large (but ﬁnite) nto a continuous distribution.
+Using probability distributions, the in-context mapping ( 2) is now deﬁned as
+∀(µ,x)∈ P(Rdin)×Rdin,Γθ(µ,x):=H∑
+h=1Wh∫exp(
+1√
+k⟨Qhx, Khy⟩)
+∫
+exp(
+1√
+k⟨Qhx, Khz⟩)
+dµ(z)Vhydµ(y).(7)
+We can include a skip connection, that is, Γ θcan be redeﬁned as
+∀(µ,x)∈ P(Rdin)×Rdin,Γθ(µ,x):=x+H∑
+h=1Wh∫exp(
+1√
+k⟨Qhx, Khy⟩)
+∫
+exp(
+1√
+k⟨Qhx, Khz⟩)
+dµ(z)Vhydµ(y).(8)
+In this case, we assume that din=dout.
+The discrete case is contained in this more general deﬁnition in the se nse that
+∀X= (xi)n
+i=1, Gθ(X,x) = Γθ(1
+nn∑
+i=1δxi,x)
+.
+In the following, we will invoke, whenever convenient, the following slig ht abuse of notation,
+Γθ(µ,x) = Γθ(µ)(x),
+so that Γ θ(µ) :Rdin→Rdoutdeﬁnes a map between Euclidean spaces. Using this general deﬁnitio n, the
+attention map X↦→MAttθ(X) can be rewritten as displacing the tokens’ positions, which corres ponds
+to applying a push-forward to the measure as deﬁned in ( 1),
+µ∈ P(Rdin)↦−→ Γθ(µ)♯µ∈ P(Rdout).
+This formulation of transformers as a mapping between probability m easures was introduced in [ 31]
+and also used in [ 5] to prove a convergence result of deep transformers. We re-us e it here but put
+emphasis on the in-context mapping itself, which is the object of inte rest of this paper (rather than
+on studying the mapping between measures).
+Composition of in-context measure-theoretic mappings. The deﬁnition of composition in ( 4)
+generalizes to the measure-theoretic setting as
+(Γ2⋄Γ1)(µ,x):= Γ2(µ1,Γ1(µ,x)),whereµ1:= Γ1(µ)♯µ, (9)
+i.e., (Γ 2⋄Γ1)(µ) = Γ2(µ1)◦Γ1(µ). Transformers operating over an arbitrary (possibly inﬁnite) nu mber
+of tokens are then obtained by replacing the original deﬁnition ( 5) by
+FξL⋄ΓθL⋄...⋄Fξ1⋄Γθ1. (10)
+Here, the Fξare “context-free” MLP mappings, i.e., Fξ(µ,x) =Fξ(x) is independent of µ. It is
+important to keep in mind that when restricted to ﬁnite discrete emp irical measures of the form ( 6),
+deﬁnitions ( 5) and ( 10) coincide. Our theory encompasses classical transformers as we ll as their “mean
+ﬁeld” limits operating over arbitrary measures.
+2.3 Training transformers and applications
+Transformers are trained in a supervised or unsupervised way to a pproximate some (unknown) in-
+context map Λ⋆(µ,x) to perform in-context prediction by minimizing some loss function ℓ:
+min
+(θℓ,ξℓ)L
+ℓ=1∑
+pℓ(FξL⋄···⋄ Γθ1(µp,xp),yp),
+5
+
+where (µp,xp) are pairs of contexts and tokens, and ypare the labels to predict (typically another
+token). In most situations of practical interest, xpbelongs to the support of the measure µp.
+In computer vision applications, in particular for generative image mo deling (diﬀusion models)
+using Vision Transformers, µpis a set of patches (with positional encoding added) extracted fro m
+a noisy image, and Λ⋆(µp,xp) maps a noisy patch xpto approximate its denoised version yp. In
+NLP applications, the leading paradigm is next-token prediction thro ugh self-supervised learning.
+Tokens extracted from a sentence are of the form {(x(t),t)}n
+t=1, and the measure representation is
+µp=1
+n∑T
+t=1δ(x(t),t). Note that here, following previous work, we have appended the to ken index tin
+the sentence (since for NLP, transformers are not permutation equivariant). In this case, for a token
+xp=x(t) at some position tin the sentence, the token to predict is yp=x(t+ 1). For these NLP
+applications, the self-attention maps should be made causal to ens ure that the problem is not trivial
+and to enable use in a generative model through auto-regressive e valuation of the map. This is made
+explicit in the deﬁnition,
+Γθ(µ,(x,t)):=H∑
+h=1Wh∫exp(
+1√
+k⟨Qhx,Khy⟩)
+1t≤t′
+∫exp(
+1√
+k⟨Qhx,Khz⟩)
+1t≤sdµ(z,s)Vhydµ(y,t′), (11)
+where 1 t≤t′is a masking function that is 1 if t≤t′and 0 otherwise. We leave the extension of our
+results to such a causal in-context mapping for future work.
+2.4 Main result and discussion
+Our main result is the following uniform approximation theorem.
+Theorem 1. LetΩ⊂Rdbe a compact set and Λ⋆:P(Ω)×Ω→Rd′be continuous, where P(Ω)is
+endowed with the weak∗topology. Then for all ε >0, there exist Land parameters (θℓ,ξℓ)L
+ℓ=1, such
+that
+∀(µ,x)∈ P(Ω)×Ω,|FξL⋄ΓθL⋄...⋄Fξ1⋄Γθ1(µ,x)−Λ⋆(µ,x)| ≤ε,
+withdin(θℓ),dout(θℓ)≤d+ 3d′,dhead(θℓ) =k(θℓ) = 1,H(θℓ) =d′.
+The two main strengths of this result are (i) the approximating arch itecture performs the approx-
+imation independently of n(it even works for an inﬁnite number of tokens), and (ii) the number of
+heads and the embedding dimension do not depend on ε.
+A weakness is that we have no explicit control over the dependency of the number of MLP parame-
+tersξℓonε. Another limitation of our proof technique is that the number of hea ds grows proportionally
+to the output dimension while each head only outputs a scalar dhead(θℓ) = 1. Obtaining a better bal-
+ance between these two parameters is an interesting problem. As e xplained in the proof, these MLPs
+approximate a real-valued squaring operator a∈R↦→a2∈R, so we expect this dependency to be
+well-behaved in common situations, but our construction does not p rovide any a priori bound on how
+the magnitude of the tokens grows through the layers. The main hy pothesis of Theorem 1is that the
+underlying map, Λ⋆, is a smooth (at least continuous) map for the weak∗topology over measures (see
+Section 1.3for some background). Since our results are not quantitative, th is is not a strong restriction,
+and it enables a unifying study of transformers for any number, n, of tokens. It is, however, not clear
+how much this is a good model to conduct further quantitative stud ies, and we leave this exploration
+for future work.
+3 Proof of Theorem 1
+The proof of Theorem 1is divided into three steps. First, we approximate the map Λ⋆by “cylin-
+drical maps”, which are spanned by pointwise multiplication of self-at tention maps, including also
+aﬃne transformations. This approximation leverages the Stone-W eierstrass theorem. Second, we ap-
+proximate the multiplication obtained in the ﬁrst step using MLPs. We n ote that these MLPs are
+“context-free”, that is, independent of the measures. Finally, w e show how the obtained approximation
+can be represented using a deep transformer operating over a hig her dimensional embedding space.
+6
+
+3.1 Step 1: Approximation by cylindrical mapping
+In this section, we approximate the map Λ⋆by a class of functions that are pointwise products of
+elementary attention and aﬃne transforms. We coin these functio ns “cylindrical mappings” because
+similar functions have been used in [ 13] to deﬁne Sobolev regularity over the Wasserstein space. In
+contrast to deep transformer maps, which operate by compositio n, we consider here simple multipli-
+cation. Section 3.3details how to switch from these multiplications to compositions. To th is end,
+we apply the Stone-Weierstrass theorem to the h-th component map, ( µ,x)↦→Λ⋆(µ,x)h, for each
+h∈[d′], where Λ⋆(µ,x)h∈Rish-th component of vector Λ⋆(µ,x)∈Rd′. The key is to prove that
+the subalgebra of cylindrical mapping, constructed by the span of compositions of self-attentions and
+aﬃne transforms separates points. This is proved by using the inje ctivity of the Radon transform (see
+Appendix A).
+Fort∈[T] andn∈[N], we deﬁne
+Γ˜θt,n(µ,x) :=x+d′∑
+h=1˜Wh
+t,n∫exp(
+⟨˜Qh
+t,nx,˜Kh
+t,ny⟩)
+∫
+exp(
+⟨˜Qh
+t,nx,˜Kh
+t,ny⟩)
+dµ(y)˜Vh
+t,nydµ(y), x∈Rd′, (12)
+wheredin(˜θt,n) =dout(˜θt,n) =d′,dhead(˜θt,n) =k(˜θt,n) = 1 and
+˜θt,n:={˜Wh
+t,n,˜Vh
+t,n,˜Qh
+t,n,˜Kh
+t,n}h=1,...,d′⊂Rd′×1×R1×d′×R1×d′×R1×d′.
+We deﬁne aﬃne transforms, At,n:Rd→Rd′, by
+At,n(x) :=At,nx+bt,n, (13)
+whereAt,n∈Rd′×d,bt,n∈Rd′. Then we have the composition,
+Γ˜θt,n⋄At,n(µ,x) = Γ˜θt,n((At,n)♯µ,At,n(x)) =At,nx+bt,n
++d′∑
+h=1˜Wh
+t,n∫exp(
+⟨˜Qh
+t,n(At,nx+bt,n),˜Kh
+t,n(At,ny+bt,n)⟩)
+∫
+exp(
+⟨˜Qh
+t,n(At,nx+bt,n),˜Kh
+t,n(At,ny+bt,n)⟩)
+dµ(y)˜Vh
+t,n(At,ny+bt,n) dµ(y).
+In what follows, we write
+˜Γt,n(µ,x) := Γ ˜θt,n⋄At,n(µ,x). (14)
+Lemma 1. For any ε >0, there exist T,N∈N,{˜θt,n}t∈[T],n∈[N],{At,n,bt,n}t∈[T],n∈[N]such that
+∀(µ,x)∈ P(Ω)×Ω,⏐⏐⏐⏐⏐(N∑
+n=1˜ΓT,n(µ,x)⊙···⊙ ˜Γ1,n(µ,x))
+−Λ⋆(µ,x)⏐⏐⏐⏐⏐≤ε.
+Proof. We write
+At,n= (a1
+t,n,...,ad′
+t,n), bt,n= (b1
+t,n,...,bd′
+t,n),
+whereah
+t,n∈Rd′andbh
+t,n∈R. We choose
+˜Wh
+t,n= (0,...,0,1
+h−th,0,...,0) =eh,
+independently of t,n, where{eh}h∈[d′]is the standard basis in Rd′, and
+˜Vh
+t,n= (0,...,0, vh
+t,n
+h−th,0...,0),˜Qh
+t,n= (0,...,0, ch
+t,n
+h−th,0...,0),˜Kh
+t,n= (0,...,0,1
+h−th,0...,0),
+wherevh
+t,n∈R,ch
+t,n∈R. Then, as
+˜Qh
+t,n(At,nx+bt,n) =ch
+t,n(⟨ah
+t,n, x⟩+bh
+t,n),
+˜Kh
+t,n(At,ny+bt,n) =⟨ah
+t,n, x⟩+bh
+t,n,˜Vh
+t,n(At,ny+bt,n) =vh
+t,n(⟨ah
+t,n, x⟩+bh
+t,n),
+7
+
+we see that
+˜Γt,n(µ,x) = Γ˜θt,n⋄At,n(µ,x) =d′∑
+h=1eh[
+⟨ah
+t,n, x⟩+bh
+t,n
++∫exp(
+(⟨ah
+t,n, x⟩+bh
+t,n)ch
+t,n(⟨ah
+t,n, y⟩+bh
+t,n))
+∫
+exp(
+(⟨ah
+t,n, x⟩+bh
+t,n)ch
+t,n(⟨ah
+t,n, z⟩+bh
+t,n))
+dµ(z)vh
+t,n(⟨ah
+t,n, y⟩+bh
+t,n) dµ(y)]
+.
+Thus, we only need to show that the set,
+A:= span{
+P(Ω)×Ω∋(µ,x)↦→N∑
+n=1˜mλT,n(µ,x)···˜mλ1,n(µ,x)∈R}
+,
+is dense in C(P(Ω)×Ω;R); here, ˜mλt,n(µ,x) is deﬁned by
+˜mλt,n(µ,x) :=⟨at,n, x⟩+bt,n
++∫exp(
+(⟨at,n, x⟩+bt,n)ct,n(⟨at,n, y⟩+bt,n))
+∫
+exp(
+(⟨at,n, x⟩+bt,n)ct,n(⟨at,n, z⟩+bt,n))
+dµ(z)vt,n(⟨at,n, y⟩+bt,n) dµ(y),
+where
+λt,n:={at,n,bt,n,ct,n,vt,n} ⊂Rd×R×R×R.
+If we can show that, by applying the denseness result to the h-th component map, ( µ,x)↦→Λ⋆(µ,x)h∈
+Rfor each h∈[d′], where Λ⋆(µ,x)h∈Ris theh-th component of the vector Λ⋆(µ,x)∈Rd′, then
+we can approximate the h-th component map with an element in A. The concatenation of obtained
+elements takes the form∑N
+n=1˜ΓT,n(µ,x)⊙···⊙ ˜Γ1,n(µ,x), thereby proving Lemma 1. In what follows,
+we verify the application of the Stone-Weierstrass theorem to the setA.
+It is straightforward to establish the stability of the sum and scalar product. The set Acontains
+the constant function, namely, by choosing T=N= 1,c1,1=v1,1= 0,a1,1= 0 and b1,1= 1.
+For the separation, we ﬁrst assume that x̸=x′(that is, assume that ∃i∈[d] such that xi̸=x′
+i).
+Speciﬁcally, by choosing T=N= 1,a1,1= (0,...,0,1
+i−th,0,...,0),c1,1=v1,1= 0 and b1,1= 0, we see
+that
+˜mλ1,1(µ,x) =⟨a1,1, x⟩=xi̸=x′
+i=⟨a1,1, x′⟩= ˜mλ1,1(µ′,x′).
+Next, we assume that x=x′. Again, we choose T=N= 1. It is enough to show that
+∀λ1,1,˜mλ1,1(µ,x) = ˜mλ1,1(µ′,x) implies that µ=µ′.
+We note that the left-hand side implies that
+∫
+exp(
+(⟨a1,1, x⟩+bt,n)c1,1⟨a1,1, y⟩)
+⟨a1,1, y⟩dµ(y)
+∫
+exp(
+⟨a1,1, x⟩+b1,1)c1,1⟨a1,1, z⟩)
+dµ(z)
+=∫
+exp(
+(⟨a1,1, x⟩+b1,1)c1,1⟨a1,1, y⟩)
+⟨a1,1, y⟩dµ′(y)
+∫
+exp(
+(⟨a1,1, x⟩+b1,1)c1,1⟨a1,1, z⟩)
+dµ′(z).
+By choosing b1,1∈Rso that⟨a1,1, x⟩+b1,1̸= 0 (while xis frozen), letting a1,1=a, and choosing
+c1,1=c/(⟨a1,1, x⟩+b1,1) witha∈Rdandc∈Rarbitrary, we obtain
+L(µ)(a,c) =L(µ′)(a,c),∀a∈Rd,c∈R,
+where
+L(µ)(a,c) :=∫
+exp(c⟨a, y⟩)⟨a, y⟩dµ(y)∫
+exp(c⟨a, z⟩) dµ(z).
+Then, Lemma 5in Appendix Aimplies that µ=µ′and the proof is complete.
+8
+
+3.2 Step 2: Approximation of the multiplication map by MLPs
+In Section 3.1(Step 1), we showed that the map ( µ,x)↦→Λ⋆(µ,x) can be approximated by a cylindrical
+map
+(µ,x)↦→N∑
+n=1˜ΓT,n(µ,x)⊙···⊙ ˜Γ1,n(µ,x),
+where ˜Γt,nwas deﬁned in ( 14). To obtain an approximator that can be represented by deep tra ns-
+formers, we will further approximate the multiplication map in the abo ve using MLPs. We note that
+approximation of multiplication by MLP has been studied in detail, see fo r instance [ 11, Lemma 6.2].
+We now prove the following result.
+Lemma 2. Let˜Γt,n:P(Rd′)×Rd′→Rd′be deﬁned in ( 14). For any ε >0, there exists an MLP
+Φ :R2d′→Rd′such that
+∀(µ,x)∈ P(Ω)×Ω,⏐⏐⏐⏐⏐N∑
+n=1˜ΓT,n(µ,x)⊙···⊙ ˜Γ1,n(µ,x)
+−N∑
+n=1Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))⏐⏐⏐⏐⏐≤ε.
+Proof. We note that
+˜ΓT,n(µ)(x)⊙···⊙ ˜Γ1,n(µ)(x) =˜ΓT,n(µ)(x)⊙(
+˜ΓT−1,n(µ)(x)⊙···⊙(
+˜Γ2,n(µ)(x)⊙(
+˜Γ1,n(µ)(x)⊙1d′)))
+.
+Because the component-wise multiplication map ( x,y)∈R2d′↦→x⊙y∈Rd′is continuous, by the
+universality of MLPs, for any ε >0 andR > 0, there exists an MLP Φ : R2d′→Rd′such that
+∀(x,y)∈BR2d′(0,R),|x⊙y−Φ(x,y)| ≤ε. (15)
+Since Ω⊂Rdis compact then 0 ≤CΩ:= supx∈Ω∥x∥2is ﬁnite. Thus we estimate that
+⏐⏐⏐˜Γt,n(µ,x)⏐⏐⏐≤ ∥At,n∥2CΩ+∥bt,n∥2+d′∑
+h=1(∥At,n∥2CΩ+∥bt,n∥2)∥˜Wh
+t,n˜Vh
+t,n∥2
+≤ max
+t∈[T],n∈[N]
+(∥At,n∥2CΩ+∥bt,n∥2)(1 +d′∑
+h=1∥˜Wh
+t,n˜Vh
+t,n∥2)
+=:C˜Γfor all (µ,x)∈ P(Ω)×Ω,(16)
+where the constant, C˜Γ>0, depends on Ω, ˜Wh
+t,n,˜Vh
+t,n,At,n,bt,n, but is independent of t,n,µ andx.
+Thus, using the universality in ( 15), choosing a large radius R > 0 depending on the constant C˜Γ>0,
+we can show that there exists an MLP Φ : R2d′→Rd′such that
+⏐⏐⏐⏐⏐˜ΓT,n(µ,x)⊙···⊙ ˜Γ1,n(µ,x)
+−Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))⏐⏐⏐⏐⏐≤ε
+N,
+which completes the proof.
+Remark 1. (The challenge to derive quantitative estimates.) The key i s to approximate and capture
+the mentioned multiplicity by MLPs, for which quantitative estimates have been studied, e.g., [ 11,
+Lemma 6.2], which is a variant of [ 39, Proposition 2]. However, the depth and width of MLPs depend
+on the bound of input variables. Speciﬁcally, an existentia lΦin the above depends on the bound C˜Γ(see
+(16)), which in turn depends on parameters in ˜Γt,nthat are chosen to approximate Γ∗withinεthrough
+the application of the Stone-Weierstrass theorem (see Lemm a1). Thus, providing the quantitative
+estimate for the MLP Φis challenging.
+9
+
+3.3 Step 3: Realization of cylindrical mappings by deep tran sformers
+In (Step 1) and (Step 2), we have shown that the map ( µ,x)↦→Λ⋆(µ,x) can be approximated by the
+map
+N∑
+n=1Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))
+,
+where ˜Γt,n, deﬁned by ( 14), is the composition of self-attention and an aﬃne transform, and Φ is some
+“context-free” MLP. To obtain the main result (Theorem 1), it is suﬃcient to show that this map can
+be represented by a deep transformer in the form of ( 10). Here, Γ θt,n:P(Rd+3d′)×Rd+3d′→Rd+3d′
+is given by
+Γθt,n(µt,n,(x,u,p,w )) = (x,u,p,w )
++d′∑
+h=1Wh
+t,n∫exp(
+⟨Qh
+t,n(x,u,p,w ), Kh
+t,n(y′,v′,q′,z′)⟩)
+∫
+exp(
+⟨Qh
+t,n(x,u,p,w ), Kh
+t,n(y,v,q,z )⟩)
+dµt,n(y,v,q,z )Vh
+t,n(y′,v′,q′,z′) dµt,n(y′,v′,q′,z′)
+forµt,n∈ P(Rd+3d′),x∈Rd,u,p,w∈Rd′, where
+θt,n={Wh
+t,n,Vh
+t,n,Qh
+t,n,Kh
+t,n}h=1,...,d′⊂R(d+3d′)×1×R1×(d+3d′)×R1×(d+3d′)×R1×(d+3d′);
+thus, Γ θt,nhas the following size,
+din(θt,n) =dout(θt,n) =d+ 3d′, dhead(θt,n) =k(θt,n) = 1, H (θt,n) =d′.
+We denote the MLPs by Fξt,n:Rd+3d′→Rd+3d′, with weight and bias parameters ξt,n.
+The aim of this section is to prove, by construction, the following res ult.
+Lemma 3. Let˜Γt,n:P(Rd′)×Rd′→Rd′be deﬁned in ( 14). Let Φ :R2d′→Rd′be an MLP. There
+existξ0,ξt,n,ξ∗, andθ0,θt,n,θ∗such that
+∀(µ,x)∈ P(Ω)×Ω,N∑
+n=1Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))
+=Fξ∗⋄Γθ∗⋄(
+⋄N
+n=1⋄T
+t=1Fξt,n⋄Γθt,n)
+⋄Fξ0⋄Γθ0(µ,x).
+Proof. The proof is based on the following scheme:
+xFξ0⋄Γθ0− −−−−− →
+[Step A]
+x
+A1,1(x)
+ϕ1,1(x)
+f1(x)
+
+Fξ1,1⋄Γθ1,1− −−−−−− →
+[Step B]
+x
+A2,1(x)
+ϕ2,1(x)
+f1(x)
+Fξ2,1⋄Γθ2,1− −−−−−− →
+[Step B]···FξT−1,1⋄ΓθT−1,1− −−−−−−−−−− →
+[Step B]
+x
+AT,1(x)
+ϕT,1(x)
+f1(x)
+FξT,1⋄ΓθT,1− −−−−−−− →
+[Step C]
+x
+A1,2(x)
+ϕ1,2(x)
+f2(x)
+
+Fξ1,2⋄Γθ1,2− −−−−−− →
+[Step B]
+x
+A2,2(x)
+ϕ2,2(x)
+f2(x)
+Fξ2,2⋄Γθ2,2− −−−−−− →
+[Step B]···FξT−1,2⋄ΓθT−1,2− −−−−−−−−−− →
+[Step B]
+x
+AT,2(x)
+ϕT,2(x)
+f2(x)
+FξT,2⋄ΓθT,2− −−−−−−− →
+[Step C]
+x
+A1,3(x)
+ϕ1,3(x)
+f3(x)
+
+...
+Fξ1,N⋄Γθ1,N− −−−−−−− →
+[Step B]
+x
+A2,N(x)
+ϕ2,N(x)
+fN(x)
+Fξ2,N⋄Γθ2,N− −−−−−−− →
+[Step B]···FξT−1,N⋄ΓθT−1,N− −−−−−−−−−−− →
+[Step B]
+x
+AT,N(x)
+ϕT,N(x)
+fN(x)
+FξT,N⋄ΓθT,N− −−−−−−−− →
+[Step C]
+x
+A1,N+1(x)
+ϕ1,N+1(x)
+fN+1(x)
+
+Fξ∗⋄Γθ∗− −−−−− →
+[Step D]fN+1(x) =N∑
+n=1Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))
+,
+10
+
+whereϕt,n:Rd→Rd′is given by
+ϕt,n(x) :={
+Φ(
+˜Γt−1,n(µ,x),Φ(
+˜Γt−2,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))
+, t≥2
+1d′, t = 1,
+andfn:Rd→Rd′by
+fn(x) :={∑n−1
+i=1ϕT,i(x), n≥2
+0 n= 1.
+Furthermore, the At,n:Rd→Rd′are the aﬃne transforms chosen in Lemma 1. Here, Γ θ0, Γθt,n, Γθ∗,
+Fξ0,Fξt,nandFξ∗will be speciﬁed below, in the following steps:
+[Step A] Let Γθ0(µ) :Rd→Rdbe
+Γθ0(µ,x) =x,
+and letFξ0:Rd→Rd+3d′be the aﬃne transform deﬁned by
+Fξ0(x) := (x,A1,1x+b1,1,1d′,0) = (x,A1,1(x),ϕ1,1(x),f1(x)).
+Then we see that
+Fξ0⋄Γθ0(µ,x) = (x,A1,1(x),ϕ1,1(x),f1(x)),
+and
+µ1,1:= (Fξ0⋄Γθ0(µ))♯µ= (µ,(A1,1)♯µ,(ϕ1,1)♯µ,(f1)♯µ).
+We proceed with [Step B] in which we handle the case when n=t= 1.
+[Step B] Lett= 1,...,T−1 andn= 1,...,N . We already have that
+(
+⋄t−1
+j=1Fξj,n⋄Γθj,n)
+⋄(
+⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)
+⋄Fξ0⋄Γθ0(µ,x) = (x,At,n(x),ϕt,n(x),fn(x))
+and
+µt,n:=((
+⋄t−1
+j=1Fξj,n⋄Γθj,n)
+⋄(
+⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)
+⋄Fξ0⋄Γθ0(µ))
+♯µ
+= (µ,(At,n)♯µ,(ϕt,n)♯µ,(fn)♯µ).
+Whenn= 1 ort= 1, the above reduces to ⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i=Id+3d′or⋄t−1
+j=1Fξj,n⋄Γθj,n=Id+3d′.
+Let Γθt,n(µt,n) :Rd+3d′→Rd+3d′be given by
+Γθt,n(µt,n,(x,u,p,w ))
+=
+x,u+d′∑
+h=1˜Wh
+t,n∫exp(
+⟨˜Qh
+t,nu,˜Kh
+t,nv′⟩)
+∫
+exp(
+⟨˜Qh
+t,nu,˜Kh
+t,nv⟩)
+dµt,n(y,v,q,z )˜Vh
+t,nv′dµt,n(y′,v′,q′,z′),p,w
+
+=(
+x,Γ˜θt,n((At,n)♯µ,u),p,w)
+,
+where
+{˜Wh
+t,n,˜Vh
+t,n,˜Qh
+t,n,˜Kh
+t,n}h=1,...,d′⊂Rd′×1×R1×d′×R1×d′×R1×d′,
+which were speciﬁed in Lemma 1. Here, we choose
+Wh
+t,n= (O,˜Wh
+t,n,O,O ), Vh
+t,n= (O,˜Vh
+t,n,O,O ), Qh
+t,n= (O,˜Qh
+t,n,O,O ), Kh
+t,n= (O,˜Kh
+t,n,O,O ).
+LetFξt,n:Rd+3d′→Rd+3d′be an MLP deﬁned by
+Fξt,n(x,u,p,w ) = (x,At+1,nx+bt+1,n,Φ(u,p),w) = (x,At+1,n(x),Φ(u,p),w).
+11
+
+Then we have
+(⋄t
+j=1Fξj,n⋄Γθj,n)⋄(⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)⋄Fξ0⋄Γθ0(µ,x)
+=Fξt,n⋄Γθt,n⋄(⋄t−1
+j=1Fξj,n⋄Γθj,n)⋄(⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)⋄Fξ0⋄Γθ0(µ,x)
+=Fξt,n⋄Γθt,n(µt,n,(x,At,n(x),ϕt,n(x),fn(x)))
+=Fξt,n(x,Γ˜θt,n((At,n)♯µ,At,n(x)),ϕt,n(x),fn(x))
+=Fξt,n(x,˜Γt,n(µ,x),ϕt,n(x),fn(x))
+= (x,At+1,n(x),ϕt+1,n(x),fn(x)))
+and
+µt+1,n:=((
+⋄t
+j=1Fξj,n⋄Γθj,n)
+⋄(
+⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)
+⋄Fξ0⋄Γθ0(µ))
+♯µ
+= (µ,(At+1,n)♯µ,(ϕt+1,n)♯µ,(fn)♯µ).
+We repeat [Step B] until obtaining µT,n. OnceµT,nis obtained, we proceed with [Step C] .
+[Step C] Let ΓθT,n(µT,n) :Rd+3d′→Rd+3d′be given by
+ΓθT,n(µT,n,(x,u,p,w ))
+=
+x,u+d′∑
+h=1˜Wh
+T,n∫exp(
+⟨˜Qh
+T,nu,˜Kh
+T,nv′⟩)
+∫
+exp(
+⟨˜Qh
+T,nu,˜Kh
+T,nv⟩)
+dµT,n(y,v,q,z )˜Vh
+T,nv′dµT,n(y′,v′,q′,z′),p,w
+
+=(
+x,Γ˜θT,n((AT,n)♯µ,u),p,w)
+.
+LetFξT,n:Rd+3d′→Rd+3d′be an MLP deﬁned by
+FξT,n(x,u,p,w ) = (x,W1,n+1x+b1,n+1,1d′,w+ Φ(u,p)) = (x,A1,n+1(x),ϕ1,n+1(x),w+ Φ(u,p)).
+Whenn=N, we deﬁne by A1,N+1(x) := 0 and ϕ1,N+1:= 0 in the above. We ﬁnd that
+(⋄T
+j=1Fξj,n⋄Γθj,n)⋄(⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)⋄Fξ0⋄Γθ0(µ,x)
+=FξT,n(x,˜ΓT,n(µ,x),ϕT,n(x),fn(x))
+= (x,A1,n+1(x),ϕ1,n+1(x),fn+1(x)))
+and
+µT+1,n:=((
+⋄T
+j=1Fξj,n⋄Γθj,n)
+⋄(
+⋄n−1
+i=1⋄T
+s=1Fξs,i⋄Γθs,i)
+⋄Fξ0⋄Γθ0(µ))
+♯µ
+= (µ,(A1,n+1)♯µ,(ϕ1,n+1)♯µ,(fn+1)♯µ).
+Denoting
+µ1,n+1:=µT+1,n,
+we return to [Step B] , and repeat [Step B] and[Step C] until obtaining µT+1,N. OnceµT+1,Nis
+obtained, we proceed with [Step D] .
+[Step D] Let Γθ∗(µT+1,N) :Rd+3d′→Rd+3d′be given by
+Γθ∗(µT+1,N,(x,u,p,w )) = (x,u,p,w )
+and letFξ∗:Rd+3d′→Rd′be the aﬃne transform deﬁned by
+Fξ∗(x,u,p,w ) :=w.
+Then we conclude that
+Fξ∗⋄Γθ∗⋄(
+⋄N
+n=1⋄T
+s=1Fξs,n⋄Γθs,n)
+⋄Fξ0⋄Γθ0(µ,x)
+=Fξ∗⋄Γθ∗(µT+1,N,(x,A1,N+1(x),ϕ1,n+1(x),fN+1(x)))) =fN+1(x)
+=N∑
+n=1Φ(
+˜ΓT,n(µ,x),Φ(
+˜ΓT−1,n(µ,x),···Φ(
+˜Γ2,n(µ,x),Φ(
+˜Γ1,n(µ,x),1d′))))
+.
+12
+
+Discussion
+A limitation of our method is that it is not quantitative. Using, for insta nce, the Wasserstein distance
+between token distributions could be a way to impose smoothness on the map to obtain quantitative
+bounds. Our proof relies on the approximation of the map along each dimension and the use of a com-
+muting architecture (the transformer layers are multiplied togeth er to obtain the output). This results
+in a growth of the number of heads proportional to the dimension. L owering this dependency would
+require the development of new proof techniques beyond the use o f the Stone-Weierstrass theorem.
+Additionally, it does not handle masked attention, which means that t he architectures considered are
+not causal and are permutation invariant.
+Acknowledgements
+T. Furuya was partially supported by JSPS KAKENHI Grant Number J P24K16949. M.V. de Hoop
+carried out the work while he was an invited professor at the Centre Sciences des Donn´ ees at Ecole
+Normale Sup´ erieure, Paris. He acknowledges the support of the S imons Foundation under the MATH
++ X Program, the Department of Energy under grant DE-SC00203 45, and the corporate members of
+the Geo-Mathematical Imaging Group at Rice University. The work o f G. Peyr´ e was supported by
+the European Research Council (ERC project WOLF) and the Fren ch government under management
+of Agence Nationale de la Recherche as part of the “Investissemen ts d’avenir” program, reference
+ANR-19-P3IA-0001 (PRAIRIE 3IA Institute).
+References
+[1] Andrei Agrachev and Cyril Letrouit. Generic controllability of eq uivariant systems and applica-
+tions to particle systems and neural networks. arXiv preprint arXiv:2404.08289 , 2024.
+[2] Kwangjun Ahn, Xiang Cheng, Hadi Daneshmand, and Suvrit Sra. Transformers learn to imple-
+ment preconditioned gradient descent for in-context learning. Advances in Neural Information
+Processing Systems , 36, 2024.
+[3] Silas Alberti, Niclas Dern, Laura Thesing, and Gitta Kutyniok. Sumf ormer: Universal approx-
+imation for eﬃcient transformers. In Topological, Algebraic and Geometric Learning Workshops
+2023, pages 72–86. PMLR, 2023.
+[4] Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D K aplan, Prafulla Dhariwal,
+Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, e t al. Language models are
+few-shot learners. Advances in neural information processing systems , 33:1877–1901, 2020.
+[5] Val´ erie Castin, Pierre Ablin, and Gabriel Peyr´ e. How smooth is a ttention? In ICML 2024 , 2024.
+[6] David Chiang, Peter Cholak, and Anand Pillay. Tighter bounds on th e expressivity of transformer
+encoders. In International Conference on Machine Learning , pages 5544–5562. PMLR, 2023.
+[7] Christa Cuchiero, Martin Larsson, and Josef Teichmann. Deep n eural networks, generic universal
+interpolation, and controlled odes. SIAM Journal on Mathematics of Data Science , 2(3):901–919,
+2020.
+[8] George Cybenko. Approximation by superpositions of a sigmoidal function. Mathematics of
+control, signals and systems , 2(4):303–314, 1989.
+[9] Gwendoline De Bie, Gabriel Peyr´ e, and Marco Cuturi. Stochastic deep networks. In International
+Conference on Machine Learning , pages 1556–1565. PMLR, 2019.
+[10] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk We issenborn, Xiaohua Zhai,
+Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Geor g Heigold, Sylvain Gelly, et al.
+An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint
+arXiv:2010.11929 , 2020.
+13
+
+[11] Dennis Elbr¨ achter, Philipp Grohs, Arnulf Jentzen, and Christo ph Schwab. Dnn expression rate
+analysis of high-dimensional pdes: Application to option pricing. Constructive Approximation ,
+55(1):3–71, 2022.
+[12] Nelson Elhage, Neel Nanda, Catherine Olsson, Tom Henighan, Nic holas Joseph, Ben Mann,
+Amanda Askell, Yuntao Bai, Anna Chen, Tom Conerly, et al. A mathema tical framework for
+transformer circuits. Transformer Circuits Thread , 1(1):12, 2021.
+[13] Massimo Fornasier, Giacomo E Sodini, and Giuseppe Savar´ e. Den sity of subalgebras of lipschitz
+functions in metric sobolev spaces and applications to sobolev-wass erstein spaces. Journal of
+Functional Analysis , 285(11), 2023.
+[14] Takashi Furuya, Michael Puthawala, Matti Lassas, and Maar ten V de Hoop. Globally injective
+and bijective neural operators. arXiv preprint arXiv:2306.03982 , 2023.
+[15] Borjan Geshkovski, Cyril Letrouit, Yury Polyanskiy, and Philipp e Rigollet. The emergence of
+clusters in self-attention dynamics. arXiv preprint arXiv:2305.05465 , 2023.
+[16] Borjan Geshkovski, Cyril Letrouit, Yury Polyanskiy, and Philipp e Rigollet. A mathematical
+perspective on transformers. arXiv preprint arXiv:2312.10794 , 2023.
+[17] Boris Hanin and Mark Sellke. Approximating continuous functions by relu nets of minimal width.
+arXiv preprint arXiv:1710.11278 , 2017.
+[18] Kurt Hornik, Maxwell Stinchcombe, and Halbert White. Multilayer feedforward networks are
+universal approximators. Neural networks , 2(5):359–366, 1989.
+[19] Nicolas Keriven and Gabriel Peyr´ e. Universal invariant and equ ivariant graph neural networks.
+Advances in Neural Information Processing Systems , 32, 2019.
+[20] Nikola Kovachki, Zongyi Li, Burigede Liu, Kamyar Azizzadeneshe li, Kaushik Bhattacharya, An-
+drew Stuart, and Anima Anandkumar. Neural operator: Learning maps between function spaces
+with applications to pdes. Journal of Machine Learning Research , 24(89):1–97, 2023.
+[21] Anastasis Kratsios, Valentin Debarnot, and Ivan Dokmani´ c. Small transformers compute universal
+metric embeddings. Journal of Machine Learning Research , 24(170):1–48, 2023.
+[22] Anastasis Kratsios, Chong Liu, Matti Lassas, Maarten V de Ho op, and Ivan Dokmani´ c. An
+approximation theory for metric space-valued functions with a view towards deep learning. arXiv
+preprint arXiv:2304.12231 , 2023.
+[23] Anastasis Kratsios and L´ eonie Papon. Universal approximatio n theorems for diﬀerentiable geo-
+metric deep learning. Journal of Machine Learning Research , 23(196):1–73, 2022.
+[24] Shengjie Luo, Shanda Li, Shuxin Zheng, Tie-Yan Liu, Liwei Wang, and Di He. Your transformer
+may not be as powerful as you expect. Advances in Neural Information Processing Systems ,
+35:4301–4315, 2022.
+[25] Arvind Mahankali, Tatsunori B Hashimoto, and Tengyu Ma. One s tep of gradient descent is
+provably the optimal in-context learner with one layer of linear self- attention. arXiv preprint
+arXiv:2307.03576 , 2023.
+[26] William Merrill and Ashish Sabharwal. The expresssive power of tra nsformers with chain of
+thought. arXiv preprint arXiv:2310.07923 , 2023.
+[27] Luis M¨ uller, Mikhail Galkin, Christopher Morris, and Ladislav Ramp ´ aˇ sek. Attending to graph
+transformers. arXiv preprint arXiv:2302.04181 , 2023.
+[28] Swaroop Nath, Harshad Khadilkar, and Pushpak Bhattachary ya. Transformers are expressive,
+but are they expressive enough for regression? arXiv preprint arXiv:2402.15478 , 2024.
+[29] Allan Pinkus. Approximation theory of the mlp model in neural net works.Acta numerica , 8:143–
+195, 1999.
+14
+
+[30] Charles R Qi, Hao Su, Kaichun Mo, and Leonidas J Guibas. Pointnet : Deep learning on point
+sets for 3d classiﬁcation and segmentation. In Proceedings of the IEEE conference on computer
+vision and pattern recognition , pages 652–660, 2017.
+[31] Michael E Sander, Pierre Ablin, Mathieu Blondel, and Gabriel Peyr ´ e. Sinkformers: Transform-
+ers with doubly stochastic attention. In International Conference on Artiﬁcial Intelligence and
+Statistics , pages 3515–3530. PMLR, 2022.
+[32] Michael E Sander, Raja Giryes, Taiji Suzuki, Mathieu Blondel, an d Gabriel Peyr´ e. How do
+transformers perform in-context autoregressive learning? arXiv preprint arXiv:2402.05787 , 2024.
+[33] Lena Strobl, William Merrill, Gail Weiss, David Chiang, and Dana Angluin . What formal lan-
+guages can transformers express? a survey. Transactions of the Association for Computational
+Linguistics , 12:543–561, 2024.
+[34] Paulo Tabuada and Bahman Gharesifard. Universal approximat ion power of deep residual neural
+networks through the lens of control. IEEE Transactions on Automatic Control , 2022.
+[35] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez,
+/suppress Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information
+processing systems , 30, 2017.
+[36] Johannes von Oswald, Eyvind Niklasson, Maximilian Schlegel, Seijin K obayashi, Nicolas Zucchet,
+Nino Scherrer, Nolan Miller, Mark Sandler, Max Vladymyrov, Razvan P ascanu, et al. Uncovering
+mesa-optimization algorithms in transformers. arXiv preprint arXiv:2309.05858 , 2023.
+[37] James Vuckovic, Aristide Baratin, and Remi Tachet des Combes . A mathematical theory of
+attention. arXiv preprint arXiv:2007.02876 , 2020.
+[38] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. Ho w powerful are graph neural
+networks? arXiv preprint arXiv:1810.00826 , 2018.
+[39] Dmitry Yarotsky. Error bounds for approximations with deep r elu networks. Neural Networks ,
+94:103–114, 2017.
+[40] Chulhee Yun, Srinadh Bhojanapalli, Ankit Singh Rawat, Sashank J Reddi, and Sanjiv Kumar.
+Are transformers universal approximators of sequence-to-se quence functions? arXiv preprint
+arXiv:1912.10077 , 2019.
+[41] Ruiqi Zhang, Spencer Frei, and Peter L Bartlett. Trained tran sformers learn linear models in-
+context. arXiv preprint arXiv:2306.09927 , 2023.
+[42] Ding-Xuan Zhou. Universality of deep convolutional neural net works.Applied and computational
+harmonic analysis , 48(2):787–794, 2020.
+15
+
+A Radon transform and injectivity
+Lemma 4. LetΩ⊂Rbe a compact set, and let µ,ν∈ P(Ω). Then,
+L1(µ)(c) =L1(ν)(c),∀c∈R,⇒µ=ν.
+where, for k∈N,
+Lk(µ)(c) :=∫
+ecyykdµ(y)∫
+ecydµ(y)
+Proof. One has
+Lk(µ)′(c) =Lk+1(µ)(c)−Lk(µ)(c)L1(µ)(c).
+So by recursion, we have that
+L1(µ)(c) =L1(ν)(c),∀c∈R,⇒Lk(µ)(c) =Lk(ν)(c),∀c∈R,∀k≥1,
+So evaluating this at c= 0, we obtain that
+Lk(µ)(0) =Lk(ν)(0),∀k≥1⇔ ∀k,∫
+ykdµ(y) =∫
+ykdν(y)
+which is equivalent to µ=ν.
+Lemma 5. LetΩ⊂Rdbe a compact set, and let µ,ν∈ P(Ω). Then,
+L(µ)(a,c) =L(ν)(a,c),∀a∈Rd,∀c∈R,⇒µ=ν.
+where
+L(µ)(a,c) :=∫
+exp(c⟨a, y⟩)⟨a, y⟩dµ(y)∫
+exp(c⟨a, y⟩) dµ(y).
+Proof. We deﬁne
+∀e∈Sd, µe:= (Pe)♯µ
+whereSdis thed-dimensional sphere, and Pe(x) =⟨x,e⟩is the projection on e. We see that
+L(µ)(e,c) =∫
+exp(c⟨e, y⟩)⟨e, y⟩dµ(y)∫
+exp(c⟨e, y⟩) dµ(y)=∫
+ecssdµe(s)∫
+ecsdµe(s).
+By Lemma 4, we can show that
+∀e,(Pe)♯µ= (Pe)♯ν
+which implies that by the injectivity of the Radon transform
+µ=ν.
+16
+

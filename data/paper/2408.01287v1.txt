@@ -1,0 +1,1808 @@
+Deep Learning based Visually Rich Document Content Understanding: A Survey
+YIHAO DING, The University of Melbourne, The University of Sydney, Australia
+JEAN LEE, The University of Sydney, Australia
+SOYEON CAREN HAN, The University of Melbourne, The University of Sydney, Australia
+Visually Rich Documents (VRDs) are essential in academia, finance, medical fields, and marketing due to their multimodal information
+content. Traditional methods for extracting information from VRDs depend on expert knowledge and manual labor, making them
+costly and inefficient. The advent of deep learning has revolutionized this process, introducing models that leverage multimodal
+information—vision, text, and layout—along with pretraining tasks to develop comprehensive document representations. These models
+have achieved state-of-the-art performance across various downstream tasks, significantly enhancing the efficiency and accuracy
+of information extraction from VRDs. In response to the growing demands and rapid developments in Visually Rich Document
+Understanding (VRDU), this paper provides a comprehensive review of deep learning-based VRDU frameworks. We systematically
+survey and analyze existing methods and benchmark datasets, categorizing them based on adopted strategies and downstream tasks.
+Furthermore, we compare different techniques used in VRDU models, focusing on feature representation and fusion, model architecture,
+and pretraining methods, while highlighting their strengths, limitations, and appropriate scenarios. Finally, we identify emerging
+trends and challenges in VRDU, offering insights into future research directions and practical applications. This survey aims to provide
+a thorough understanding of VRDU advancements, benefiting both academic and industrial sectors.
+CCS Concepts: •Information systems →Information extraction .
+Additional Key Words and Phrases: Visually Rich Document Understanding, Key Information Extraction, Question Answering, Entity
+Linking, Multimodal
+ACM Reference Format:
+Yihao Ding, Jean Lee, and Soyeon Caren Han. 2024. Deep Learning based Visually Rich Document Content Understanding: A Survey.
+1, 1 (August 2024), 39 pages. https://doi.org/XXXXXXX.XXXXXXX
+1 INTRODUCTION
+1.1 Backgrounds
+Visually Rich Documents (VRDs) are documents that contain a diverse mix of visual and textual elements designed to
+convey information in a comprehensive and visually engaging manner, which are ubiquitous in our daily lives and
+appear in domains such as finance, medicine, and academia. These documents integrate various types of visually rich
+elements, including paragraphs ,tables ,charts ,diagrams , and photos . Both textual elements (such as paragraphs, lists,
+and captions) and visually rich elements (such as tables and figures), collectively referred to as document semantic
+entities, are essential for illustrating, explaining, and summarizing information. Common formats for VRDs include PDF
+(Portable Document Format), DOC/DOCX (Microsoft Word Document), and image files (JPEG, PNG). These documents
+Authors’ addresses: Yihao Ding, The University of Melbourne, and The University of Sydney, Australia; Jean Lee, The University of Sydney, Australia;
+Soyeon Caren Han, The University of Melbourne, and The University of Sydney, Australia.
+Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not
+made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components
+of this work owned by others than ACM must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to
+redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+©2024 Association for Computing Machinery.
+Manuscript submitted to ACM
+
+redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+©2024 Association for Computing Machinery.
+Manuscript submitted to ACM
+Manuscript submitted to ACM 1arXiv:2408.01287v1  [cs.CL]  2 Aug 2024
+
+2 DING, et al.
+are typically structured in a semi-structured or even unstructured manner, making their understanding and information
+extraction challenging.
+The VRD Understanding (VRDU) field is dedicated to comprehending the structure of VRDs and extracting pertinent
+information, thus transforming unstructured or semi-structured content into a machine-readable format. VRDU mainly
+encompasses two tasks: Key Information Extraction (KIE) and Question Answering (QA). Key Information Extraction
+(KIE) aims to identify and extract values based on predefined keys. Depending on the model used, KIE can be approached
+as an entity retrieval task (KIE Task Formulation 1) or a sequence tagging task (Task Formulation 2), as shown in Figure 1.
+Visually Rich Document Question Answering (VRD-QA) involves answering questions in natural language based
+on contextual information in VRDs. As explained in Figure 1, the model must locate the answer within the document
+to respond to the input question. Beyond extractive methods, KIE and VRD-QA can also be formulated as generative
+tasks, where the model generates the desired value or answer auto-regressively based on the query or question and the
+document images. In addition to the above-mentioned tasks, another content understanding task is Entity Linking
+(EL), which is proposed to identify the semantic correlations between document entities (parent-child relations).
+To address visually rich document understanding tasks, heuristic methods [ 103,105,132] and statistical machine
+learning techniques [ 88] have been used in domain-specific document applications, which require expert customization
+and are challenging to update. Recent advances in deep learning have introduced promising alternatives. LSTM and CNN-
+based models [ 21,50,147], feature-driven approaches [ 123,141,144], and layout-aware pretrained frameworks [ 40,122,
+135], along with visual-integrated pretrained frameworks [ 42], have significantly improved document representation
+and achieved state-of-the-art performance in various downstream tasks. However, these models primarily focus on
+fine-grained features, such as grids and word/word pieces (textual tokens), and often struggle with computational
+complexity and the ability to capture global logical and layout correlations. In contrast, coarse-grained models, which
+operate at the entity level, address some limitations of fine-grained models but may omit detailed information, resulting
+in less comprehensive representations. To bridge these gaps, joint-grained frameworks [ 3,67,142] and LLM-based
+frameworks [70, 78] have been developed.
+With the rapid development and increasing demands in Visually Rich Document Understanding (VRDU), various
+model architectures, multimodal learning methods, and pretraining techniques have been introduced to consistently
+enhance the performance of specific or multiple VRDU tasks. A comprehensive review of VRDU frameworks based on
+deep learning is provided, systematically surveying and analyzing existing methods and benchmark datasets, which
+are categorized based on adopted strategies and downstream tasks. Additionally, different techniques used in VRDU
+models are compared, focusing on feature representation and fusion, model architecture, and pretraining methods, with
+their strengths, limitations, and appropriate scenarios highlighted. Finally, emerging trends and challenges in visually
+rich document content understanding are identified, offering insights into future research directions and practical
+applications.
+1.2 Scope
+This paper is devoted to surveying and analysing existing work on understanding deep learning-based document
+content. Papers on the following topics will be reviewed and summarized in this paper.
+•The paper focuses on document content understanding tasks that will be included in this paper, mainly including
+document key information extraction, visual question answering and entity linking. This paper will not summarise
+
+document key information extraction, visual question answering and entity linking. This paper will not summarise
+the models and datasets that only focus on document structure understanding tasks.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 3
+•A paper proposed a novel deep-learning VRDU model for addressing one or more Visually Rich Document Content
+Understanding (VRD-CU) tasks. Section 2.2.1 will briefly describe typical document content understanding
+approaches in a heuristically or traditional machine learning way.
+•This paper compiles widely used VRDU benchmark datasets and recently proposed VRDU datasets from top-tier
+conferences and journals since 2019. All included datasets are publicly available.
+•This paper focuses on the multimodal capabilities for achieving a holistic understanding of entire, multi-page
+documents, in contrast to previous document understanding surveys that primarily focus on isolated subtasks.
+It should be noted that this article only investigates models and datasets designed for the entire document or the
+document page rather than the specific document components such as table ,chart . Therefore, models and datasets
+proposed for table detection, table structure recognition, and chart or plot question answering will not be summarized
+in the main body of this survey.
+1.3 Related Surveys
+Several surveys offer a comprehensive overview of general document understanding tasks. These surveys primarily
+focus on document layout analysis [ 112], table extraction [ 72], named entity recognition [ 30], and document image
+analysis [ 76] across diverse document types, including invoices [ 104] and historical document [ 30,76]. In particular,
+computer vision-based research focuses on scanned document analysis and structure understanding. While these studies
+have advanced document image analysis, they often focus on fragmented subtasks and fall short of providing a holistic
+understanding of an entire document on multiple pages.
+Recent advancements in deep learning have fueled the emergence of VRDU tasks, which demand complex document
+content understanding capabilities. These tasks include key information extraction, question answering, and document
+entity linking. However, existing surveys have not adequately addressed the unique challenges and opportunities
+presented by VRDU, with a specific emphasis on deep learning-based multimodal approaches [ 19]. To bridge this gap,
+this survey aims to provide a comprehensive overview of VRDU frameworks and datasets, including multimodal feature
+extractions and fusions in both mono and multi-task VRD models.
+1.4 Contributions
+The main contributions of this paper can be summarized as follows:
+•The paper provides a detailed review and systematic categorization of VRDU frameworks and benchmark datasets,
+organized based on adopted strategies and downstream tasks.
+•It critically examines and compares different techniques used in VRDU models, focusing on feature representation
+and fusion, model architecture, and pretraining methods, highlighting their strengths, limitations, and appropriate
+scenarios.
+•The paper identifies emerging trends and challenges in visually rich document content understanding, offering
+insights into future research directions and practical applications.
+1.5 Survey Structure
+Section 1 in this survey discusses the background of visually rich document understanding and emphasizes the aim,
+scope, and contributions of this paper. Section 2 provides additional background knowledge, including definitions of
+the VRDU tasks covered in this research and the development of document understanding. Sections 3 and 4 review
+Manuscript submitted to ACM
+
+4 DING, et al.
+Fig. 1. Visually rich document content understanding task clarifications.
+significant frameworks for mono-task and multi-task VRDU, respectively. Section 5 compiles benchmark datasets for
+three VRDU subtasks: scanned receipts, forms, and single and multiple-page documents from diverse domains. Section 6
+critically examines and compares the techniques adopted by various models, highlighting their strengths and limitations.
+Finally, Section 7 summarizes the trends and future directions in this field.
+2 BACKGROUND
+2.1 Task Definition
+Based on the differences in the purpose and application scenarios, visually rich document understanding tasks are
+classified into three categories, including Key Information Extraction, Question Answering and Entity Linking.
+•Key Information Extraction : refers to identifying and extracting the relevant information based on the given
+text queries. Distinct pre-defined queries can be defined based on the domain of targeting documents and practical
+demands. For example, the crucial information of scanned receipts contains " Store Name ", "Address ", "Item" and
+"Price ", while for the financial reports, " Company Name ", "Share Holder Name ", "Number of Interests " may be the
+critical information need to be extracted.
+•Question Answering : is a task of answering questions about a VRD by using natural languages. Based on
+the answer types, it can be divided into extractive VQA and abstractive VQA. The answer from extractive VQA
+is directly extracted from the target document, while abstractive VQA requires generative answers based on
+comprehensively understanding questions and related VRDs.
+•Document Entity Linking : refers to identifying the semantic relations between document entities to construct
+the logical structure of the input document image.
+2.2 Development of Document Understanding
+2.2.1 Traditional Approaches. Rule-based methods, as highlighted in several studies [ 87,103,105,132], have demon-
+strated high precision in domain-specific applications. However, these methods have several drawbacks: they are
+manually intensive, costly, and require expert intervention for tailored customization. Additionally, they are inflexible,
+often necessitating frequent manual updates, even for minor modifications. In response to these limitations, machine
+learning-based approaches have been proposed for document understanding. For instance, SVM-based methods have
+been utilized for layout understanding [ 88], and TF-IDF techniques combined with hand-crafted features have been
+applied for extracting information from invoices. Furthermore, rule-based and statistical models have been used for
+entity extraction. Despite these advancements, machine learning methods rely heavily on human intervention and
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 5
+domain-specific expertise. They are time-consuming and often deliver suboptimal performance. Moreover, the majority
+of these methods typically depend on single-modality data, restricting them to either layout, text, or visual inputs.
+2.2.2 Single Modality-based Approaches. With the advancement of deep learning, deeper model architectures such
+as CNNs [ 50,138] have emerged, and pretrained language [ 22,74] and vision models [ 38,102] are now commonly
+used as robust baselines for understanding VRD content and structure. Due to the multimodal nature of VRDs, which
+involves the integration of text, vision, and layout, researchers are increasingly focusing on leveraging this combined
+information to achieve significant improvements in various downstream VRDU tasks.
+2.2.3 Cross Modality based Approaches. Considering the multimodal nature of VRDs, many frameworks propose
+various methods to encode multimodal information, including text, vision, and layout, and fuse them effectively.
+Text and vision information is normally encoded by pretrained backbones such as BERT [ 22] or RoBERTa [ 74] for
+textual features, Faster-RCNN [ 102] or Mask-RCNN [ 38] for visual features. For layout information, different encoding
+methods are introduced, including linear projection [ 129], 2D positional encoding [ 135], and attention bias to allow
+the proposed models to be layout-sensitive. Different feature fusion methods are introduced including summing
+up [141], concatenation [ 56], attention-based contextual learning [ 80], and prompting [ 37]. However, most of those
+frameworks leverage implicit knowledge from pretrained backbones with a task-orientated shadow adapter for specific
+VRDU downstream tasks such as KIE [ 11,14,57,127] or EL [ 12,41,145]. Those frameworks tend to achieve delicate
+performance on specific tasks or document formats instead of acquiring a generalised model to represent documents
+comprehensively.
+2.2.4 Multimodal Pre-training Approches. Inspired by the success of BERT-style models [ 22,74] in acquiring knowledge
+through self-supervised learning, pretrained document understanding models have emerged to harness self-supervised
+or supervised pretraining tasks from extensive document collections. LayoutLM [ 135], the first encoder-only VRDU
+model, utilizes self-supervised tasks, such as masked vision-language modelling, with text and layout information.
+Subsequent models have expanded on this by integrating layout information [ 67,118,122] and visual cues [ 42,137]
+through multimodal transformers. While encoder-only models have shown significant improvements on various
+benchmark datasets [ 36,43,46,83,92], they often require detailed annotations and are limited by fixed input lengths.
+To address these limitations, encoder-decoder frameworks [ 20,51,115] and prompt-based methods for LLMs/MLLMs
+[70,78] have been developed, enhancing layout awareness and performance in VRDU tasks. However, a significant gap
+remains in effectively applying these models in real-world scenarios with zero shot.
+3 MONO-TASK DOCUMENT UNDERSTANDING FRAMEWORKS
+Visually rich document content understanding encompasses several independent downstream tasks tailored to different
+application scenarios and user demands. This section introduces methods focused on specific document understanding
+tasks. Many of these models aim to provide comprehensive document representation and integrate target-oriented
+modules or techniques to improve performance and efficiency across various VRDU tasks. The models for three VRDU
+downstream tasks—Key Information Extraction (KIE), Entity Linking (EL), and Visual Question Answering (VQA)—are
+introduced and summarized with insights into current trends.
+Manuscript submitted to ACM
+
+6 DING, et al.
+Mono-task based models
+(Content Understanding)Key Information ExtractionFeature-driven ModelsChargrid[ 50];
+CUTIE[ 147];BERTgrid[ 21];
+ACP[ 91];XYLayoutLM[ 33]
+Joint-learning Frameworks TRIE[ 144]; VIES[ 123]
+Relation-aware ModelsMajumder et al. [ 80]; Liu
+et al. [ 73]; PICK[ 141];
+FormNet[ 56]; FormNetv2[ 57]
+Few/Zero-shot
+Learning ModelsLASER[ 127]; Chen
+et al.[ 14]; Cheng et
+al.[17]; QueryForm[ 130]
+Prompt-based FrameworksGenKIE[ 11]; ICL-
+D3IE[ 37]; LMDX[ 94]
+Entity Linking Entity-level LinkingDocStruct[ 129]; Zhang et
+al.[145]; KVPFormer.[ 41]
+Token-level LinkingCarbonell et al. [ 12];
+SPADE [ 44];DocTR[ 68]
+Visual Question Answering Single Page Frameworks Please refer Section 4.
+Multi-Page FrameworksHi-VT5[ 116]; GRAM[ 8];
+Kang et al. [ 49]
+Fig. 2. Mono-task visually rich document understanding models
+3.1 Key Information Extraction
+Key Information Extraction (KIE), a typical natural language processing task, refers to the task of identifying and
+extracting crucial pieces of information from textual data. Unlike typical name entity recognition methods for addressing
+plain text, VRDs contain visually rich entities like tables andcharts , as well as spatial and logical layout arrangements
+to enhance the challenge of extracting crucial information. Although plain-text pretrained language models, such as
+BERT [ 22], RoBERTa [ 74], and ALBERT [ 55], are widely used as solid baselines on many benchmark datasets, more
+recent works introduce layout-aware pretrained models such as LayoutLM families [ 42,135,137], LiLT [ 122], Bros [ 40]
+to enhance the document representation by leveraging visual and layout information and achieving SoTA performance
+on several downstream tasks (see Section 4). This section will mainly focus on models specifically proposed for the
+document KIE models or only evaluated on KIE benchmark datasets including FUNSD [ 46], CORD [ 92], SROIE [ 43],
+XFUND [ 136], etc. Based on innovative aspects, we categorise KIE frameworks into five types: Feature-driven models
+use multimodal cues for rich feature representation. Joint Learning frameworks integrate auxiliary tasks to enhance
+document representation. Relation-aware models leverage spatial or logical relations via graphs or masked attention
+mechanisms. Few/Zero-shot learning frameworks explore methods for extracting key information with minimal labelled
+data, often using transfer learning. Prompt-based frameworks use structured prompts to guide specific information
+extraction from pretrained models or LLM/MLLMs. These categories represent diverse approaches to improving
+Key Information Extraction (KIE) by leveraging specific model designs and learning strategies tailored to document
+understanding challenges.
+3.1.1 Feature-driven Models. In the initial phase, certain Recurrent Neural Network (RNN)-based models [ 54] were
+introduced, primarily focusing on key information extraction tasks from plain text. However, these approaches overlook
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 7
+the importance of visual cues and layout information. Hence, several multimodal frameworks with feature-driven
+designs have been proposed to generate more representative document representations.
+Chargrid [50] first mentioned the significance of 2D structure for document KIE and designed a character-box-based
+chargrid to convert the textual and 2D layout structure into coloured visual cues feed into CNN. Instead of using
+fine-grained character information, CUTIE [147] and BERTgrid [21] utilise various word embedding methods with
+bounding box coordinates to persevere the layout structure. ACP [91] leverages attention mechanism and multi-aspect
+features, including visual, semantic (both character and word) and spatial, into dilated CNN for capturing both short
+and long-term dependencies of each word piece.
+Joint learning KIE frameworks are proposed to leverage multi-level features to mitigate the information gap between
+various focused tasks. TRIE [144] firstly offers an end-to-end framework for simultaneously conducting Optical
+Character Recognition (OCR) and KIE. OCR module will generate multi-aspect features, including positional, visual and
+textual aspects. Adaptively trainable weighting mechanisms are adopted to generate the fused embedding, followed
+by a Bi-LSTM-based Entity Extraction Module to conduct the final prediction. VIES [123] is introduced to use the
+multi-level cues of vision, position and text to generate more comprehensive representations. Both token and segment
+(entity) level positional and visual features are acquired from text detection modules, and dual-level textual features are
+gathered by text recognition brunch, fused by a self-attention-based fusion module for sequence labelling.
+3.1.2 Relation-aware Models. Instead of only leveraging multimodal information, leveraging the inherent spatial or
+logical relations between multi-level components may lead to more robust and comprehensive document representations.
+Majumder et al. [80] propose a model which starts by generating candidates for each field using type-specific detectors
+and key phrases. The neural model scores these candidates by learning dense representations that consider both textual
+content and spatial positioning, allowing for accurate information extraction across different document templates by
+focusing on the candidates’ relevance to the fields. Graph-based frameworks are increasingly favoured for modelling
+document elements’ spatial and logical relationships. This trend involves meticulously defining distinct graph structures
+and employing graph convolution techniques to incorporate these relationships into feature representations seamlessly.
+Liu et al. [73] first utilise a graph convolution module on top of the BiLSTM-CRF for key information extraction.
+Each document is a fully connected graph where the node is the textual representation 𝑇of the document entity 𝐸𝑖∈E,
+and the edge is related to the spatial relation between 𝐸𝑖and another entity 𝐸𝑗. It is defined as 𝑒𝑖𝑗=[𝑥𝑖𝑗,𝑦𝑖𝑗,𝑤𝑖
+ℎ𝑖,ℎ𝑗
+ℎ𝑖,𝑤𝑗
+ℎ𝑖],
+where𝑥𝑖𝑗and𝑦𝑖𝑗are horizontal and vertical distance between 𝐸𝑖and𝐸𝑗. The self-attention-based graph convolution is
+performed on node-edge-node triplets (concatenated nodes and edge embeddings) to learn contextually with all other
+nodes. PICK [141] adopts a similar way to construct the document graph but utilising multimodal node representations,
+including transformer-encoded textual embedding and CNN-encoded visual embedding, as well as the edge embedding
+is updated to 𝑒𝑖𝑗=[𝑥𝑖𝑗,𝑦𝑖𝑗,𝑤𝑖
+ℎ𝑖,ℎ𝑗
+ℎ𝑖,𝑤𝑗
+ℎ𝑖,𝑆𝑗
+𝑆𝑖]where𝑆is the sentence length of corresponding entity. Additionally, to get
+the node embedding for the downstream tagging task, a soft adjacent matrix-based graph learning layer is applied to
+obtain the task-specific node representations.
+FormNet [56] introduces an end-to-end framework with a new attention mechanism, Rich Attention , and graph
+
+obtain the task-specific node representations.
+FormNet [56] introduces an end-to-end framework with a new attention mechanism, Rich Attention , and graph
+framework to make an order/distance sensitive long sequence transformer. In Rich Attention, the model introduces
+two order-based and pixel distance scores along the x/y axis. These are summed up with usual self-attention scores to
+enable the model order/distance awareness. Additionally, a Graph is applied to contextually learn the neighbouring
+token embedding before serialising the token sequence feeding into the transformer encoders. The graph nodes are text
+embedding of tokens, and the edges are relative positions between nodes. This could mitigate the imperfect serialization
+Manuscript submitted to ACM
+
+8 DING, et al.
+issue, enabling token representation capturing in more contexts. FormNetv2 [57] integrates image modality as the
+additional Graph edge feature to capture more visual cues1. To use contrastive loss to learn the multimodal graph
+representation, they first perform stochastic graph corruption to sample topology-corrupted and feature-corrupted
+graphs. Topology corruption randomly removes edges in the original graph, while feature corruption drops all modality
+features from nodes and edges. Then, the contrastive objective is to maximize agreement between a pair of tokens
+between corrupted and original graphs under a standard normalized temperature-scaled cross-entropy [109] loss.
+3.1.3 Few-shot Learning Frameworks. Extracting key information from VRDs based on deep learning frameworks
+typically involves more manual work to annotate the training data. However, acquiring large-scale, high-quality
+annotations in urgent and labouring-limited application scenarios is challenging. Thus, few-shot or one-shot frameworks
+emerged to extract the key information with less labouring annotations.
+LASER [127] leverage the architecture from LayoutReader [128] to reformulate the entity recognition task to
+sequence-labelling to generative model by embedding the entity type information (named label surface name) into the
+target sequence to enable the model label semantic-aware. LASER depends on a "partially triangle" mask to use one
+encoder to encode source text and generate the prediction. The 𝑛source text sequence, {𝑡1,...,𝑡𝑛}, is the text sequence
+by summing the relative word, spatial, and positional embedding, feeding into the Ewith full self-attention. The target
+sequence only attends previous tokens. The generative formulation is defined as:
+𝑡𝑖−1,[𝐵],𝑡𝑖,...,𝑡𝑗,[𝐸],𝑒1,...,𝑒𝑘,[𝑇],𝑡𝑗+1 (1)
+where[𝐵]and[𝐸]denote start and end of entity, 𝑒𝑖are the label surface name; [𝑇]denotes the end of the label surface
+name. As label surface names and functional tokens do not exist, the learnable embeddings are applied to them to
+ensure the generative-progress layout-aware. A binary classification module is applied to classify the next generated
+token type of current generated token hidden states: from source or not, effectively controlling the generative series.
+Chen et al. [ 14] introduce a novel framework for entity-level, N-way soft-K-shot extracting key information from
+VRDs, focusing on the challenges of extracting rare or unseen entities from documents with few examples. It leverages a
+meta-learning approach [ 90,108], utilizing a hierarchical decoder and contrastive learning ( ContrastProtoNet ) for task
+personalization and improved adaptation to new entity types. Additionally, it introduces FewVEX , a dataset tailored
+for entity-level few-shot VDER, to facilitate research and benchmarking in this area. The framework’s effectiveness is
+demonstrated through significant improvements in robustness and performance over existing meta-learning baselines.
+In the domain of one-shot scenarios, Cheng et al. [ 17] presents a novel application of graphs. They utilize attention
+mechanisms to seamlessly transfer spatial relationships between static text regions ( key/landmark) and dynamic
+text regions (value/field) from support documents to query documents. This transfer enables the acquisition of label
+probability distributions for files. Additionally, a self-attention-based module is integrated to exploit relationships
+between field entities, facilitating the derivation of label transition probability distributions. Finally, belief propagation
+is harnessed for inference within a pairwise Conditional Random Field (CRF), resulting in an assessable end-to-end
+trainable pipeline.
+3.1.4 Prompt-learning Frameworks. QueryForm [130] introduce a query-based framework for zero-shot document key
+information extraction. A dual prompting-based mechanism, entity query (E-prompt) and schema query (S-prompt),
+
+information extraction. A dual prompting-based mechanism, entity query (E-prompt) and schema query (S-prompt),
+is introduced for pre-training and transferring knowledge from large-scale weakly annotated pre-trained webpages
+to target domains. The pretraining target is highly aligned with fine-tuning to ensure the proposed framework can
+1Please refer to Section 6.1.2 to get more details
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 9
+consistently make query-conditional predictions at both stages. The HTML tags acquire the E-prompt ( 𝒆𝒑) during
+pretraining, and the S-prompt ( ˜𝒔𝒑) is generated from webpage domains, while during the fine-tuning, 𝒆𝒑is predefined
+and S-prompt 𝒔𝒑is learnable vectors. Supposing 𝒕is the serialised text of the input document, the pre-training and
+fine-tuning target ˆ𝒚and𝒚can be represented as:
+ˆ𝒚=F([𝒔𝒑;E[𝒆𝒑,𝒙]]), (2)
+𝒚=F([E[ ˜𝒔𝒑;𝒆𝒑,𝒙]]) (3)
+whereEandFin here are the feature encoder and the rest of the language model, respectively. The training objective
+is to minimise the cross-entropy loss between ˆ𝒚and𝒚.
+Prompt learning is a technique in natural language processing where models are guided by specific prompts to
+produce or interpret targeted responses. With the rise of large-scale models, prompt learning can leverage contextual
+representation and implicit knowledge to enhance performance on targeted tasks. Since most LLMs [ 89,117] and
+MLLMs [ 71] are trained on plain text or natural images, layout-aware prompting and in-context learning [ 9] methods
+have been introduced to improve understanding in visually rich documents (VRD)
+GenKIE [ 11] proposes an encoder-decoder-based multimodal KIE framework to leverage prompt to adapt various
+datasets and better leverage multimodal information. Following [ 135,137], different encoding methods are adopted to
+acquire textual, layout and visual embeddings. Byte Pair Encoding is used as language pretrained backbones, and the
+OCR extracted document content is concatenated with predefined prompts split by the "[SEP]" token between OCR
+tokens and each prompt. The 2D-positional encoding introduced by [ 135] is used to acquire the layout embedding of
+each OCR extracted token, and ResNet [ 39] is used to extract the visual representations following [ 124]. The multimodal
+representations are fed into an encoder to learn interactively between modalities. Prompts, inserted at the end of the
+encoder’s textual inputs, are either template-style or question-style. For the entity extraction task, the prompt specifies
+the target entity type, and the decoder generates the entity value (e.g., for "Company is?", the decoder outputs the
+company name). For the entity-labeling task, the prompt includes the value, and the decoder provides the entity type
+(e.g., for "Es Kopi Rupa is [SEP]", the decoder identifies the entity type).
+ICL-D3IE [37] is the first framework to employ LLMs with in-context learning to extract key information from
+VRDs using the iterative updated diverse demonstrates. Before designing the initial diverse demonstrations, the most
+similar𝑛training documents to the 𝑛test samples need to be selected by calculating the cosine-similarity of document
+representations encoded by Sentence-BERT [ 101]. Then, different types of demonstrations are introduced to integrate
+multiple-view context information into LLMs. Hard Demonstrations highlight the most challenging cases, are initially
+designed based on the incorrectly predicted cases from GPT-3 [ 9] predictions and are updated based on prediction
+results during the training process. Layout-aware demonstrations are created by selecting the adjacent hard segments
+to understand the positional relations. Formatting demonstrations are designed to guide LLMs in formatting the outputs
+for easy post-processing.
+LMDX [94] designs a pipeline to use arbitrary LLMs to extract singular, repeated and hierarchical entities from
+VRDs. The document images are first fed into off-the-shelf OCR tools and are divided into smaller document chunks to
+be processed by the LLMs with accessible input length. Then, prompts are generated under XML-like tags to control the
+LLM’s responses and mitigate hallucination. Document Representation is a prompt contains the chunk content with the
+coordinates of OCR lines to bring layout modality to LLMs, where a text segment extracted by OCR tools is represented
+
+coordinates of OCR lines to bring layout modality to LLMs, where a text segment extracted by OCR tools is represented
+<text> [𝑥𝑐𝑒𝑛𝑡𝑟𝑒 ,𝑦𝑐𝑒𝑛𝑡𝑟𝑒 ]. After that, the task description and scheme representation prompts are designed to explain
+Manuscript submitted to ACM
+
+10 DING, et al.
+the task to accomplish and determine the output format. During inference, 𝑁prompts with 𝐾LLMs completions are
+generated to sample the correct answers.
+3.1.5 Summary of Key Information Extraction. Several models like Chargrid [ 50] and ACP [ 91] have enhanced VRDU
+by integrating visual and textual information. Additionally, auxiliary tasks such as OCR, utilized by [ 123,144], aid in
+improving multimodal feature representations through joint training. However, these frameworks often rely on smaller,
+randomly initialized models, which produce less representative features compared to those generated by large-scale pre-
+trained models like LayoutLM [ 135] and SelfDoc [ 65]. Documents typically exhibit specific layouts and logical structures,
+which has prompted many models [ 56,57,141] to adopt graph-based approaches. These methods capture spatial and
+logical correlations among document elements, such as key-value pairs, leading to a more comprehensive document
+representation. While these frameworks have achieved improvements in document representation, their effectiveness
+hinges on having sufficient well-annotated training samples, which are time-consuming to acquire. This limitation
+has escalated the demand for few-shot [ 127] and zero-shot [ 130] frameworks, which leverage contrastive learning and
+innovative attention mechanisms. Additionally, prompt learning has been applied to distill implicit knowledge from
+large-scale layout-aware pre-trained models [ 40,118] and large language models (LLMs/MLLMs) [ 37,94]. Despite these
+advances, a performance gap remains between well-fine-tuned models and few/zero-shot frameworks, highlighting the
+ongoing challenges in VRDU optimization.
+3.2 Document Entity Linking
+Documents are normally structured hierarchically, where parent-child relations always exist in various documents, such
+as key-value pairs in forms and section paragraphs in reports or papers. Unlike most VRD key information extraction
+models, which focus on recognising the semantic entity categories in a sequence tagging task ignoring the relation
+between entities, linking the logical associations between document semantic entity pairs has recently been of greater
+interest.
+3.2.1 Entity-Level Entity Linking. Document entity linking aims to identify the relation between document entities.
+Some frameworks use the known entity bounding boxes, ignoring the entity recognition step and mainly focusing on
+exploring the relation between input document entities.
+DocStruct [129] is the first entity linking framework by leveraging multimodal features of known document entities to
+predict the hierarchical structure between them. [CLS] token from a BERT-like pretrained language model is extracted
+for entity-level textual representation 𝑇𝑒, and an RNN is applied to encode the sequential RoI visual cues 𝑉𝑒along the
+width of the ResNet-50 feature maps. Then, 𝑇𝑒is concatenated with layout feature 𝑃𝑒, which is a linear projected vector
+of entity bounding box coordinates, [𝑥1,𝑦1,𝑥2,𝑦2,𝑥3,𝑦3,𝑥4,𝑦4]. The final entity representation 𝐸can be represented:
+𝛼=𝑆𝑖𝑔𝑚𝑜𝑖𝑑(𝑊[𝑇𝑒,𝑃𝑒,𝑉𝑒]+𝑏), (4)
+𝐸=[𝑇𝑒;𝑃𝑒]+𝛼𝑉𝑒, (5)
+where𝛼is used as a gate to control the influence of visual cues 𝑉𝑒following [ 125]. Then, for pair of entities 𝐸𝑖and
+𝐸𝑗, the probability of an existing parent-child relationship is represented as 𝑃𝑖→𝑗=𝐸𝑖𝑀𝐸𝑗where M is the matrix of
+asymmetric parameters to ensure the asymmetric relation between 𝐸𝑖and𝐸𝑗. Negative sampling [ 85] is applied during
+training to handle data sparsity and balance problems.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 11
+Zhang et al. [145] propose an entity-linking framework, SERA (Semantic Entity Relation extraction As dependency
+parsing) by formulating the entity relation prediction as a dependency parsing problem. LayoutLM [135] is used to
+obtain textual representations at the entity level 𝑇𝑒that are concatenated with the embedding of the linear projected
+entity label 𝐿𝑒to obtain the final entity representation 𝐸, which could be formulated as 𝐸=[𝑇𝑒,𝐿𝑒]. Various encoders,
+such as Vanilla Transformer, BiLSTM, and Graph, are adopted to learn the following contextual representations. Then,
+a Biaffine parser is adopted to calculate the score between 𝐸𝑖and𝐸𝑗. The biaffine parser score 𝑝𝑏can be calculated by:
+ℎ𝑘𝑒𝑦
+𝑖=𝜎(𝑊𝑘𝑒𝑦𝐸𝑖+𝑏𝑘𝑒𝑦), (6)
+ℎ𝑣𝑎𝑙𝑢𝑒
+𝑗=𝜎(𝑊𝑣𝑎𝑙𝑢𝑒𝐸𝑗+𝑏𝑣𝑎𝑙𝑢𝑒), (7)
+𝑝𝑏=ℎ𝑘𝑒𝑦
+𝑖𝑊𝑏1ℎ𝑣𝑎𝑙𝑢𝑒
+𝑗+ℎ𝑘𝑒𝑦
+𝑖𝑊𝑏2. (8)
+whereℎ𝑘𝑒𝑦
+𝑖andℎ𝑣𝑎𝑙𝑢𝑒
+𝑗are the hidden states after linear projection. To leverage the layout information, a two-dim
+layout vector 𝑙𝑖𝑗is used to get the layout feature score 𝑝𝑙=𝑊𝑙𝑙𝑖𝑗+𝑏𝑙, where𝑙𝑖𝑗is the minimum distance between two
+entities along with width and height direction respectively. Then, the final score 𝑝=𝑝𝑏+𝑝𝑙is used to calculate loss
+using binary or multi-label classification.
+KVPFormer [41] formulate the entity linking to a question-answer problem by introducing a transformer-based
+encoder-decoder structure to leverage joint-grained information (token and entity) to predict the entity association. The
+textual representation 𝑇of each document entity, 𝐸, is encoded by averaging the inner-token embedding from pretrained
+document understanding models, concatenating with the linear projected entity label embedding 𝑙, represented as
+𝐸=[𝑇;𝑙]. Then, the entity representations will be fed into a Transformer encoder, which has a spatial compatibility
+attention bias into vanilla self-attention mechanism2. A binary classifier determines which entity is a key entity or not.
+All detected key entities will be treated as question representation and fed into a DETR -style [ 13] decoder to predict
+corresponding answers in parallel. For each input question (key query), Top K answer candidates will be selected based
+on the𝑆𝑖𝑔𝑚𝑜𝑖𝑑 score and fed into a softmax layer to get the final prediction, named a coarse-to-fine answer prediction.
+3.2.2 Token-level Entity Linking. As acquiring entity information needs prior knowledge from manual annotation
+or layout analysing models, some works utilise serialised OCR-extracted tokens as inputs to extract the structured
+relations. However, as the logical relation links semantic entities, token-level frameworks must group tokens into
+entities before exploring their association.
+Carbonell et al. [12] introduces a framework comprising three modules for sequentially conducting token grouping,
+entity labelling and relation prediction. Firstly, each text token 𝑡is represented by[𝐿𝑡;𝑇𝑡]where𝐿𝑡=[𝑥,𝑦,𝑤,ℎ]is
+the coco format bounding box coordinates of 𝑡and𝑇𝑡is the work/representations. All tokens are fed into a token
+grouping GNN,G𝑔𝑟𝑜𝑢𝑝 , as a node where the edge between nodes is determined by k-NN to avoid high consumption
+of fully connected GNN. The G𝑔𝑟𝑜𝑢𝑝 is trained on a link prediction task to predict the edge score between two nodes
+to group words, of which scores larger than a predefined threshold 𝜌. Then, the grouped words are fed into a Graph
+Attention Network (GAT) to use multi-head attention to aggregate words into entities and follow an MLP to conduct
+node classification to predict the category of each document entity. At last, another link prediction GNN, G𝑙𝑖𝑛𝑘, is
+trained on edge classification based on aggregated entities.
+SPADE [44] formulate the token-level entity linking as a spatial dependency parsing task for serializing (ordering
+and grouping) tokens and predicting inter-group relation between grouped tokens. Firstly, a spatial text encoder is
+2Please refer to
+Manuscript submitted to ACM
+
+12 DING, et al.
+designed to make spatial-aware attention by introducing a relative spatial vector considering relative, physical and
+angle aspects. During this task, two binary matrices must be predicted 𝑀𝑔for token grouping and inter-group linking
+𝑀𝑙. The vertices comprised by a entity types Vand sequence of tokens Tthe encoded entity category and token are
+represented as 𝑐and𝑡, respectively, and the relation score between vertices 𝑣𝑖→𝑣𝑗can be calculated by:
+ℎ𝑖= 
+𝑐𝑣𝑖, for𝑣𝑖∈V,
+𝑊ℎ𝑡𝑣𝑖,otherwise, (9)
+𝑑=𝑊𝑑𝑣𝑗, (10)
+𝑠0=ℎ𝑇
+𝑖𝑊0𝑑, 𝑠1=ℎ𝑇
+𝑖𝑊1𝑑. (11)
+The probability is acquired by 𝑝𝑖𝑗=exp(𝑠0,𝑗)
+exp(𝑠0,𝑗)+exp(𝑠1,𝑗). An adjustable threshold is set to construct the 𝑀𝑔or𝑀𝑙.
+DocTR [68] formulate the entity linking as an anchor word-based entity detection and association problem. Each
+document entity is represented by the anchor word to convert the entity extraction and linking to token-level tasks. It
+contains a Deformable DETR-based vision encoder to extract multi-scale visual feature extraction. A LayoutLM based
+language encoder is applied to encode token-level textual representations. The outputs from vision/language encoders
+are fed into the vision-language decoder with the language-conditional queries to conduct entity extraction and linking.
+The decoder queries are one-to-one mapping with language encoder inputs. The entity extraction task aims to predict
+whether the query underlying token level input is an anchor word and corresponding categories, while entity linking is
+acquired by
+3.2.3 Summary. Several models like Chargrid [ 50] and ACP [ 91] have enhanced VRDU by integrating visual and textual
+information. Additionally, auxiliary tasks such as OCR, utilised by [ 123,144], aid in improving multimodal feature
+representations through joint training. However, these frameworks often rely on smaller, randomly initialised models,
+which produce less representative features compared to those generated by large-scale pretrained models like LayoutLM
+[135] and SelfDoc [ 65]. Documents typically exhibit specific layouts and logical structures, which has prompted many
+models [ 56,57,141] to adopt graph-based approaches. These methods capture spatial and logical correlations among
+document elements, such as key-value pairs, leading to a more comprehensive document representation. While these
+frameworks have achieved improvements in document representation, their effectiveness hinges on having sufficient
+well-annotated training samples, which are time-consuming to acquire. This limitation has escalated the demand
+for few-shot [ 127] and zero-shot [ 130] frameworks, which leverage contrastive learning and innovative attention
+mechanisms. Furthermore, prompt learning has been applied to distil implicit knowledge from large-scale layout-aware
+pretrained models [ 40,118] and large language models (LLMs/MLLMs) [ 37,94]. Despite these advances, a performance
+gap remains between well-fine-tuned models and few/zero-shot frameworks, highlighting the ongoing challenges in
+VRDU optimization.
+3.3 VRD Question Answering
+Unlike key information extraction, which targets specific details within document images, answering natural language
+questions involves interpreting more complex intentions and requires models to facilitate interactive understanding
+between the queries and document representations [ 23]. The introduction of DocVQA [ 83] marked a significant shift in
+focus from natural scene images to text-dense, layout-aware single-page document images, establishing a benchmark
+in the field. As advancements have continued, demands have recently emerged for models capable of addressing more
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 13
+complex, multi-page scenarios [ 25,26,116]. These emerging requirements highlight the need for models to process
+multimodal inputs and navigate through extensive documents, reflecting user inquiries’ evolving complexity and
+naturalness in document-based question-answering systems. This section will briefly review the SoTAs in single-page
+document VQA models and introduce some recently proposed multi-page document understanding solutions [ 8,116].
+3.3.1 Single-page VRD-QA. Similar to key information extraction from visually rich documents, single-page question
+answering (QA) often utilises classical pretrained language models [ 22,74] as baselines. These models conduct span-
+based question answering to extract sequences of text tokens. Additionally, general domain visual language pretrained
+models [ 52,64,113] are employed to identify the target document’s semantic entities [ 25]. Beyond these plain text or
+general domain vision language, numerous layout-aware models specifically pretrained in the document domain (see
+Section 4) have achieved state-of-the-art (SoTA) performance in single-page document tasks. This approach underscores
+the importance of integrating layout awareness in the preprocessing stages to enhance performance on these specific
+document-based tasks.
+3.3.2 Multi-page VRD-QA. As demand increases for retrieving answers from multi-page documents [ 26,116], most
+SoTA models [ 40,122,135], which are typically designed for single-page inputs, face a significant challenge due to
+their input length limitation of 512 tokens. To overcome this limitation, recent innovations have introduced solutions
+such as transformers capable of handling longer sequences and page-locating modules. These advancements are
+specifically designed to address the requirements of multipage document question answering (QA), enabling more
+efficient processing.
+Hi-VT5 [116] proposes a multimodal hierarchical encoder-decoder architecture for multi-page generative question-
+answering. A T5-based multimodal transformer is applied to encode the single-page level information, including
+questions, OCR-extracted page content, image patches, and a set of page tokens. The question and OCR extracted token
+sequence is the following [ 5] to acquire the layout-aware initial textual representations. Document Image Trasnfoer
+(DIT) [ 63] is leveraged to acquire initial patch representations. Then, the concatenated question ( 𝑄) and page OCR
+tokens (𝑇), image patch tokens ( 𝐼), and randomly initialised page tokens ( 𝑃) are fed into T5-based page encoder to
+enhance the multi-level and multimodal contextual learning contextually. The enhanced page token embeddings 𝑃′of
+each input document image are fed into a T5-based decoder to generate the predicted answer, as well auto-regressively,
+and the page located on the target answer must output the page number based on 𝑃′. As T5 is not a layout-aware
+language model, masked language modelling is applied to predicted masked tokens by leveraging non-based visual and
+layout information to boost multimodal understanding. As T5 can accept input sequence lengths up to 20,480 tokens, it
+dramatically increases the standard VRDU pretrained models that apply Hi-VT5 to multi-page scenarios.
+GRAM [8]: proposes a framework to extend single-page models to tackle multi-page document VQA scenarios. Following
+the way of pretrained DocFormerv2 [ 2], the framework encodes single-page inputs, including questions, OCR-extracted
+content, and visual features. For multi-page scenarios, a slim global encoder follows each single-page encoder layer,
+allowing the new learnable page tokens to interact with other pages contextually. This enables page tokens to capture
+page-level information through self-attention and enhance document-level understanding with sparse attention. As the
+
+page-level information through self-attention and enhance document-level understanding with sparse attention. As the
+global layer is a new stream applied to the pretrained model, an attention bias is applied following ALiBi [ 96] to prevent
+the model from possibly disregarding the page tokens, enabling them to capture more fine-grained information from
+pretrained weights. During the decoding stage, unlike Hi-VT5, which only feeds page tokens to the decoder, GRAM uses
+all fine-trained information for the decoder. C-Former [ 97] is applied to alleviate the high computation consumption,
+which could revise the information across all pages and distil only important details.
+Manuscript submitted to ACM
+
+14 DING, et al.
+Kang et al. [49] introduce a multi-page document VQA framework to use a scoring self-attention mechanism to
+select and identify the related pages for generating the answer to the input question. The training processes include
+single-page Document VQA training and then training a self-attention scoring module based on the frozen trained
+encoder to feed the most relevant page information into the decoder for answer generating. Pix2Struct [ 58] is used as the
+single-page model fine-tuned on the DocVQA [ 83] dataset. The output from the Pix2Struct is fed into the self-attention
+scoring module to extract the first token for predicting a question-page matching score. The page with the highest
+matching score will be fed into the decoder for answer generation.
+3.3.3 Summary. Document Visual Question Answering (Document VQA) is a relatively new field, pioneered by
+DocVQA [ 83], which aims to generate or extract answers to natural language questions based on document images.
+This differs from key information extraction, which focuses on recognizing or extracting predefined key-value pairs.
+Document VQA requires a more comprehensive representation of the document and an understanding of correlations
+between the document and questions. Pretrained VRDU models [ 42,137] demonstrate robust performance in single-page
+document understanding tasks. However, these models encounter challenges when applied to more typical and natural
+multi-page scenarios due to input length limitations. Recent solutions, such as [ 8,116], mainly address these challenges
+by identifying the page where a possible answer may be located and then applying SoTA single-page techniques to
+retrieve the answer. Despite these advancements, real-world applications often present more complex situations, such
+as long-term dependencies and cross-page entity relationships, which still need further exploration in the document
+VQA field.
+4 MULTI-TASK VRD UNDERSTANDING MODELS
+Models designed for specific VRDU tasks often incorporate task-oriented techniques. Drawing inspiration from pre-
+trained models in the vision [ 28,102] and language [ 22,74] domains, enhancing document representations may
+significantly improve the performance of various downstream tasks. Consequently, a range of models have been
+developed to extract knowledge from extensive document collections. These models employ different pretrained tasks
+based on their architecture, the modalities they process, and the granularity of the information they extract from
+documents. Moreover, some models introduce specialised techniques to boost the effectiveness of pretrained model
+representations, achieving better performance without heavy pretraining. This section explores various document
+understanding frameworks focused on enhancing document representation for robustness and comprehensiveness in
+addressing multiple VRDU downstream tasks.
+4.1 Fine-grained Pretrained Models
+Inspired by BERT-style pretrained models, many researchers have proposed effective methods to integrate layout and
+visual information into models, aiming to enhance the comprehensiveness of textual token representations.
+4.1.1 Layout-aware Pretrained Language Modeling. Understanding layout structure and spatial correlations between
+textual tokens can yield a more comprehensive representation of documents, going beyond what plain-text input offers.
+To this end, various methods have been proposed to encode layout features. These methods, combined with tailored
+pretraining tasks, enable models to capture layout-aware information better and effectively fuse textual and layout
+features.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 15
+Multi-task
+based modelsFine-grained Pretrained
+Models ( Encoder-only )Layout-aware Pre-
+trained ModelsLayoutLM [ 135];
+BROS[ 40]; LiLT [ 122];
+XDoc [ 15]; LayoutMask
+[118]; StructuralLM [ 135]
+Visual-integrated
+Pretrained ModelsLayoutLMv2[ 137];
+LayoutXLM[ 136];
+DocFormer[ 1];
+LayoutLMv3[ 42]
+Coarse and Joint-
+grained Pretrained
+Models (Encoder-only)Coarse-grained Models SelfDoc[ 65]; UniDoc[ 32]
+Joint-grained ModelsStrucText[ 67]; Fast-
+StrucText[ 143]; MGDoc
+[126]; WUKONG-
+READER [ 3]; Ge-
+oLayoutLM [ 77]
+Encoder-Decoder
+Pretrained FrameworksOCR-dependent
+Encoder-Decoder
+FrameworksTiLT[ 65]; UDOP[ 115];
+DocFormerv2[ 2];
+ViTLP[ 82]
+OCR-independent
+FrameworksDonut[ 51]; Dessurt[ 20];
+ReRum [ 10]; Struct-
+TextV2 [ 142]
+LLM-based FrameworksHRVDA[ 70];
+LayoutLLM[ 78]
+Non-Pretrained
+FrameworksCALM[ 29];
+LayoutGCN[ 106]
+Fig. 3. Multi-task visually rich document understanding frameworks.
+LayoutLM [135] is the first pretrained document understanding model by leveraging textual and layout information
+in the pretraining stage. BERT architecture is the backbone and 2-D positional embedding3with textual information is
+used to pretrain on IIT-CDIP Test Collection 1.0. Two specific pretraining tasks are first introduced, named Masked
+Visual-Language Model (MVLM) and Multi-label Document Classification , to generate layout-aware textual representation
+and more comprehensive document representation, respectively. Like Masked Language Modeling adopted by most
+pretrained language models, MVLM randomly masks some input tokens but keeps the corresponding 2-D position
+embeddings to predict masked tokens to ensure the pretrained model is aware of the spatial relations between input
+tokens. MDC is a supervised pretraining task to predict the input document types (e.g. forms, exam papers, academic
+papers) that generate more comprehensive document-level representations. The fine-tuned LayoutLM could perform
+much better than textual-only frameworks on key information extraction [43, 46] and document classification [36].
+BROS [40] aims to propose a pretrained VRDU model to represent the continuous property of 2D space by introducing
+a new 2-D positional encoding and a textual-spatial correlation aware attention score to replace the vanilla self-
+attention. Supposing [𝑥1,𝑦1,𝑥2,𝑦2,𝑥3,𝑦3,𝑥4,𝑦4]is the bounding box coordinates of input token 𝑡,𝑝1=[F𝑠𝑖𝑛(𝑥1)⊕
+F𝑠𝑖𝑛(𝑦1)],𝑝1→R𝑑𝑝𝑜𝑠. The final positional representation of 𝑡is𝑝𝑜𝑠𝑡=𝑊𝑝1𝑝1+𝑊𝑝2𝑝2+𝑊𝑝3𝑝3+𝑊𝑝4𝑝4, where all
+𝑊𝑝∈R2𝑑𝑝𝑜𝑠×𝑑. The new 2-D positional encoding intends to provide a more natural way to encode the continuous 2-D
+coordinates. Additionally, instead of simply summing textual and positional representations, a novel attention score
+is introduced to consider both textual and spatial features and their correlations. To calculate the attention score 𝛼𝑖𝑗
+3Please refer to Section xx for more detailed information on 2-D positional encoding
+Manuscript submitted to ACM
+
+16 DING, et al.
+between𝑡𝑖and𝑡𝑗, they consider correlation intra and inter-correlation between textual and positional modalities.
+𝛼𝑖𝑗=(𝑊𝑞𝑡𝑖𝑇𝑖)⊤(𝑊𝑞𝑡𝑗𝑇𝑗)+(𝑊𝑞𝑡𝑖𝑇𝑖◦𝑊𝑝𝑜𝑠𝑡𝑖𝑝𝑜𝑠𝑡𝑖)⊤(𝑊𝑝𝑜𝑠𝑡𝑗𝑝𝑜𝑠𝑡𝑗)+(𝑊′𝑝𝑜𝑠𝑡𝑖𝑝𝑜𝑠𝑡𝑖)⊤(𝑊′𝑝𝑜𝑠𝑡𝑗𝑝𝑜𝑠𝑡𝑗) (12)
+where(𝑊𝑞𝑡𝑖𝑇𝑖)⊤(𝑊𝑞𝑡𝑗𝑇𝑗)and(𝑊′𝑝𝑜𝑠𝑡𝑖𝑝𝑜𝑠𝑡𝑖)⊤(𝑊′𝑝𝑜𝑠𝑡𝑗𝑝𝑜𝑠𝑡𝑗)is the intra-modality attention scores of textual and
+positional modalities between two tokens. (𝑊𝑞𝑡𝑖𝑇𝑖◦𝑊𝑝𝑜𝑠𝑡𝑖𝑝𝑜𝑠𝑡𝑖)⊤(𝑊𝑝𝑜𝑠𝑡𝑗𝑝𝑜𝑠𝑡𝑗)is used to formulate the spatial
+dependency given the source semantic representation. Additionally, inspired by SpanBERT [ 48], they use an area-
+masked language model to mask tokens by random-sized rectangle regions.
+StructuralLM [61] is the first VRUD model using image patches (named "cells" in the paper) to group input tokens
+for conducting various pretraining tasks. They use BERT as the backbone and generate multimodal representations 𝑃
+of each patch, which will be used for two pretraining tasks, MVLM and Cell (Patch) Position Classification (CPC). The
+bounding box(𝑥0,𝑦0,𝑥1,𝑦1)of an image patch is encoded by the 2-D positional encoding introduced by LayoutLM
+and the𝑛tokens inside 𝑝are represented as{𝑡1,𝑡2,...,𝑡𝑛}which share the same 2-D positional encoding as for tokens
+belongs to one patch. A token 𝑡𝑖could be represented as summing up token representation 𝑇𝑖, 2-D positional encoding
+𝑝𝑜𝑠2𝑑
+𝑡𝑖and 1-D position embedding 𝑝𝑜𝑠𝑖. Two pretraining tasks are used to understand the patch-level spatial correlations,
+including MVLM and CPC. MVLM is similar to LayoutLM but uses patch-level layout embeddings instead of token-level.
+Another novel cell position classification task is applied to predict the area index of randomly selected tokens from 𝑁
+evenly split areas. Two pretraining tasks are performed simultaneously to capture the patch-level spatial dependencies
+between input tokens.
+LiLT [122] introduces a language-independent layout Transformer for mono/multi-lingual document understanding.
+The text and layout information are first separately encoded and jointly learned during pretraining. In the fine-tuning
+stage, two modality representations are concatenated to perform downstream tasks. The input token representations
+follow BERT, where 𝑗-th token is𝑇𝑗=𝑇𝑗+𝑝𝑜𝑠𝑡𝑗+𝑝𝑜𝑠2𝑑
+𝑡𝑗. The layout representations are slightly different from LayoutLM,
+normalising the bbox coordinates in the [0,1000]and four linear layers encode the x-axis, y-axis, width and height
+features. The normalised bbox of a token 𝑡is[𝑥0,𝑦0,𝑥1,𝑦1,𝑤,ℎ]is encoded to get the final layout representation 𝐿:
+𝐿=𝑊𝐿(𝑊𝑥𝑥0⊕𝑊𝑦𝑥0⊕𝑊𝑥𝑥1⊕𝑊𝑦𝑦1⊕𝑊𝑤𝑤⊕𝑊ℎℎ)+𝑝𝑜𝑠𝐿 (13)
+where𝑊𝐿∈R6𝑑′
+𝐿×𝑑𝐿and𝑊𝑥,𝑊𝑦,𝑊𝑤,𝑊ℎ∈R1×𝑑𝐿. The text and layout embedding are fed into two sub-models to
+generate high-level representations. A bi-directional attention complementation mechanism (BiACM) is proposed to
+augment the cross-modality interaction4. Three self-supervised learning methods are proposed to enable the model to
+understand the multimodal document representation, including MVLM and Key Point Location, which is similar to the
+CPC proposed by StructureLM to predict the area index of masked tokens based on the layout features. Additionally, a
+text and layout alignment task is proposed to enhance further the cross-modality representation to predict whether
+each pair is aligned. LiLT could achieve promising performance on multi-lingual document understanding benchmarks
+[123, 136].
+XDoc [15] propose a unified framework to deal with text inputs from multi-format inputs, including plain text,
+document and web text. Various encoding methods are proposed to tackle diverse text formats. For plain text token
+𝑡𝑝𝑙𝑛, the token representation follows BERT to get 𝑇𝑝𝑙𝑛. For document text token 𝑡𝑑𝑜𝑐, they adopted similar strategies
+[40,135] to get𝑇𝑑𝑜𝑐by summing up initial token representation 𝐸𝑡𝑑𝑜𝑐, 1-D position embedding 𝑝𝑜𝑠𝑡𝑑𝑜𝑐and 2-D position
+embedding 𝑝𝑜𝑠2𝑑
+𝑡𝑑𝑜𝑐.𝑝𝑜𝑠2𝑑
+𝑡𝑑𝑜𝑐uses different bbox formats [𝑥0,𝑥1,𝑦0,𝑦1,𝑤,ℎ]following a Linear-ReLu-Linear adaptor to
+
+embedding 𝑝𝑜𝑠2𝑑
+𝑡𝑑𝑜𝑐.𝑝𝑜𝑠2𝑑
+𝑡𝑑𝑜𝑐uses different bbox formats [𝑥0,𝑥1,𝑦0,𝑦1,𝑤,ℎ]following a Linear-ReLu-Linear adaptor to
+make the document format text embedding more representative. To encode web text inputs, they follow the way
+4We provide a detailed explanation of BiACM in Section X
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 17
+introduced by MarkupLM to encode the source file tags and subscript information to get the XPath embedding. The
+same structured adaptor is leveraged for better pretraining. All three text formats are pretrained by MLM and fine-tuned
+on plain text [98, 120], document [46, 83], and web text [16] benchmark datasets, respectively.
+LayoutMask [118] aims to improve the text-layout interactions by using local 1D positional encoding and new
+pretraining tasks. OCR-dependent document understanding frameworks are suffered from improper reading orders.
+It uses LayoutLMv2 as the backbone but removes the visual module, and the local 1D positional encoding is adopted
+to replace the global 1D positional encoding, which only encodes the token ordered within each segment detected
+by OCR tools and always restarts with 1 from each individual segment. Moreover, the 2D positional encoding is also
+using segment bbox instead of individual words. The first task pertains to traditional masked language modelling, but
+two different masking strategies are used. Firstly, they set the mask at the word level instead of masking the token
+itself to enable the model to capture more contextual information to predict the masked word. Additionally, to boost
+cross-segment understanding, the probability of masking the first and last word of a segment is higher than that of
+others. Another Masked Position Modelling is proposed to ask the model to predict the masked word-level 2D positions
+to promote the layout information representation.
+4.1.2 Visual Integrated Models. Integrating visual cues alongside text and layout information during the pretraining
+stage can significantly enhance model capabilities, capturing more comprehensive document insights than text and
+layout alone. Various frameworks and pretraining tasks focusing solely on text and layout have been expanded to
+include visual-text matching tasks to strengthen cross-modality alignment. This integration enables models to interpret
+better the complex interplay of visual, textual, and layout features within documents. Existing models that utilise these
+comprehensive inputs can be categorised based on their approach to visual feature acquisition: feature map -based models,
+which generate comprehensive visual representations, and patch pixel -based models, which focus on granular visual
+details. This classification helps understand how different models leverage visual information to enhance document
+understanding.
+LayoutLMv2 [137] is the first pretrained model integrating text, layout and visual aspects during the pretraining
+stage. A single framework multimodal transformer is applied to get the visual, text and layout features simultaneously,
+where each input textual and visual tokens are assigned a segment ID to distinguish the modality or semantic type. The
+textual and layout representations generally follow LayoutLM, except the linear projected segment ID, 𝑠𝑒𝑔𝑡, embeddings
+are addicted to original textual embeddings. The input document image is firstly fed into a trainable visual encoder
+(based on ResNeXt-FPN), of which output is evenly split into 𝑚flattened visual tokens, 𝑣𝑡𝑜𝑘𝑒𝑛 following a linear layer
+to project into the same dimension as textual embedding. The 𝑗-th visual token embedding is 𝑉𝑗=𝑊𝑣𝑗+𝑝𝑜𝑠𝑗+𝑊𝑠𝑒𝑔𝑣.
+Moreover, to capture the relative position information of inter/intra-modality features, spatial-aware self-attention is
+introduced by adding bias terms of 1-D ( 𝑏1𝐷) and 2-D (𝑏2𝐷) relative position. The 1-D relative positional bias between
+input visual or textual tokens 𝑡𝑖and𝑡𝑗is𝑏1𝐷=𝑊𝑏1𝐷(𝑗−𝑖)and𝑏2𝐷=𝑏2𝐷𝑥+𝑏2𝐷𝑦, where𝑏2𝐷𝑥=𝑊𝑏2𝐷𝑥(𝑥0𝑖−𝑥0𝑗),
+𝑏2𝐷𝑦=𝑊𝑏2𝐷𝑦(𝑦0𝑖−𝑦0𝑗).LayoutLMv2 is pretrained on MVLM and the other two new proposed tasks, Text-Image
+Alignment (TIA) and Text-Image Matching (TIM)5to capture more cross-modality alignment.
+
+𝑏2𝐷𝑦=𝑊𝑏2𝐷𝑦(𝑦0𝑖−𝑦0𝑗).LayoutLMv2 is pretrained on MVLM and the other two new proposed tasks, Text-Image
+Alignment (TIA) and Text-Image Matching (TIM)5to capture more cross-modality alignment.
+LayoutXLM [136] extends the LayoutLMv2 architecture to a multilingual setup where the MVLM is extended to
+Multilingual Mased Visual-Language Modeling pretrained on 22 million self-collected digital-born PDF files and 8
+million scanned English documents from IIT-CDIP processed by off-the-shelf PDF parsers.
+5Please refer to Section to check more detailed information about those two pretraining tasks.
+Manuscript submitted to ACM
+
+18 DING, et al.
+DocFormer [1] is a multimodal transformer encoder-based architecture which also uses a trainable CNN-backbone
+(ResNet50) to extract the visual cues of input document image to get visual representations V∈R(𝑑×𝑁), where𝑑=768
+is the transformer hidden state and 𝑁=512is the number of visual tokens. The initial textual representations Tare
+acquired by feeding the OCR extracted text with bbox into LayoutLM where T∈R(𝑑×𝑁). 2D positional encoding is also
+used by using 𝑊𝑥𝑣,𝑊𝑦
+𝑣and𝑊𝑥
+𝑡,𝑊𝑦
+𝑡to encode𝑥,𝑦axis, as well as, visual and textual aspects to acquire 𝑝𝑜𝑠2𝑑𝑣and𝑝𝑜𝑠2𝑑
+𝑡.
+More positional features are adopted such as width, height and relative distance between neighbours. Moreover, certain
+inductive biases are applied to get a new self-attention score 𝛼for paying more attention to local features. Supposing
+𝛼𝑣
+𝑖𝑗is attention score between visual feature 𝑉𝑖and𝑉𝑗, we could have 𝛼𝑣
+𝑖𝑗=(𝑊𝐾𝑣𝑉𝑗)⊤(𝑊𝑄
+𝑣𝑉𝑖)+(𝑝𝑜𝑠𝑖𝑗)⊤𝑊𝑄
+𝑣𝑉𝑖+
+(𝑝𝑜𝑠𝑖𝑗)⊤𝑊𝐾𝑣𝑉𝑗+(𝑊𝑄
+𝑠𝑝𝑜𝑠2𝑑
+𝑖𝑗)⊤(𝑊𝐾𝑠𝑝𝑜𝑠2𝑑
+𝑖𝑗), where𝑝𝑜𝑠𝑖𝑗is the 1D relative positional encoding. The same procedures are
+applied to textual features as well, and two modalities share the same 𝑊𝑄
+𝑠and𝑊𝐾𝑠to help the model correlate features
+across modalities. The multi-modal token representations Mof𝑙encoder layer is M𝑙=T𝑙+V𝑙.
+LayoutLMv3 [42] is the first pretrained VRDU model to encode visual features without using heavy CNN-backbones.
+LayoutLMv3 uses the exact same way as LayoutLMv2 to encode the textual and layout information except replacing
+the word-level bbox to segment-level for 2-D positional embedding. For visual feature representation, they follow ViT
+and ViLT to linearly project the evenly split image patches with learnable 1-D positional encoding to the transformer
+encoder. For the pretraining setting, they use masked language modelling to mask 30% tokens drawn from a Poisson
+distribution. To augment the visual representation by contextually learning with multimodal features, a Masked Image
+Modelling (MIM) [ 4] task is used to mask 40% image tokens with clockwise masking randomly. Each image token will
+be converted into discrete tokens following [ 100], and a cross-entropy loss is adopted to reconstruct the masked image
+tokens. Moreover, to explicitly learn the correlation between text and image modalities, a Word-Patch Alignment (WPA)
+pretraining objective is applied. WPA is a binary classification task to predict whether the unmasked token-patch pair
+is "aligned " or " unaligned ".
+4.2 Coarse and Joint-grained Pretrained Models
+Fine-grained models achieve state-of-the-art performance on many downstream tasks but face challenges with input
+length limitations and capturing document image layout and logical arrangement. To address these issues, coarse-
+grained or joint-grained frameworks have been introduced. To mitigate these limitations, these frameworks leverage
+multimodal information from document semantic entities such as paragraphs, tables, and textlines.
+4.2.1 Coarse-grained Frameworks. SelfDoc [65] is the first pretrained VRDU model to leverage coarse-grained document
+elements for various document understanding tasks. Unlike fine-grained models that rely on OCR-extracted text
+sequences, SelfDoc uses Faster-RCNN to extract Regions of Interest (RoIs) from document entities. This approach
+reduces the input sequence length for text-dense and long documents with improved time and space complexities.
+To acquire the initial multimodal representations, Faster-RCNN extracts visual embeddings from these RoIs, while
+Sentence-BERT [ 101] provides textual embeddings based on the OCR-extracted text of each entity. The textual and
+visual representations are fed into two single-modality BERT-like encoders to learn the intra-modality correlations
+between entities contextually. A cross-modality encoder is introduced to enhance inter-modality learning, mirroring the
+structure of single-modality encoders but incorporating cross-attention layers. It randomly masks entities in document
+
+structure of single-modality encoders but incorporating cross-attention layers. It randomly masks entities in document
+images within either language or vision branches during pretraining. Furthermore, a modality-adaptive attention
+mechanism dynamically adjusts weights for visual and textual embeddings based on the input and task, creating robust
+entity representations for fine-tuning.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 19
+UniDoc [32] is an entity-level document understanding model which contains a trainable image encoder with
+RoI-Align [ 38] to extract entity visual representation and novel cross-attention mechanisms to fuse multimodal
+information. The initial sentence and textual embeddings are acquired by RoI features and averaged word embeddings
+summing up with the linear projected bbox coordinates. To enable the trainable visual representation to predict
+meaningful visual cues effectively, product quantization [ 47] is applied to discretise a RoI feature into a finite set of
+visual representations and mapped to a new embedding. Additionally, a novel Gated Cross-Attention is introduced to
+improve the interactive learning between various modalities. After a multi-head cross-attention to get the enhanced
+visual and textual representations, a gating mechanism is applied to dynamically weight the visual ( 𝑉) and textual
+features (𝑇) by feeding concatenated [𝑉:𝑇]to a non-linear network to acquire a modality-aware attention bias
+𝛽𝑣,𝛽𝑡for visual and textual respectively. There are three pretraining tasks are conducted simultaneously to enhance
+multimodal feature representatives. Masked Sentence Modelling and Visual Contrastive Learning are required to
+predict the masked sentence representation and quantize visual representation, respectively. Another Vision-Language
+Alignment introduced by LayoutLMv2 [ 137] to enforce contextual learning between multi-modalities. But instead of
+using split image regions, UniDoc aligns the image and text to belonging to the same entity.
+4.2.2 Joint-grained Frameworks. StrucText [67] is a multimodal pretrained VRDU model using fine-grained textual
+and coarse-grained vision information to capture richer geometric and semantic information from different levels and
+modalities. The layout embedding of each text token and segment is encoded by 𝐿=𝑊𝑙[𝑥0,𝑦0,𝑥1,𝑦1,𝑤,ℎ],𝑊1∈R6×𝑁.
+They follow token-level models to encode the sequence of tokens and use pretrained ResNet50 with FPN to extract the
+entity visual features. A segment-ID embedding is allocated to each token’s textual and entity visual representations to
+boost the alignment learning. Three self-supervised tasks are introduced to enhance inter-modality learning: MVLM,
+Segment length Prediction (SLP), and Paired Box Direction (PBD). As a new self-supervised learning task, SLP asks the
+model to predict the entity’s length to leverage the entity’s visual embeddings and textual information from the same
+segment ID. Another self-supervised learning task aims to learn more comprehensive pair-wise spatial correlations
+between entities by clarifying their spatial correlation.
+Fast-StructText [143] is built on StrucText to improve model efficiency and enhance the feature expressiveness by
+introducing an hourglass transformer and Symmetry Cross-Attention mechanisms (SCA). Similar feature encoding
+methods to StructText are adopted, but the bbox formats of layout encoding are [𝑥0,𝑦0,𝑥1,𝑦1]. To encode the module
+and progressively reduce the redundancy tokens, an hourglass transformer is proposed consisting of several Merging
+blocks and Extension blocks to down-sampling and up-sampling the number of input tokens. Merging blocks suggest
+merging neighbouring 𝑘tokens with the weighted 1D average pooling to shorten the sequence length. The extension
+block is required to transform the shortened sequence back to the entire length by simply applying a repeat up-sampling
+method. In addition, to enhance the interaction between textual and vision modalities, SCA consists of two dual cross-
+attention to handle text and visual features. Different self-supervised tasks are conducted simultaneously, including
+MVLM [ 67,137], Graph-based Token Relation (GTR), Sentence Order Prediction (SOP) and Text-Image Alignment
+
+MVLM [ 67,137], Graph-based Token Relation (GTR), Sentence Order Prediction (SOP) and Text-Image Alignment
+[42]. For the two new proposed tasks, GTR is a task similar to Paired-Box Direction to predict the positional relations
+between paired entity visual features and SOP is used to predict whether two sentence pairs are normal-order adjacent
+to learning semantic knowledge.
+MGDoc [126] is the first multimodal multi-granular pretrained framework which introduces multi-granular attention
+and cross-modal attention to increase the inter-grained learning and better cross-modality fusion. For acquiring
+initial features of different modalities, pretrained language models [ 101] and vision encoders [ 39] are used to encode
+Manuscript submitted to ACM
+
+20 DING, et al.
+different-grained inputs from word to whole page. The encoded modalities are associated with positional features
+[143] and modality-type embeddings [ 67] to acquire the final input representation of various modalities. To encode
+the hierarchical relation between multi-grained features, including pages, entities and words, two attention biases are
+added to the original self-attention weights. A hierarchical bias is a binary value of 0 or 1 to examine the inside or
+outside relation between two inputs, while the relation bias is the relative positive between two bboxes. Apart from
+multi-grained learning, cross-attention is applied to fuse cross-modality information better. Three tasks are proposed
+during pretraining, including Mask Text Modeling (MTM), Mask Vision Modeling (MVM) and Multi-Granularity
+Modeling. MTM and MVM randomly mask the multi-grained textual and visual representations to predict the masked
+features under the mean absolute error. To boost the interactive understanding of multi-granularity, a token-entity
+linking prediction is proposed by computing the dot-product between token and entity features.
+WUKONG-READER [3] uses fine-grained level inputs but leverages coarse-grained level self-supervised tasks
+to enhance the fine-grained level information. The model inputs contain a document image and OCR extracted
+sequence of tokens with their bboxes. A Mask-RCNN is used as a visual backbone to acquire several visual tokens
+and extract visual features of textlines from a RoIHead layer. For textual information encoding, the first is layers of
+RoBERTa[ 133] are applied to extract the token representation and sum up with additional features following [ 137]. The
+concatenated visual and textual features are fed into a multimodal modal encoder based on the rest six layers of RoBERTa.
+Different pretraining tasks are proposed, including MLM, Textline-Region Contrastive Learning (TRC), Masked Region
+Modeling (MRM) and Textline Grid Matching (TCM). TRC aims to enhance cross-modality interactive learning at the
+entity (textline) level by following a text-vision-aligned contrastive learning approach [ 139]. To enhance the visual
+representation, MRM is applied to mask 15% of textlines randomly and to predict the masked visual embeddings
+following [ 65]. A text-grid alignment task is introduced to enhance layout understanding by dividing the document
+image into N-grids and predicting the tokens in 15% selected textlines belonging to which grid. The scaling parameters
+are applied to each loss of pretraining tasks.
+GeoLayoutLM [77] is a sophisticated multimodal framework that distinctively incorporates geometric information
+through specialised pretraining tasks and the development of innovative relation heads. Inspired by the dual-stream
+structure of METER and SelfDoc [65], GeoLayoutLM features separate vision and text-layout modules coupled with
+interactive co-attention layers that enhance the integration of visual and textual data. The model introduces two
+advanced relation heads—the Coarse Relation Prediction (CRP) head and the Relation Feature Enhancement (RFE)
+head—which refine relation feature representation crucial for both pretraining and fine-tuning phases. The pretraining
+regimen includes tasks designed to understand geometric relationships, such as GeoPair, GeoMPair, and GeoTriplet,
+aiding the model in grasping the complex dynamics of document layouts. During fine-tuning, the model utilises
+pretrained parameters to optimise both semantic entity recognition and relation extraction tasks, employing a novel
+inference technique that enhances relation pair selection accuracy by focusing on the most probable relationships and
+minimizing variance among potential options.
+4.3 Encoder-Decoder Pretrained Frameworks
+In addition to the above encoder-only frameworks, researchers have proposed encoder-decoder pretrained models that
+
+4.3 Encoder-Decoder Pretrained Frameworks
+In addition to the above encoder-only frameworks, researchers have proposed encoder-decoder pretrained models that
+often approach tasks like Key Information Extraction (KIE) or Visual Question Answering (VQA) in a generative style.
+Addressing limitations of OCR-dependent frameworks, such as accumulated OCR errors and incorrect reading orders,
+OCR-independent models have been introduced for end-to-end VRDU.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 21
+4.3.1 OCR-dependent Encoder-Decoder Frameworks. TILT [95] is a T5-based transformer encoder-decoder architecture
+enhanced with a relative spatial bias in the self-attention mechanism to acquire fine-grained token representations. It
+incorporates encoding methods that apply relative sequence input bias and capture horizontal and vertical distance
+biases in the attention scores. A U-Net-based framework is applied to extract the fixed-size feature maps fed into the
+encoder together. They follow T5 pretraining strategies on RVL-CIDP dataset [ 36] but use a salient span masking scheme
+adopted by [ 35,97]. As the first encoder-decoder framework, TILT requires off-the-shelf OCR tools to acquire the
+textual token sequence. To conduct VRD content understanding end-to-end, some OCR-free frameworks are proposed
+to solve the limitations of OCR-dependent models.
+UDOP [115] proposes an encoder-decoder pre-trained document understanding framework that leverages a ViT-
+based model [ 28], following the principles of LayoutLMv3 [ 42], to process multimodal information. To enhance the
+comprehensiveness of textual token embeddings, the framework sums the text token embeddings with token-aligned
+image patch embeddings when the centre of the bounding box falls within the image patch. Additionally, the positional
+biases introduced by TILT are added, but ID positional encoding is not used. The decoding stage is designed to generate
+all vision, text and layout modalities consisting of a bi-directional Transformer text-layout decoder and an MAE vision
+decoder. Two decoders are cross-attended with each other. The pertaining tasks contain self-supervised on unlabeled
+documents to learn robust document representation and supervised pertaining tasks for fine-grained model supervision.
+Masked text layout and image reconstruction are used to predict the masked information using unmasked multimodal
+information. A layout moulding task is applied to predict the positions of groups of text tokens, and a visual text
+recognition task is proposed to identify text at the given location in the image. Supervised tasks utilise a training set of
+publicly available benchmark datasets of different downstream tasks, including document classification [ 36], KIE [ 111],
+VQA [83, 114] and layout analysing [149].
+DocFormerv2 [2] is an encoder-decoder transformer architecture that uses multimodal (visual, textual and positional)
+to enhance the multimodal understanding and layout-aware language decoder to predict the predictions. The patched
+image pixels are fed into the convolutional and linear layers to get down-sampled patch embedding. The textual
+embeddings are acquired by linear projected token one-hot encoding. Both visual and textual embeddings are summed
+with the 2D-positional encoding [ 135] of Patches and linear project bbox embedding ( [𝑥0,𝑦0,𝑥1,𝑦1]) [122], respectively.
+Two encoder-based Token to Line (T2L), Token to Grid (T2G), and one decoder-based self-supervised learning task, MLM,
+are proposed to enable multimodal feature interactive learning. T2L aims to improve the relative position understanding
+between tokens by predicting the number of textlines between two randomly selected tokens. For improving the layout
+and structure, understanding needs to split the image into 𝑚×𝑛grids to predict the located grid number of each OCR
+token. For the decoder MLM, the spatial feature of each masked text token is masked as well, and the other setup
+follows T5 [97].
+ViTLP [82] introduces an encoder-decoder architecture for OCR and document understanding using a ViT-based
+vision encoder to obtain image patch representations, which are fed into a decoder to generate text and layout sequences
+autoregressively. A special "[LOC]" token, encoding bounding box coordinates [𝑥0,𝑦0,𝑥1,𝑦1], reduces the layout token
+
+autoregressively. A special "[LOC]" token, encoding bounding box coordinates [𝑥0,𝑦0,𝑥1,𝑦1], reduces the layout token
+sequence length. To control generation flow, "[BOS]" and "[CONT]" tokens are added, representing input sequences of
+two tokens, t1,t2, as "[BOS], t1, [LOC], t2, [LOC]". The decoder has hierarchical heads: the text head uses all tokens
+to generate the next text token, while the layout head uses "[LOC]" tokens to predict bounding box coordinates. The
+"[CONT]" token handles sequences of arbitrary length by continuing generation until "[END]", based on the prefix
+token ratio.
+Manuscript submitted to ACM
+
+22 DING, et al.
+4.3.2 OCR-free Pretrained Frameworks. Donut [51] is the first OCR-free VRD understanding model to understand and
+extract key information from input document images. Donut contains a Swin Transformer-based visual encoder to
+encode the input document image into image patches, which are then fed into a BART-based [ 60] decoder pretrained on
+multi-lingual scenarios. During model training, teacher forcing is applied, and in the test stage, inspired by GPT-3 [ 9],
+prompts with special identify tokens are fed into the model for different downstream tasks. The output token sequence
+contains the special tokens <𝑆𝑇𝐴𝑅𝑇 _∗>and<𝐸𝑁𝐷 _∗>to identify the type of tasks and struct predict entities. The
+wrongly structured entity will be treated as an empty prediction. The model is pretrained on next-token prediction
+on the IIT-CDIP dataset and a Synthetic Dataset, which can be interpreted as a pseudo-OCR task. Similar to Donut,
+Dessurt [20] also proposes an encoder-decoder architecture but a different decoding process. Instead of using BART,
+the cross-attention used in Dessurt attends to all visual, query and previously generated textual information and is
+pretrained on more synthetic datasets with different font sizes and handwritten content.
+ReRum [10] introduce an end-to-end architecture in which the decoding process focuses on local interest and visual
+cues. Like other OCR-free frameworks, a Swin-Transformer extracts image patch representations. The extracted visual
+features are fed into a transformer-based Query-Decoder to acquire the vision-enhanced query representation. The
+enhanced query representation with visual features is fed into a Text Decoder to generate the predicted text tokens
+auto-regressively. Notably, a Content-aware Token Merge technique is proposed to dynamically focus on more relevant
+foreground parts of visual features, which selects top-K visual tokens based on the averaged correlation scores between
+query and visual token representations. Additionally, the unselected visual tokens (called Background Area) contain rich
+global features that could be used to enhance the Top-K foreground visual tokens through basic attention mechanisms.
+Three pretraining tasks are applied: query to segmentation (Q2S), text to segmentation (T2S), and segmentation to
+text (S2T). Q2S follows DETR setup for a token generation but alters to an instance segmentation task to predict 𝑁
+mask for the target text area to improve text detection ability. T2S acquire the Text Decoder output to conduct another
+instance segmentation task after feeding the image text snippet into the Text Decoder to boost the layout-aware textual
+information understanding. The last S2T is to use the outputs from the Text Decoder to generate the token like an OCR
+task auto-regressively.
+StrucTextV2 [142] is an end-to-end structure that uses image-only input to conduct several downstream tasks. It
+contains a CNN-based visual extractor with FPN strategies [ 69] and follows ViT [ 28] to get linear projected flattened
+patch-level representations. The patch token embeddings serve as the input to the Transformer encoder to enhance
+the contextually semantic representations. Then, the lightweight fusion network is applied to generate the final
+representations and fed into two branches during pretraining: made language Modeling (MLM) and Masked Image
+Modeling (MIM). Instead of using text inputs when MLM is used by other models [ 22], a portion of the text regions are
+masked with RGB values [255,255,255]randomly with a 2-layer MLP decoder to predict the masked token. MIM masks
+the rectangular text regions and predicts the RGB values of the missing pixels to improve the document representations.
+Except for the global average pooled FPN fused visual representations, the MLM-generated hidden state of each text
+region is concatenated and fed into a Fully Convolutional New York to get the regressed masked missing pixel values.
+
+region is concatenated and fed into a Fully Convolutional New York to get the regressed masked missing pixel values.
+4.3.3 LLM-based Frameworks. HRVDA [70] aims to propose a MLLM accepting high-resolution image inputs to
+conduct fine-grained information extraction from VRDs. A swin-transformer [ 75] is used to encode document images
+into image patch tokens. A pluggable content detector then identifies visual tokens that contain relevant document
+content information. Following this, a content filtering mechanism performs token pruning to remove irrelevant tokens.
+The remaining encoded visual tokens are processed through an MLP to ensure consistency with the LLM embedding
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 23
+space dimensions. These pruned tokens are then fused with instruction features, allowing further filtering of tokens
+irrelevant to the instructions. The final streamlined set of visual tokens and instructions is fed into the LLM, which
+generates the corresponding responses.
+LayoutLLM [78] introduces an LLM/MLLM-based approach integrated with a pretrained document understanding
+model to address the challenges of applying LLMs to zero-shot document understanding tasks. The input document’s
+visual, textual, and layout information and any question text are encoded by a pretrained LayoutLMv3 [ 42] encoder
+and projected into the same embedding space as the adopted LLM, Vicuna-7B-v1.5 [ 148]. The method incorporates
+layout-aware pretraining tasks at three levels: document-level (e.g., document summarization), region-level (e.g.,
+layout analysis), and segment-level (e.g., MVLM). These tasks enable the model to achieve comprehensive document
+understanding. Additionally, a novel module called LayoutCoT is designed to help LayoutLLM focus on question-relevant
+regions and generate accurate answers through intermediate steps. GPT-3.5-turbo [ 89] is used to prepare the dataset for
+document summarization training and to construct LayoutCoT training data.
+4.4 Non-Pretrained Frameworks
+CALM [29] introduces a common-sense augment document understanding framework to understand the query and
+extrapolate answers not contained in the context of the input document image. They follow LayoutLMv2 [ 137] to
+encode input document multimodal representations. The textual token embeddings are fed into a Document Purifier
+component to merge the tokens {𝑡1,...,𝑡𝑛}belonging to one entity type 𝑁to one Upper Layer token ˆ𝑐by applying
+average pooling of ˆ𝑐=𝐴𝑣𝑒𝑃𝑜𝑜𝑙(𝑡1,...,𝑡𝑛). Each Upper Layer token is concatenated with the commence augmented on
+ConceptNet NumberBatch [ 110] entity word vector 𝑐′to get the final entity representation 𝑐=𝑐𝑜𝑛𝑐𝑎𝑡(ˆ𝑐,𝑐′). A similar
+Question-Purifier is applied to use common-sense knowledge to enhance the question representation. Then, with the
+assistance of ConceptNet, relevant common-sense knowledge is recalled based on the common-sense representation of
+both documents and queries. By considering the predicted question-answer relationship, a final self-attentive graph
+convolutional network following [152] is proposed to address document reasoning tasks more effectively.
+LayoutGCN [106] proposes a lightweight and effective model which contains a fully connected graph where text
+blocks are nodes and edges connect every two blocks. The model architecture includes a TextCNN-based [ 53] encoder
+to encode N-gram textual embeddings, a linear trainable layout encoder to project the normalised bbox coordinates
+into hyperspace following other layout-aware models, and a visual encoder (CSP-Darknet [ 121] for document image
+features). These features are integrated using a Graph Convolution Network (GCN) to capture relationships between
+nodes. The final node representation combines text, layout, and visual information, benefiting various VRDU tasks.
+XYLayoutLM [33] introduces an Augmented XY Cut module to correct the improper reading order generated by
+OCR engines and a Dialted Conditional Position Encoding module to handle the variable lengths of input text and
+image tokens. LayoutXLM [136]6is adopted as a basic framework to process multimodal inputs. The Augmented XY
+Cut module enhances traditional XY Cut [ 86] by incorporating thresholds ( 𝜆𝑥,𝜆𝑦) and a shift factor ( 𝜃) to adjust box
+positions on the x and y axis based on randomly generated values. It recursively divides token boxes using valleys
+in horizontal and vertical projection profiles, forming clusters in descending order. Each cluster’s reading order is
+determined recursively, prioritizing divisions until no significant valleys remain, ensuring a proper reading order
+
+determined recursively, prioritizing divisions until no significant valleys remain, ensuring a proper reading order
+is derived from an XY Tree structure. DCPE (Dilated Conditional Position Encoding) addresses limitations of CPE
+[18] in multimodal tasks by separately processing textual and visual features. It employs 1D convolutions for textual
+6Please refer to Section 4.1.2 to see a detailed description of the LayoutXLM model.
+Manuscript submitted to ACM
+
+24 DING, et al.
+tokens to extract 1D local layouts, accommodating their inherent 1D relationships. Additionally, DCPE utilizes dilated
+convolutions [ 140] to capture long-range dependencies effectively without increasing model complexity, thereby
+enhancing performance in multimodal document understanding tasks.
+4.5 Summary of Multi-Task Frameworks
+Various models are proposed to enhance document representations for VRDU tasks by leveraging pretrained language
+models to enrich text token sequences with layout information through positional encoding [ 135], attention mechanisms
+[122], and layout-aware tasks [ 118]. However, VRDs contain rich visual details like font, texture, and colour and visually
+complex entities such as tables, charts, and photos. Many models [ 1,42,137] integrate visual cues to enhance fine-grained
+document features, but their quadratic time and space complexity pose challenges for handling long sequences in multi-
+page document understanding [ 26]. Fine-grained models excel but struggle with capturing layout and structural details
+from document images. Coarse-grained frameworks [ 32,65] mitigate fine-grained limitations by leveraging entity-level
+multimodal information, yet compressing diverse entity aspects into a single dense vector risks losing information
+[27]. Joint-grained frameworks [ 3,67,77,126,143] integrate multi-grained information to produce comprehensive
+representations. Non-pretrained models leverage external knowledge [ 29] or lightweight networks [ 106] to rival large-
+scale pretrained frameworks’ performance. Most document understanding models [ 42,65,122,135] rely on off-the-shelf
+OCR tools for text extraction, which can be susceptible to OCR quality issues and incorrect reading orders. OCR-free
+frameworks directly process document images to mitigate these limitations; However, these frameworks may exhibit
+sub-optimal performance compared to methods using established OCR tools with additional resource consumption.
+5 VISUALLY RICH DOCUMENT CONTENT UNDERSTANDING DATASETS
+5.1 Key Information Extraction and Entity Linking
+Name Conf./J. Year Domain # Docs # Images # Keys MP. Language Metrics Format
+FUNSD ICDAR-w 2019 Multi-source N/A 199 4 N English F1 P.& H.
+SROIE ICDAR-c 2019 Scanned Receipts N/A 973 4 N English F1* P.
+CORD Neurips-w 2019 Scanned Receipts N/A 1,000 54 N English F1 P.
+Payment-Invoice ACL 2020 Invoice Form N/A 14,237+595 7 N English F1 D.
+Payment-Receipts ACL 2020 Scanned Receipts N/A 478 2 N English F1 P.
+Kleister-NDA ICDAR 2021 Private Agreements 540 3,229 4 Y English F1 D.
+Kleister-Charity ICDAR 2021 AFR 2,778 61,643 8 Y English F1 D.& P.
+EPHOIE AAAI 2021 Exam Paper N/A 1,494 10 N Chinese F1 P.& H.
+XFUND ACL 2022 Synthetic Forms N/A 1,393 4 N Multilingual F1 D.& P.& H.
+Form-NLU SIGIR 2023 Financial Form N/A 857 12 N English F1 D.& P.& H.
+VRDU-Regist. Form KDD 2023 Registration Form N/A 1,915 6 N English F1 D.
+VRDU-Ad-buy Form KDD 2023 Political Invoice Form N/A 641 9+1(5) N English F1 D.&P.
+DocILE ICDAR 2023 Invoice Form 6,680 106,680 55 Y English AP, CLEval D.&P.
+Table 1. Summary of visually rich document key information extraction datasets.
+5.1.1 Scanned Receipt Datasets. SROIE [43] is a widely used dataset for text localization, OCR, and key information
+extraction from scanned receipts, introduced in the ICDAR 2019 Challenge on " Scanned Receipts OCR and Key Information
+Extraction " The Key Information Extraction (KIE) task focuses on four key types: Address ,Date,Company , and Total ,
+with corresponding values provided in the annotation file for each receipt. The F1 score for this task is calculated based
+on Mean Average Precision (MAP) and recall. Note that entity-level annotations are not provided in the official dataset,
+requiring the use of external tools to obtain the information for coarse-grained or joint-grained models.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 25
+Payment-Receipts [81] is a subset of SROIE, created by sampling up to 5 documents from each template in the
+original SROIE dataset. The template of each receipt is decided by the Company annotation. The target schema focuses
+on extracting only Date andTotal . This subset is used to evaluate the model’s ability to handle unseen templates.
+CORD [92] is a widely used dataset for post-OCR receipt understanding, featuring two-level labels annotated by
+crowdsourcing workers. It includes eight superclasses, such as Store ,Payment ,Menu ,Subtotal , and Total , each with
+several subclasses. For example, Store contains subclasses like Name ,Address , and Telephone . CORD provides both
+textline-level and word-level annotations for both fine-grained and coarse-grained frameworks, with some sensitive
+information blurred. All models are evaluated on the released first 1,000 samples.
+5.1.2 Form-style Datasets. FUNSD [46] is derived from the RVL-CDIP dataset [ 36] by manually selecting 199 readable
+and diverse template form images. The dataset is annotated using the GuiZero library to provide both entity and
+word-level annotations, including manual text recognition. Semantic links indicate relationships between entities, such
+as Question-Answer or Header-Question pairs. Consequently, FUNSD supports key information extraction, OCR, and
+entity linking tasks.
+XFUND [136] is the first multilingual dataset following the FUNSD format. It collects form templates in seven
+languages (Chinese, Japanese, Spanish, French, Italian, German, and Portuguese) from the internet. Human annotators
+fill these templates with synthetic information by typing or handwriting, ensuring each template is used only once. The
+filled forms are then scanned into document images, processed with OCR, and annotated with key-value pairs. Each
+language has 199 annotated forms, supporting multilingual key information extraction and entity linking tasks.
+Payment-Invoice [81] contains two corpora of invoices from different sources. The first corpus, Invoice 1, includes
+14,273 invoices from various vendors with different template styles, used for training and validation. The second
+corpus, Invoice 2, comprises 595 documents with distinct templates not found in Invoice 1, serving as the test set.
+Human annotators extract six required keys from each single-page invoice, such as Invoice Date ,Total Amount , and Tax
+Amount . This dataset is suitable for evaluating generative-style models and fine-grained sequence labeling models. For
+coarse-grained models, additional text line or entity-level information can be extracted using off-the-shelf tools.
+VRDU-Registration Form [131] is a dataset of registration forms about foreign agents registering with the US
+government collected from the Federal Communications Commission. Commercial OCR tools extract the text content
+of the forms. Annotators draw bounding boxes around six unrepeated entities (each entity appears only once per
+document) per document: File Date ,Foreign Principal Name ,Registrant Name ,Registration ID ,Signer Name , and Signer
+Title. The dataset provides entity-level annotations, which can be easily preprocessed to acquire token-level annotations,
+supporting any granularity of Key Information Extraction (KIE) models.
+VRDU-Ad-buy Form [131] consists of 641 invoices or receipts signed between TV stations and campaign groups for
+political advertisements. It follows the same annotation procedure as the VRDU-Registration Form but involves a more
+complex schema. This includes nine unique entities (e.g., Advertiser ,Agency ,Contract ID ), four repeated entities (e.g.,
+Item Description ,Sub Prices ), and hierarchical entities (e.g., Line Item ). Repeated entities may contain different values
+within a single document, while hierarchical entities comprise several repeated entities as components.
+
+within a single document, while hierarchical entities comprise several repeated entities as components.
+Form-NLU [24] is a visual-linguistics dataset designed to support researchers in interpreting specific designer
+intentions amidst various types of noise from different form carriers, including digital, printed, and handwritten forms.
+Fine-grained key-value pairs, such as Company Name ,Previous Notice Date , and Previous Shares , are manually annotated.
+The training and validation set comprises 535 digital-born forms, with 76 reserved for validation. Additionally, three
+test sets are provided, containing 146 digital, 50 printed, and 50 handwritten form images, respectively. Form-NLU can
+Manuscript submitted to ACM
+
+26 DING, et al.
+be used to evaluate form layout analysis and Key Information Extraction (KIE) models of any granularity. With proper
+processing, it can also be used to evaluate entity linking frameworks, thanks to the well-annotated key-value pairs.
+5.1.3 Multi-page Datasets. Kleister-NDA [111] is a dataset collected from the Electronic Data Gathering, Analysis,
+and Retrieval System (EDGAR) focusing on Non-disclosure Agreements (NDAs). During preprocessing, the collected
+540 HTML files are converted into digital multi-page PDF files (totalling 3,229 pages) using the Puppeteer library.
+Four key items, Effective Date ,Party ,Jurisdiction , and Term , are manually annotated by three annotators to extract
+the corresponding values. The NDA dataset is widely used by fine-grained level models but may require additional
+processing for frameworks with limited sequence length due to the multi-page inputs.
+Kleister-Charity [111] contains 2,778 annual financial reports from the Charity Commission, which lack strict
+formatting rules. The Charity Commission website provides eight key pieces of information, such as Postcode, Charity
+Name, and Report Date. Annotators manually correct minor errors to ensure accuracy. Compared to Kleister-NDA, the
+Charity dataset has longer document inputs, totalling 61,643 pages, requiring models to handle long sequence outputs.
+Both Charity and NDA datasets provide only key-value pair annotations, making them suitable for the generation and
+fine-grained sequence labelling tasks but requiring additional processing to acquire entity-level annotations.
+DocILE [107] comprises three subsets: an annotated set of 6,680 real business documents, an unlabeled set of 932,000
+real business documents for unsupervised pretraining, and a synthetic set of 100,000 documents generated with full task
+labels. Documents come from public sources like the UCSF Industry Documents Library and Public Inspection Files,
+with annotations for Key Information Localization and Extraction and Line Item Recognition. Synthetic documents
+were created using annotated templates and a rule-based synthesizer. DocILE provides entity-level annotations that can
+be easily post-processed to acquire token-level annotations.
+5.2 Visual Question Answering
+Name Conf./J. Year Domain Lang. # Docs # Images # Questions Answer Type MP Format Metrics Annotation
+DocVQA WACV 2021 Industrial Reports English N/A 12,767 50,000 Text N D./P./H. ANLS Human
+VisualMRC AAAI 2021 Website English N/A 10,197 30,562 Text N D. BLUE, etc Human
+TAT-DQA MM 2022 Financial Reports English 2,758 3,067 16,558 Text/RS-Gen. Y D. EM, F1 Human
+RDVQA MM 2022 Data Analysis Report N/A 8,362 8,514 41,378 Text N D. ANLS, ACC Human
+CS-DVQA MM 2022 Industry Documents English N/A 600 1,000 Text and Nodes N D./P./H. ANLS Human
+PDFVQA-Task A ECML-PKDD 2023 Academic Paper English N/A 12,337 81,085 Num or Yes/No N D. F1 Template
+PDFVQA-Task B ECML-PKDD 2023 Academic Paper English N/A 12,337 53,872 Entity N D. F1 Template
+PDFVQA-Task C ECML-PKDD 2023 Academic Paper English 1,147 12,337 5,653 Entity Y D. EM Template
+MPDocVQA PR 2023 Industrial Reports English 6,000 48,000 46,000 Text Y D./P./H. ANLS Human
+DUDE ICCV 2023 Cross-domain English 5,019 28,709 41,541 Text, Yes/No Y D. ANLS Human
+MMVQA IJCAI 2024 Academic Paper English 3,146 30,239 262,928 Entity Y D. EM, PM, MR LLM + Human
+Table 2. Summary of visually rich document question answering datasets
+5.2.1 Single Page VRD-QA Datasets. DocVQA [83] is a pioneering dataset in document-based Visual Question An-
+swering (VQA), sourced from the UCSF Industry Document Library. It comprises 50,000 manually generated questions
+framed on 12,767 document images, encompassing digital, printed, and handwritten formats. The dataset follows
+an extractive-style QA format similar to benchmarks like SQuAD [ 99] and VQA [ 7]. Evaluation typically involves
+fine-grained models such as LayoutLM variants [ 42,135,137], LiLT [ 122], and generative models [ 51,115], using
+
+fine-grained models such as LayoutLM variants [ 42,135,137], LiLT [ 122], and generative models [ 51,115], using
+metrics like Average Normalized Levenshtein Similarity (ANLS) [ 6]. However, it requires additional processing for
+coarse-grained models like SelfDoc [ 65].CS-DVQA [29] builds upon DocVQA by enhancing QA pairs to better reflect
+real-world requirements. It extracts 600 images from the DocVQA dataset and generates 1,000 QA pairs under human
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 27
+supervision. During question generation, it incorporates common-sense knowledge from real life, expanding answers
+beyond extractive in-line text to include question-related nodes (Nodes) sourced from ConceptNet [110].
+VisualMRC [114] is compiled from website screenshots across 35 domains, carefully selected to exclude pages with
+handwritten content and to prefer pages containing short text (no more than 2 to 3 paragraphs). Unlike other datasets
+that might only provide question-answer annotations [ 83] or automatically acquire document semantic entities [ 25],
+VisualMRC includes manually annotated layout structures with fine-grained semantic entity types such as Heading ,
+Paragraph ,Subtitle ,Picture , and Caption . Question-answer pairs are generated through crowdsourcing. Consequently,
+VisualMRC is well-suited for evaluating both fine-grained and coarse-grained-based QA frameworks, providing a rich
+resource for assessing the effectiveness of models in understanding and interpreting detailed document layouts and
+semantic entities.
+PDFVQA-Task A and Task B [25] form part of the first document VQA dataset from PubMed Central, focusing
+on content and structural understanding. This dataset includes three tasks: two for single-page documents (Tasks A
+and B) and one for multi-page documents (Task C). Task A evaluates the structural and spatial relationships within
+document images, with answers being either counts or Yes/No. Task B focuses on extracting document entities based
+on their logical and spatial configurations. The PDFVQA dataset provides only coarse-grained, entity-level annotations,
+necessitating further processing for models that require fine-grained analysis. This setup is ideal for testing models’
+capabilities in understanding the logical and spatial structures of document images.
+5.2.2 Multi-Page VRD-QA Datasets. TAT-DQA [150], an extension of the TAT-QA [ 151] dataset, is developed with more
+complex natural document structures and an expanded set of manually corrected and generated question-answer pairs
+derived from business financial reports. Unlike other datasets that primarily focus on extractive or simple abstractive
+answers (such as counting or yes/no), TAT-DQA includes questions requiring arithmetic reasoning, where values must
+be extracted from tabular data and textual content for discrete calculations. This dataset adopts the evaluation metrics
+of TAT-QA, including Exact Matching and a numeracy-focused F1 score. These metrics are particularly tailored to
+assess the accuracy of arithmetic reasoning and data extraction capabilities of the models tested with TAT-DQA.
+RDVQA dataset [ 134] compiles a large collection of conversational chats and associated images from an E-commerce
+platform. It employs standard OCR and Named Entity Recognition (NER) techniques to extract text and redact sensitive
+information, ensuring privacy protection through masking. The dataset includes question-answer pairs within the
+images, which are manually verified to confirm image clarity and the presence of at least one question-answer pair per
+image. Although some documents span multiple pages, this dataset is structured such that it can be processed relatively
+easily by single-page VRD-QA models.
+PDFVQA-Task C [25] is a distinct sub-task within the PDFVQA dataset that expands document VQA to encompass
+entire long documents, moving beyond the single-page focus of Tasks A and B. In Task C, to answer questions, the
+model often needs to retrieve information from multiple document entities. Thus, Task C employs Exact Matching for
+its ground truth annotations. Similar to Tasks A and B, additional processing is required for evaluating models at a
+fine-grained level.
+MP-DocVQA [116] extends the original DocVQA [ 83] dataset to accommodate multi-page document analysis. This
+
+fine-grained level.
+MP-DocVQA [116] extends the original DocVQA [ 83] dataset to accommodate multi-page document analysis. This
+version includes adjacent pages from the same documents, expanding the dataset from 12,767 to 64,057 document
+images. In adapting to a multi-page format, some questions inappropriate were removed. However, it’s important to
+note that while the dataset allows for questions across multiple pages, the answers remain confined to individual pages;
+there are no cross-page answers in the MP-DocVQA dataset.
+Manuscript submitted to ACM
+
+28 DING, et al.
+DUDE [119] is the first cross-domain, multi-page document VQA dataset, featuring a diverse collection of documents
+from various fields such as medical, legal, technical, and financial, and different document types including CVs, reports,
+and papers. It comprises 5,019 documents, 28,709 document pages, and 41,541 manually annotated questions. Question
+types vary from extractive in-line text and Yes/No answers to multi-hop reasoning and structural understanding, similar
+to those in PDFVQA [ 25]. To evaluate model performance, DUDE uses the ANLS metric [ 83] for assessing answer
+prediction accuracy. Additionally, it employs two other metrics: Expected Calibration Error [ 34] and Area-Under-Risk-
+Coverage-Curve (CURC) [ 31,45] to gauge the overconfidence and miscalibration in document understanding models.
+These features make DUDE a comprehensive tool for evaluating cross-domain document understanding models.
+MMVQA [26] is a dataset sourced from PubMed Central, designed for the retrieval of multimodal semantic entities
+from multi-page documents. The questions are generated using ChatGPT [ 89] and subsequently verified manually.
+Unlike other datasets that focus solely on in-line text or text-dense entities, MMVQA also considers entire tables and
+figures as potential answers to the given questions. This dataset introduces various evaluation metrics to cater to
+different application scenarios: Exact Matching and Partial Matching Accuracy assess the precision of responses, while
+Multi-label Recall evaluates how well the model identifies all relevant answers across the document. This diverse set
+of metrics makes MMVQA suitable for comprehensive performance evaluation in complex, multimodal document
+understanding tasks.
+5.3 Summary of VRDU Datasets
+The common characteristics of KIE and VRD-QA datasets are represented in Table 1 and Table 2. Most existing benchmark
+datasets for key information extraction are designed for single-page scenarios and predominantly cater to English
+documents. However, real-world applications often involve more complex multi-page forms. Even forms typically
+require input from multiple parties and contain multiple languages, such as customs or import/export declaration
+forms, presenting unique challenges not addressed by current datasets. Similarly, in the domain of VRD-QA, while
+multi-page VRD-QA has gained increased attention, the integration and exploration of multimodal information remain
+insufficiently developed. Specifically, structure and relation-aware VRD-QA, which is crucial for interpreting and
+understanding cross-page relationships, is still a largely unexplored area.
+6 CRITICAL DISCUSSION
+In Section 3 and Section 4, the models proposed for handling both mono-task and multi-task Visually Rich Document
+Understanding (VRDU) are introduced. This section aims to provide a summary and analysis of relevant techniques,
+including their application scenarios, advantages, and disadvantages. Several key topics are covered: Feature Engineering ,
+Cross-Modality Fusion ,Model Architecture , and Pre-training Mechanisms . Additionally, with the rapid development of
+Large Language Models (LLMs), LLM-based frameworks and emerging trends in applying LLMs to VRDU are discussed.
+6.1 Feature Representation
+6.1.1 Textual Representation. Text in VRDs provides essential semantic context, crucial for understanding content
+and conducting various downstream tasks. Depending on the information granularity required by the framework and
+application scenarios, textual representation methods can generally be categorized at the word or entity level.
+Word-level Representations In Visually Rich Documents (VRDs), text sequences extracted by off-the-shelf OCR
+tools or PDF parsers (e.g., PDFMiner) can be encoded using word embedding methods such as Word2Vec [ 84] and
+Glove [ 93]. For more comprehensive textual embeddings, various BERT-style bi-directional pretrained transformer
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 29
+Fig. 4. Fine-grained (word-level) and coarse-grained (entity-level) textual information encoding for VRDU frameworks.
+Fig. 5. Commonly adopted visual information encoding approaches.
+models like BERT [ 22] and RoBERTa [ 74] are employed to generate context-aware word representations. As the visually
+rich and structurally complex nature of VRDs, layout-aware and visual-integrated fine-grained models have been
+developed, such as LayoutLM families [ 42,135–137], LiLT [ 122]. These models generate word representations that
+integrate multimodal information, combining text, visual cues, and layout structure to achieve SoTA performance on
+several downstream tasks.
+Entity-level Representations To acquire a dense representation of a text sequence for performing entity-level VRDU
+tasks, various approaches are adopted. These include averaging word embeddings specific to an entity or leveraging the
+<𝐶𝐿𝑆>token to encapsulate the entire sequence, including averaging the word embeddings belonging to an entity
+or using <𝐶𝐿𝑆>token to represent an entire sequence. SentenceBERT [ 101] is also often adopted to encode text
+sequences within document entities. However, a standardized approach for acquiring textual representations of entities
+is yet to be established, necessitating preliminary testing and validation.
+6.1.2 Visual Representation. Visual information provides layout, structural insights, and rich contextual clues, making
+it easier for humans to interpret and prioritize content and resulting in a more comprehensive reading experience.
+Based on the methods used for encoding visual information, we categorize them into two main types: CNN-based and
+Vision Transformer-based approaches.
+CNN-based Vision Encoding methods involve first acquiring Region of Interest (RoI) bounding boxes and then
+applying RoI-pooling and RoI-Align on pretrained CNN backbones (e.g., Faster-RCNN or Mask-RCNN) to extract the
+region features. Many frameworks [ 25,26,32,65,79,135,143] utilize word or entity-level RoIs to effectively extract
+visual features of target regions and leverage the implicit knowledge embedded in pretrained backbones. However,
+acquiring the bounding boxes of words or entities incurs additional costs. Therefore, several frameworks [ 1,3,136,137]
+directly use image patch bounding RoIs to extract visual features and learn contextually with other modalities.
+After acquiring the visual features, they are typically fed into a transformer framework to fuse multimodal information,
+which can create significant computational bottlenecks. Additionally, acquiring high-quality RoIs of words or entities
+requires supervised training. To address these challenges, LayoutLMv3 , inspired by ViT [ 28], introduces a transformer-
+only framework. This approach applies a linear layer to project flattened patch pixels, which are then fed into a
+multimodal transformer to contextually learn with other modalities. This method reduces the number of parameters
+Manuscript submitted to ACM
+
+30 DING, et al.
+Fig. 6. Commonly adopted layout information encoding approaches.
+Fig. 7. Commonly adopted multi-modality fusion methods.
+and simplifies the preprocessing steps, making it more efficient and adopted by many recent frameworks [ 2,82,115].
+However, this encoding method cannot take advantage of implicit knowledge in pre-trained frameworks and typically
+requires extensive pre-trained.
+6.1.3 Layout Representation. Layout information is crucial for understanding document elements’ spatial arrangement,
+including words and entities. Enhance document representation by clarifying the spatial relationships between these
+elements, thereby aiding in the comprehension of the overall document structure. The coordinates of the bounding box
+(bbox) of the document elements serve as initial layout information. This layout information can then be encoded using
+methods such as positional encoding, linear projection, and spatial-aware attention bias.
+2D positional encoding, first introduced by LayoutLM [135], and widely adopted by many visually rich document
+understanding (VRDU) models, allows the model to be aware of the relative spatial positions within a document. In this
+approach, document elements are normalized and discretized into integer ranges, and two separate embedding layers are
+used to encode the x and y coordinates, respectively. Despite its widespread use in models like [ 3,42,68,118,122,135–
+137]this method encodes x and y coordinates individually, making it challenging to represent continuous 2D space
+and capture special correlations between document elements. Some models [ 24,129] that follow the approach of
+LXMERT [113] utilize linear projection to update the x and y coordinates of the normalized bounding box coordinates
+simultaneously. To address the limitations of absolute positional encoding and incorporate relative positional correlations,
+other models introduce spatial-aware attention mechanisms [ 1,40,122]. These mechanisms enable vanilla self-attention
+to learn spatial dependencies effectively.
+6.2 Multi-modality Fusion
+After acquiring multimodal representations, it is important to explore effective fusion methods to integrate textual, visual,
+and layout information. This integration improves document understanding and boosts performance on downstream
+tasks. The straightforward integration methods, as shown in Figure 7, include the additive and concatenation of the
+feature vectors. For example, additive integration sums layout information with corresponding textual or visual token
+representations [ 42,65,135,137], while concatenation merges visual and textual features of document entities (e.g.
+tables) [ 25,26]. However, these methods require one-to-one correlations and alternative approaches are needed when
+such correlations are not available. Consequently, self-attention and cross-attention mechanisms are widely adopted
+to enhance each modality by learning inter- and intramodality contexts. These mechanisms are commonly used in
+frameworks [ 3,42,118,136,137] that integrate patch-level visual embeddings with textual features for contextual
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 31
+learning. Novel self-attention [ 1,122] and cross-attention [ 32,65,143] methods have been proposed to fuse multimodal
+information more effectively. Apart from model-based fusion approaches, self-supervised and joint learning tasks are
+also effective for integrating multi-aspect features. Self-supervised pretraining tasks such as Masked Visual-Language
+Modeling [ 42,61,122,135,137,143], Text-Image Alignment [ 1], Text-Layout Pairing [ 122], and Text-Image Matching
+[136,137] can significantly enhance multimodal information fusion. These methods require large-scale pretraining to
+learn cross-modality semantic correlations. Joint learning methods, often used in OCR-free frameworks [ 20,51,123,142],
+design auxiliary text detection or recognition tasks to fuse textual and visual information. This approach reduces
+pre-processing during inference and addresses mis-ordering sequence issues. However, these methods generally
+underperform compared to OCR-dependent models and involve additional training costs.
+6.3 Model Architecture
+6.3.1 Transformer in VRDU. Referring to the models introduced in Section 3 and Section 4, transformers have become
+extensively utilized in VRDU tasks, attaining state-of-the-art performance due to several key advantages. Firstly, the
+attention mechanism effectively captures long-range dependencies within the multimodal information, including
+text, vision, and layout. Furthermore, the inherent scalability of transformers improves self-supervised learning on
+large-scale datasets (e.g. IIT-CDIP [ 59]), allowing them to handle diverse types and formats of documents, capturing
+more intricate and comprehensive features of the documents. Based on the transformer architecture used, VRDU models
+can be divided into two categories: encoder-only and encoder-decoder-based models. The first encoder-only model,
+LayoutLM [ 135], was inspired by BERT [ 22] and uses various pretraining tasks to allow the bidirectional transformer
+encoder to capture more textual and layout information. Following LayoutLM, more pretrained VRDU models with
+encoder-only, layout-aware [ 15,40,61,118,122,122] or visual integrated [ 1,42,136,137] have been proposed. These
+models are pretrained on various tasks to enhance their understanding of document structures. Encoder-only models
+demonstrate remarkable performance in sequence tagging and document classification tasks. However, they face
+challenges related to heavy annotation requirements and low readability, and they struggle with generative tasks such
+as abstractive question answering. Additionally, OCR errors can complicate the extraction of accurate information from
+input text. Furthermore, the fixed maximum input length of encoder-only frameworks limits their ability to handle
+long document inputs effectively. To overcome the limitations of encoder-only frameworks in generative QA and KIE,
+several encoder-decoder models [ 2,82,95,115] have been developed, but they still depend on costly OCR tools which
+can introduce errors affecting performance. OCR-free frameworks [ 10,20,51,142] address this issue by using vision
+encoders and text decoders for end-to-end processing. For long documents, T5-based encoder-decoder models [ 97]
+have been proposed to effectively handle multipage contexts.
+6.3.2 CNNs in VRDU. In VRDU, CNNs are employed as the core framework for extracting feature maps from document
+images [ 91,138] and character grids [ 50], benefiting from their strong local feature extraction capabilities. Joint-learning
+frameworks [ 123,123] use CNNs as a backbone to integrate OCR and KIE tasks, combining visual and textual information
+through auxiliary tasks. Some OCR-free pretrained frameworks [ 20,142] also utilize CNNs as vision encoders to extract
+visual feature maps. However, CNNs struggle to capture long-range dependencies due to their localized receptive
+
+visual feature maps. However, CNNs struggle to capture long-range dependencies due to their localized receptive
+fields. To address this, StrucTexTv2 [ 142] combines CNN-extracted feature maps with a transformer to capture global
+contextual information. Additionally, CNNs are commonly used to extract visual features from regions of interest (RoI)
+with RoI Align[ 3,42,68,118,122,135–137]. Although CNNs can accurately capture region-specific visual cues and
+Manuscript submitted to ACM
+
+32 DING, et al.
+leverage pre-trained knowledge from general domains, they require extra processing to obtain RoI bounding boxes,
+unlike vision transformers [2, 42, 82, 115], which operate directly on patch pixel values.
+6.3.3 Graphs in VRDU. VRDs feature complex spatial and logical structures. The spatial structure shows the layout
+and positional relationships, such as a Title above a Paragraph and a Caption near a Figure orTable . The logical
+structure denotes semantic and hierarchical connections, like a Title being the parent of a Paragraph and a Caption
+describing a related Table orFigure . Graph-based frameworks explicitly encode these relationships using node and
+edge representations; therefore, Graph Neural Networks (GNNs) are widely used in VRDU models [ 56,79,106,145] to
+encode the spatial and logical representations. Although GNNs effectively capture domain-specific knowledge, they
+struggle with scalability and general domain knowledge pretraining. To address this, some frameworks [ 66,146] use
+attention masks or biases to mimic relationships between document elements, blending attention mechanisms with
+explicit relational modelling.
+6.4 Pretraining Mechanisms
+By performing various pretraining tasks, a model can enhance its generalization ability through extensive datasets and
+prior training. Inspired by advances in pre-training language [ 9,22] and vision models [ 28,39], numerous pretraining
+tasks for VRDU have been developed that are typically trained in large-scale document collections. This section will
+summarize the pretraining techniques and datasets commonly used for VRDU pretraining.
+6.4.1 Pretraining Tasks. Based on the purpose and pretraining targets, the pretraining methods can be categorised into
+Masked Information Modeling, Cross-modality Learning, Mono-modality Augmentation, and Contrastive Learning.
+Masked Information Modelling (MIM) is first introduced by Masked Language Modelling in BERT [ 22], which
+randomly masks 15% workpiece tokens and requires the model to predict the masked tokens. Some models use multi-
+source inputs, such as XDoc [ 15] and MarkupLM [ 62], which directly adopts Masked Language Modeling as a pretraining
+task on plain text or markdown text subsets. Some methods optimise MLM by changing masking wordpieces to whole
+words ( Whole Word Masking by LayoutMask [ 118]) or all tokens belong to one randomly generated text block, named
+Area-Masked Language Modelling [40]. Similar strategies can also be applied to mask entity-level textual representation,
+e.g.Masked Sentence Modelling [32]. Those language-targeted masked information modelling to improve the language
+understanding ability of VRDU models. Except for language-focused masking strategies, vision [ 32,142] and layout-
+focused [ 118,122] strategies are also adopted. Moreover, masked information modelling is an effective method to
+boost cross-modality understanding. LayoutLM [ 135] introduces a Masked Visual-Language Modelling which allows
+using kept visual/layout information and contextual text content to predict the masked word-pieces, adopted by many
+VRDU pretrained models [ 1,42,61,122,137,143]. Similarly, some visual token masked models leverage multimodal
+information to reconstruct the view tokens, e.g. Learn to Reconstruct [1],Masked Image Modeling [42]. Additionally, some
+models mask multimodal features simultaneously to conduct a cross-modality masking [ 65,68]. Masking Information
+Modelling may have limitations on bias in masking strategies, thus some frameworks [ 118] may try different masking
+ratios or strategies to improve the training effectiveness. Additionally, other common concerns about MIM also include
+training efficiency and lack of structural information. Thus, other pretraining methods are introduced to mitigate the
+limitations.
+Cross-modality Aligning Although some Masked Information Modelling methods could effectively boost the
+
+limitations.
+Cross-modality Aligning Although some Masked Information Modelling methods could effectively boost the
+cross-modality understanding, implicit contextual learning is limited to capturing explicit alignment between different
+modalities. Thus, few cross-modality aligning methods are introduced to enhance the modality interaction. To enhance
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 33
+the text-image interactive learning, Text-Image Alignment is adopted [ 136,137] which covers the image region of token
+lines to predict whether the image region of the target token line is covered or not. LayoutLMv3 [ 42] expands from
+covering the image region only to image/text tokens to further enhance interactive learning. Vision-language alignment
+[32] and Text-Image Matching [ 136,137] target to predict whether image-text features belong to the same region or
+not. DocFormer [1] tends to predict the text content of the paired images.
+Other Pretraining Techniques : Some pretraining tasks are introduced to further enhance the understanding of
+specific modalities. To enhance layout information understanding, StructuralLM [ 61] and WOKONG-READER [ 3]
+introduce Cell Position Classification and Textline Grid Matching to predict which located grids are of each cell or
+textline. Fast-StrucText [ 143] introduces a graph-based token relation method to predict a spatial correlation between
+token pairs. MarkupLM [ 62] leverage the benefits from markup files to predict the logical parent-child relation between
+nodes by introducing a Node Relation Prediction. Contrastive learning based strategies are adopted to conduct single
+[32] or cross-modality contrastive ( Textline-Region Contrastive Learning ) [3] learning.
+6.4.2 Pretraining Datasets. To perform the aforementioned tasks, large-scale document collections are essential for
+conducting self-supervised learning. Different pretraining datasets are adopted by various models. The most widely used
+pretraining dataset is the IIT-CDIP Test Collection 1.0 [ 59], which contains more than 6 million documents with over
+11 million scanned document images. Since it contains a cross-domain and large number of unannotated documents,
+it is used by the majority of models [ 1–3,15,32,40,42,51,61,63,68,77,122,135–137,143]. As the original IIT-CDIP
+dataset provides the text content without layout information, off-the-shelf OCR tools are normally used to acquire the
+bounding box information of each document. Some models [ 65,67,126] use relatively smaller pretraining datasets like
+RVL-CDIP [ 36], which contains 400,000 evenly distributed documents in 16 types, to reduce the cost of pretraining.
+The multi-source model XDoc [ 15] also leverages many plain text corpora for pretraining, such as BookCORPUS,
+CC-NEWS, OPENWEBTEXT, STORIES and HTML-sourced CommonCrawl datasets. To address multilingual scenarios,
+both LiLT [ 122] and LayoutXLM [ 136] follow the principles and policies of Common Crawl to gather large amounts of
+multilingual digitally-born PDF documents.
+7 CONCLUSION
+This paper comprehensively reviews deep learning-based models for visually rich document content understanding,
+encompassing both mono-task frameworks designed for specific VRDU downstream tasks and multi-task frameworks
+that support multiple VRDU downstream tasks. Beyond introducing the novelties of each model, the limitations of
+these frameworks are summarized at the end of each section, offering a thorough trend analysis. Additionally, this
+paper summarizes existing VRD content understanding datasets, pointing out future trends and demands for VRDU.
+To provide a systematic review, we critically discuss various techniques, highlighting their strengths and limitations.
+We believe that this survey offers a comprehensive overview of the development of visually rich document content
+understanding, catering to the needs of both the academic and industrial sectors.
+REFERENCES
+[1] Srikar Appalaraju, Bhavan Jasani, Bhargava Urala Kota, Yusheng Xie, and R Manmatha. 2021. Docformer: End-to-end transformer for document
+understanding. In Proceedings of the IEEE/CVF international conference on computer vision . 993–1003.
+[2]Srikar Appalaraju, Peng Tang, Qi Dong, Nishant Sankaran, Yichu Zhou, and R Manmatha. 2024. Docformerv2: Local features for document
+
+[2]Srikar Appalaraju, Peng Tang, Qi Dong, Nishant Sankaran, Yichu Zhou, and R Manmatha. 2024. Docformerv2: Local features for document
+understanding. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38. 709–718.
+[3]Haoli Bai, Zhiguang Liu, Xiaojun Meng, Wentao Li, Shuang Liu, Nian Xie, Rongfu Zheng, Liangwei Wang, Lu Hou, Jiansheng Wei, et al .2022.
+Wukong-Reader: Multi-modal Pre-training for Fine-grained Visual Document Understanding. arXiv preprint arXiv:2212.09621 (2022).
+Manuscript submitted to ACM
+
+34 DING, et al.
+[4]Hangbo Bao, Li Dong, Songhao Piao, and Furu Wei. 2021. BEiT: BERT Pre-Training of Image Transformers. In International Conference on Learning
+Representations .
+[5]Ali Furkan Biten, Ron Litman, Yusheng Xie, Srikar Appalaraju, and R Manmatha. 2022. Latr: Layout-aware transformer for scene-text vqa. In
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition . 16548–16558.
+[6]Ali Furkan Biten, Ruben Tito, Andres Mafla, Lluis Gomez, Marçal Rusinol, Minesh Mathew, CV Jawahar, Ernest Valveny, and Dimosthenis Karatzas.
+2019. Icdar 2019 competition on scene text visual question answering. In 2019 International Conference on Document Analysis and Recognition
+(ICDAR) . IEEE, 1563–1570.
+[7]Ali Furkan Biten, Ruben Tito, Andres Mafla, Lluis Gomez, Marçal Rusinol, Ernest Valveny, CV Jawahar, and Dimosthenis Karatzas. 2019. Scene text
+visual question answering. In Proceedings of the IEEE/CVF international conference on computer vision . 4291–4301.
+[8]Tsachi Blau, Sharon Fogel, Roi Ronen, Alona Golts, Roy Ganz, Elad Ben Avraham, Aviad Aberdam, Shahar Tsiper, and Ron Litman. 2024. GRAM:
+Global Reasoning for Multi-Page VQA. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 15598–15607.
+[9]Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry,
+Amanda Askell, et al. 2020. Language models are few-shot learners. Advances in neural information processing systems 33 (2020), 1877–1901.
+[10] Haoyu Cao, Changcun Bao, Chaohu Liu, Huang Chen, Kun Yin, Hao Liu, Yinsong Liu, Deqiang Jiang, and Xing Sun. 2023. Attention Where It
+Matters: Rethinking Visual Document Understanding with Selective Region Concentration. In Proceedings of the IEEE/CVF International Conference
+on Computer Vision . 19517–19527.
+[11] Panfeng Cao, Ye Wang, Qiang Zhang, and Zaiqiao Meng. 2023. GenKIE: Robust Generative Multimodal Document Key Information Extraction. In
+Findings of the Association for Computational Linguistics: EMNLP 2023 . 14702–14713.
+[12] Manuel Carbonell, Pau Riba, Mauricio Villegas, Alicia Fornés, and Josep Lladós. 2021. Named entity recognition and relation extraction with graph
+neural networks in semi structured documents. In 2020 25th International Conference on Pattern Recognition (ICPR) . IEEE, 9622–9627.
+[13] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas Usunier, Alexander Kirillov, and Sergey Zagoruyko. 2020. End-to-end object detection
+with transformers. In European conference on computer vision . Springer, 213–229.
+[14] Jiayi Chen, Hanjun Dai, Bo Dai, Aidong Zhang, and Wei Wei. 2023. On Task-personalized Multimodal Few-shot Learning for Visually-rich
+Document Entity Retrieval. In Findings of the Association for Computational Linguistics: EMNLP 2023 . 9006–9025.
+[15] Jingye Chen, Tengchao Lv, Lei Cui, Cha Zhang, and Furu Wei. 2022. XDoc: Unified Pre-training for Cross-Format Document Understanding. arXiv
+preprint arXiv:2210.02849 (2022).
+[16] Xingyu Chen, Zihan Zhao, Lu Chen, Jiabao Ji, Danyang Zhang, Ao Luo, Yuxuan Xiong, and Kai Yu. 2021. WebSRC: A Dataset for Web-Based
+Structural Reading Comprehension. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing . 4173–4185.
+[17] Mengli Cheng, Minghui Qiu, Xing Shi, Jun Huang, and Wei Lin. 2020. One-shot text field labeling using attention and belief propagation for
+structure information extraction. In Proceedings of the 28th ACM International Conference on Multimedia . 340–348.
+[18] Xiangxiang Chu, Zhi Tian, Bo Zhang, Xinlong Wang, and Chunhua Shen. 2022. Conditional Positional Encodings for Vision Transformers. In The
+Eleventh International Conference on Learning Representations .
+[19] Lei Cui, Yiheng Xu, Tengchao Lv, and Furu Wei. 2021. Document ai: Benchmarks, models and applications. arXiv preprint arXiv:2111.08609 (2021).
+
+[19] Lei Cui, Yiheng Xu, Tengchao Lv, and Furu Wei. 2021. Document ai: Benchmarks, models and applications. arXiv preprint arXiv:2111.08609 (2021).
+[20] Brian Davis, Bryan Morse, Brian Price, Chris Tensmeyer, Curtis Wigington, and Vlad Morariu. 2022. End-to-end document recognition and
+understanding with dessurt. In European Conference on Computer Vision . Springer, 280–296.
+[21] Timo I Denk and Christian Reisswig. 2019. Bertgrid: Contextualized embedding for 2d document representation and understanding. arXiv preprint
+arXiv:1909.04948 (2019).
+[22] J Devlin. 2018. BERT: Pre-training of deep bidirectional transformers for language understanding.. In Proceedings of NAACL-HLT , Vol. 2019. 4171.
+[23] Yihao Ding, Zhe Huang, Runlin Wang, YanHang Zhang, Xianru Chen, Yuzhong Ma, Hyunsuk Chung, and Soyeon Caren Han. 2022. V-Doc: Visual
+questions answers with Documents. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 21492–21498.
+[24] Yihao Ding, Siqu Long, Jiabin Huang, Kaixuan Ren, Xingxiang Luo, Hyunsuk Chung, and Soyeon Caren Han. 2023. Form-NLU: Dataset for the
+Form Natural Language Understanding. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information
+Retrieval . 2807–2816.
+[25] Yihao Ding, Siwen Luo, Hyunsuk Chung, and Soyeon Caren Han. 2023. VQA: A New Dataset for Real-World VQA on PDF Documents. In Joint
+European Conference on Machine Learning and Knowledge Discovery in Databases . Springer, 585–601.
+[26] Yihao Ding, Kaixuan Ren, Jiabin Huang, Siwen Luo, and Soyeon Caren Han. 2024. MVQA: A Dataset for Multimodal Information Retrieval in
+PDF-based Visual Question Answering. arXiv preprint arXiv:2404.12720 (2024).
+[27] Yihao Ding, Lorenzo Vaiani, Caren Han, Jean Lee, Paolo Garza, Josiah Poon, and Luca Cagliero. 2024. M3-VRD: Multimodal Multi-task Multi-teacher
+Visually-Rich Form Document Understanding. arXiv preprint arXiv:2402.17983 (2024).
+[28] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias
+Minderer, Georg Heigold, Sylvain Gelly, et al .2020. An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale. In International
+Conference on Learning Representations .
+[29] Qinyi Du, Qingqing Wang, Keqian Li, Jidong Tian, Liqiang Xiao, and Yaohui Jin. 2022. CALM: commen-sense knowledge augmentation for
+document image understanding. In Proceedings of the 30th ACM International Conference on Multimedia . 3282–3290.
+[30] Maud Ehrmann, Ahmed Hamdi, Elvys Linhares Pontes, Matteo Romanello, and Antoine Doucet. 2023. Named entity recognition and classification
+in historical documents: A survey. Comput. Surveys 56, 2 (2023), 1–47.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 35
+[31] Yonatan Geifman and Ran El-Yaniv. 2017. Selective classification for deep neural networks. Advances in neural information processing systems 30
+(2017).
+[32] Jiuxiang Gu, Jason Kuen, Vlad I Morariu, Handong Zhao, Rajiv Jain, Nikolaos Barmpalios, Ani Nenkova, and Tong Sun. 2021. Unidoc: Unified
+pretraining framework for document understanding. Advances in Neural Information Processing Systems 34 (2021), 39–50.
+[33] Zhangxuan Gu, Changhua Meng, Ke Wang, Jun Lan, Weiqiang Wang, Ming Gu, and Liqing Zhang. 2022. Xylayoutlm: Towards layout-aware
+multimodal networks for visually-rich document understanding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition . 4583–4592.
+[34] Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q Weinberger. 2017. On calibration of modern neural networks. In International conference on machine
+learning . PMLR, 1321–1330.
+[35] Kelvin Guu, Kenton Lee, Zora Tung, Panupong Pasupat, and Mingwei Chang. 2020. Retrieval augmented language model pre-training. In
+International conference on machine learning . PMLR, 3929–3938.
+[36] Adam W Harley, Alex Ufkes, and Konstantinos G Derpanis. 2015. Evaluation of deep convolutional nets for document image classification and
+retrieval. In 2015 13th International Conference on Document Analysis and Recognition (ICDAR) . IEEE, 991–995.
+[37] Jiabang He, Lei Wang, Yi Hu, Ning Liu, Hui Liu, Xing Xu, and Heng Tao Shen. 2023. ICL-D3IE: In-context learning with diverse demonstrations
+updating for document information extraction. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 19485–19494.
+[38] Kaiming He, Georgia Gkioxari, Piotr Dollár, and Ross Girshick. 2017. Mask r-cnn. In Proceedings of the IEEE international conference on computer
+vision . 2961–2969.
+[39] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep residual learning for image recognition. In Proceedings of the IEEE conference
+on computer vision and pattern recognition . 770–778.
+[40] Teakgyu Hong, DongHyun Kim, Mingi Ji, Wonseok Hwang, Daehyun Nam, and Sungrae Park. 2021. BROS: A pre-trained language model for
+understanding texts in document. (2021).
+[41] Kai Hu, Zhuoyuan Wu, Zhuoyao Zhong, Weihong Lin, Lei Sun, and Qiang Huo. 2023. A question-answering approach to key value pair extraction
+from form-like document images. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 37. 12899–12906.
+[42] Yupan Huang, Tengchao Lv, Lei Cui, Yutong Lu, and Furu Wei. 2022. Layoutlmv3: Pre-training for document ai with unified text and image
+masking. In Proceedings of the 30th ACM International Conference on Multimedia . 4083–4091.
+[43] Zheng Huang, Kai Chen, Jianhua He, Xiang Bai, Dimosthenis Karatzas, Shijian Lu, and CV Jawahar. 2019. Icdar2019 competition on scanned
+receipt ocr and information extraction. In 2019 International Conference on Document Analysis and Recognition (ICDAR) . IEEE, 1516–1520.
+[44] Wonseok Hwang, Jinyeong Yim, Seunghyun Park, Sohee Yang, and Minjoon Seo. 2021. Spatial Dependency Parsing for Semi-Structured Document
+Information Extraction. In Findings of the Association for Computational Linguistics: ACL-IJCNLP 2021 . 330–343.
+[45] Paul F Jaeger, Carsten Tim Lüth, Lukas Klein, and Till J Bungert. 2022. A Call to Reflect on Evaluation Practices for Failure Detection in Image
+Classification. In The Eleventh International Conference on Learning Representations .
+[46] Guillaume Jaume, Hazim Kemal Ekenel, and Jean-Philippe Thiran. 2019. Funsd: A dataset for form understanding in noisy scanned documents. In
+2019 International Conference on Document Analysis and Recognition Workshops (ICDARW) , Vol. 2. IEEE, 1–6.
+[47] Herve Jegou, Matthijs Douze, and Cordelia Schmid. 2010. Product quantization for nearest neighbor search. IEEE transactions on pattern analysis
+and machine intelligence 33, 1 (2010), 117–128.
+
+[47] Herve Jegou, Matthijs Douze, and Cordelia Schmid. 2010. Product quantization for nearest neighbor search. IEEE transactions on pattern analysis
+and machine intelligence 33, 1 (2010), 117–128.
+[48] Mandar Joshi, Danqi Chen, Yinhan Liu, Daniel S Weld, Luke Zettlemoyer, and Omer Levy. 2020. Spanbert: Improving pre-training by representing
+and predicting spans. Transactions of the association for computational linguistics 8 (2020), 64–77.
+[49] Lei Kang, Rubèn Tito, Ernest Valveny, and Dimosthenis Karatzas. 2024. Multi-Page Document Visual Question Answering using Self-Attention
+Scoring Mechanism. arXiv preprint arXiv:2404.19024 (2024).
+[50] Anoop R Katti, Christian Reisswig, Cordula Guder, Sebastian Brarda, Steffen Bickel, Johannes Höhne, and Jean Baptiste Faddoul. 2018. Chargrid:
+Towards Understanding 2D Documents. In Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing . 4459–4469.
+[51] Geewook Kim, Teakgyu Hong, Moonbin Yim, JeongYeon Nam, Jinyoung Park, Jinyeong Yim, Wonseok Hwang, Sangdoo Yun, Dongyoon Han, and
+Seunghyun Park. 2022. Ocr-free document understanding transformer. In Computer Vision–ECCV 2022: 17th European Conference, Tel Aviv, Israel,
+October 23–27, 2022, Proceedings, Part XXVIII . Springer, 498–517.
+[52] Wonjae Kim, Bokyung Son, and Ildoo Kim. 2021. Vilt: Vision-and-language transformer without convolution or region supervision. In International
+conference on machine learning . PMLR, 5583–5594.
+[53] Yoon Kim. 2014. Convolutional Neural Networks for Sentence Classification. In Proceedings of the 2014 Conference on Empirical Methods in Natural
+Language Processing (EMNLP) , Alessandro Moschitti, Bo Pang, and Walter Daelemans (Eds.). Association for Computational Linguistics, Doha,
+Qatar, 1746–1751. https://doi.org/10.3115/v1/D14-1181
+[54] Guillaume Lample, Miguel Ballesteros, Sandeep Subramanian, Kazuya Kawakami, and Chris Dyer. 2016. Neural Architectures for Named Entity
+Recognition. In Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language
+Technologies . 260–270.
+[55] Zhenzhong Lan, Mingda Chen, Sebastian Goodman, Kevin Gimpel, Piyush Sharma, and Radu Soricut. 2019. Albert: A lite bert for self-supervised
+learning of language representations. arXiv preprint arXiv:1909.11942 (2019).
+[56] Chen-Yu Lee, Chun-Liang Li, Timothy Dozat, Vincent Perot, Guolong Su, Nan Hua, Joshua Ainslie, Renshen Wang, Yasuhisa Fujii, and Tomas
+Pfister. 2022. FormNet: Structural Encoding beyond Sequential Modeling in Form Document Information Extraction. In Proceedings of the 60th
+Manuscript submitted to ACM
+
+36 DING, et al.
+Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 3735–3754.
+[57] Chen-Yu Lee, Chun-Liang Li, Hao Zhang, Timothy Dozat, Vincent Perot, Guolong Su, Xiang Zhang, Kihyuk Sohn, Nikolai Glushnev, Renshen
+Wang, et al .2023. FormNetV2: Multimodal Graph Contrastive Learning for Form Document Information Extraction. arXiv preprint arXiv:2305.02549
+(2023).
+[58] Kenton Lee, Mandar Joshi, Iulia Turc, Hexiang Hu, Fangyu Liu, Julian Eisenschlos, Urvashi Khandelwal, Peter Shaw, Ming-Wei Chang, and Kristina
+Toutanova. 2022. Pix2Struct: Screenshot parsing as pretraining for visual language understanding. arXiv preprint arXiv:2210.03347 (2022).
+[59] David Lewis, Gady Agam, Shlomo Argamon, Ophir Frieder, David Grossman, and Jefferson Heard. 2006. Building a test collection for complex
+document information processing. In Proceedings of the 29th annual international ACM SIGIR conference on Research and development in information
+retrieval . 665–666.
+[60] Mike Lewis, Yinhan Liu, Naman Goyal, Marjan Ghazvininejad, Abdelrahman Mohamed, Omer Levy, Veselin Stoyanov, and Luke Zettlemoyer. 2020.
+BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation, Translation, and Comprehension. In Proceedings of the
+58th Annual Meeting of the Association for Computational Linguistics . 7871–7880.
+[61] Chenliang Li, Bin Bi, Ming Yan, Wei Wang, Songfang Huang, Fei Huang, and Luo Si. 2021. StructuralLM: Structural Pre-training for Form
+Understanding. In Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference
+on Natural Language Processing (Volume 1: Long Papers) . 6309–6318.
+[62] Junlong Li, Yiheng Xu, Lei Cui, and Furu Wei. 2022. MarkupLM: Pre-training of Text and Markup Language for Visually Rich Document
+Understanding. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 6078–6087.
+[63] Junlong Li, Yiheng Xu, Tengchao Lv, Lei Cui, Cha Zhang, and Furu Wei. 2022. Dit: Self-supervised pre-training for document image transformer. In
+Proceedings of the 30th ACM International Conference on Multimedia . 3530–3539.
+[64] Liunian Harold Li, Mark Yatskar, Da Yin, Cho-Jui Hsieh, and Kai-Wei Chang. 2019. Visualbert: A simple and performant baseline for vision and
+language. arXiv preprint arXiv:1908.03557 (2019).
+[65] Peizhao Li, Jiuxiang Gu, Jason Kuen, Vlad I Morariu, Handong Zhao, Rajiv Jain, Varun Manjunatha, and Hongfu Liu. 2021. Selfdoc: Self-supervised
+document representation learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 5652–5660.
+[66] Qiwei Li, Zuchao Li, Xiantao Cai, Bo Du, and Hai Zhao. 2023. Enhancing Visually-Rich Document Understanding via Layout Structure Modeling.
+InProceedings of the 31st ACM International Conference on Multimedia . 4513–4523.
+[67] Yulin Li, Yuxi Qian, Yuechen Yu, Xiameng Qin, Chengquan Zhang, Yan Liu, Kun Yao, Junyu Han, Jingtuo Liu, and Errui Ding. 2021. Structext:
+Structured text understanding with multi-modal transformers. In Proceedings of the 29th ACM International Conference on Multimedia . 1912–1920.
+[68] Haofu Liao, Aruni RoyChowdhury, Weijian Li, Ankan Bansal, Yuting Zhang, Zhuowen Tu, Ravi Kumar Satzoda, R Manmatha, and Vijay Mahadevan.
+2023. Doctr: Document transformer for structured information extraction in documents. In Proceedings of the IEEE/CVF International Conference on
+Computer Vision . 19584–19594.
+[69] Tsung-Yi Lin, Piotr Dollár, Ross Girshick, Kaiming He, Bharath Hariharan, and Serge Belongie. 2017. Feature pyramid networks for object detection.
+InProceedings of the IEEE conference on computer vision and pattern recognition . 2117–2125.
+[70] Chaohu Liu, Kun Yin, Haoyu Cao, Xinghua Jiang, Xin Li, Yinsong Liu, Deqiang Jiang, Xing Sun, and Linli Xu. 2024. Hrvda: High-resolution visual
+
+[70] Chaohu Liu, Kun Yin, Haoyu Cao, Xinghua Jiang, Xin Li, Yinsong Liu, Deqiang Jiang, Xing Sun, and Linli Xu. 2024. Hrvda: High-resolution visual
+document assistant. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 15534–15545.
+[71] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2024. Visual instruction tuning. Advances in neural information processing systems 36
+(2024).
+[72] Jixiong Liu, Yoan Chabot, Raphaël Troncy, Viet-Phi Huynh, Thomas Labbé, and Pierre Monnin. 2023. From tabular data to knowledge graphs: A
+survey of semantic table interpretation tasks and methods. Journal of Web Semantics 76 (2023), 100761.
+[73] Xiaojing Liu, Feiyu Gao, Qiong Zhang, and Huasha Zhao. 2019. Graph Convolution for Multimodal Information Extraction from Visually Rich
+Documents. In Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language
+Technologies, Volume 2 (Industry Papers) . 32–39.
+[74] Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke Zettlemoyer, and Veselin Stoyanov. 2019.
+Roberta: A robustly optimized bert pretraining approach. arXiv preprint arXiv:1907.11692 (2019).
+[75] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. 2021. Swin transformer: Hierarchical vision
+transformer using shifted windows. In Proceedings of the IEEE/CVF international conference on computer vision . 10012–10022.
+[76] Francesco Lombardi and Simone Marinai. 2020. Deep learning for historical document analysis and recognition—a survey. Journal of Imaging 6, 10
+(2020), 110.
+[77] Chuwei Luo, Changxu Cheng, Qi Zheng, and Cong Yao. 2023. Geolayoutlm: Geometric pre-training for visual information extraction. In Proceedings
+of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 7092–7101.
+[78] Chuwei Luo, Yufan Shen, Zhaoqing Zhu, Qi Zheng, Zhi Yu, and Cong Yao. 2024. LayoutLLM: Layout Instruction Tuning with Large Language
+Models for Document Understanding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 15630–15640.
+[79] Siwen Luo, Yihao Ding, Siqu Long, Josiah Poon, and Soyeon Caren Han. 2022. Doc-GCN: Heterogeneous Graph Convolutional Networks for
+Document Layout Analysis. In Proceedings of the 29th International Conference on Computational Linguistics . 2906–2916.
+[80] Bodhisattwa Prasad Majumder, Navneet Potti, Sandeep Tata, James Bradley Wendt, Qi Zhao, and Marc Najork. 2020. Representation learning
+for information extraction from form-like documents. In proceedings of the 58th annual meeting of the Association for Computational Linguistics .
+6495–6504.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 37
+[81] Bodhisattwa Prasad Majumder, Navneet Potti, Sandeep Tata, James Bradley Wendt, Qi Zhao, and Marc Najork. 2020. Representation learning
+for information extraction from form-like documents. In proceedings of the 58th annual meeting of the Association for Computational Linguistics .
+6495–6504.
+[82] Zhiming Mao, Haoli Bai, Lu Hou, Lifeng Shang, Xin Jiang, Qun Liu, and Kam-Fai Wong. 2024. Visually Guided Generative Text-Layout Pre-training
+for Document Intelligence. In Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics:
+Human Language Technologies (Volume 1: Long Papers) . 4713–4730.
+[83] Minesh Mathew, Dimosthenis Karatzas, and CV Jawahar. 2021. Docvqa: A dataset for vqa on document images. In Proceedings of the IEEE/CVF
+winter conference on applications of computer vision . 2200–2209.
+[84] Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean. 2013. Efficient estimation of word representations in vector space. arXiv preprint
+arXiv:1301.3781 (2013).
+[85] Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg S Corrado, and Jeff Dean. 2013. Distributed representations of words and phrases and their
+compositionality. Advances in neural information processing systems 26 (2013).
+[86] George Nagy and Sharad C Seth. 1984. Hierarchical representation of optically scanned documents. (1984).
+[87] Lawrence O’Gorman. 1993. The document spectrum for page layout analysis. IEEE Transactions on pattern analysis and machine intelligence 15, 11
+(1993), 1162–1173.
+[88] Dario Augusto Borges Oliveira and Matheus Palhares Viana. 2017. Fast CNN-based document layout analysis. In 2017 IEEE International Conference
+on Computer Vision Workshops (ICCVW) . IEEE, 1173–1180.
+[89] OpenAI. 2023. ChatGPT: A conversational agent. https://www.openai.com/chatgpt
+[90] Boris Oreshkin, Pau Rodríguez López, and Alexandre Lacoste. 2018. Tadam: Task dependent adaptive metric for improved few-shot learning.
+Advances in neural information processing systems 31 (2018).
+[91] Rasmus Berg Palm, Florian Laws, and Ole Winther. 2019. Attend, copy, parse end-to-end information extraction from documents. In 2019
+International Conference on Document Analysis and Recognition (ICDAR) . IEEE, 329–336.
+[92] Seunghyun Park, Seung Shin, Bado Lee, Junyeop Lee, Jaeheung Surh, Minjoon Seo, and Hwalsuk Lee. 2019. CORD: a consolidated receipt dataset
+for post-OCR parsing. In Workshop on Document Intelligence at NeurIPS 2019 .
+[93] Jeffrey Pennington, Richard Socher, and Christopher D Manning. 2014. Glove: Global vectors for word representation. In Proceedings of the 2014
+conference on empirical methods in natural language processing (EMNLP) . 1532–1543.
+[94] Vincent Perot, Kai Kang, Florian Luisier, Guolong Su, Xiaoyu Sun, Ramya Sree Boppana, Zilong Wang, Jiaqi Mu, Hao Zhang, and Nan Hua. 2023.
+LMDX: Language Model-based Document Information Extraction and Localization. arXiv preprint arXiv:2309.10952 (2023).
+[95] Rafał Powalski, Łukasz Borchmann, Dawid Jurkiewicz, Tomasz Dwojak, Michał Pietruszka, and Gabriela Pałka. 2021. Going full-tilt boogie on
+document understanding with text-image-layout transformer. In Document Analysis and Recognition–ICDAR 2021: 16th International Conference,
+Lausanne, Switzerland, September 5–10, 2021, Proceedings, Part II 16 . Springer, 732–747.
+[96] Ofir Press, Noah Smith, and Mike Lewis. 2021. Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation. In
+International Conference on Learning Representations .
+[97] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J Liu. 2020. Exploring
+the limits of transfer learning with a unified text-to-text transformer. Journal of machine learning research 21, 140 (2020), 1–67.
+
+the limits of transfer learning with a unified text-to-text transformer. Journal of machine learning research 21, 140 (2020), 1–67.
+[98] Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang. 2016. SQuAD: 100,000+ Questions for Machine Comprehension of Text. In
+Proceedings of the 2016 Conference on Empirical Methods in Natural Language Processing . 2383–2392.
+[99] Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang. 2016. SQuAD: 100,000+ Questions for Machine Comprehension of Text. In
+Proceedings of the 2016 Conference on Empirical Methods in Natural Language Processing . 2383–2392.
+[100] Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea Voss, Alec Radford, Mark Chen, and Ilya Sutskever. 2021. Zero-shot text-to-image
+generation. In International conference on machine learning . Pmlr, 8821–8831.
+[101] Nils Reimers and Iryna Gurevych. 2019. Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. In Proceedings of the 2019 Conference
+on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) .
+3982–3992.
+[102] Shaoqing Ren, Kaiming He, Ross Girshick, and Jian Sun. 2015. Faster r-cnn: Towards real-time object detection with region proposal networks.
+Advances in neural information processing systems 28 (2015).
+[103] Marçal Rusinol, Tayeb Benkhelfallah, and Vincent Poulain dAndecy. 2013. Field extraction from administrative documents by incremental structural
+templates. In 2013 12th International Conference on Document Analysis and Recognition . IEEE, 1100–1104.
+[104] Thomas Saout, Frédéric Lardeux, and Frédéric Saubion. 2024. An Overview of Data Extraction From Invoices. IEEE Access (2024).
+[105] Minenobu Seki, Masakazu Fujio, Takeshi Nagasaki, Hiroshi Shinjo, and Katsumi Marukawa. 2007. Information management system using structure
+analysis of paper/electronic documents and its applications. In Ninth International Conference on Document Analysis and Recognition (ICDAR 2007) ,
+Vol. 2. IEEE, 689–693.
+[106] Dengliang Shi, Siliang Liu, Jintao Du, and Huijia Zhu. 2023. Layoutgcn: A lightweight architecture for visually rich document understanding. In
+International Conference on Document Analysis and Recognition . Springer, 149–165.
+[107] Štěpán Šimsa, Milan Šulc, Michal Uřičář, Yash Patel, Ahmed Hamdi, Matěj Kocián, Matyáš Skalick `y, Jiří Matas, Antoine Doucet, Mickaël Coustaty,
+et al.2023. Docile benchmark for document information localization and extraction. In International Conference on Document Analysis and
+Manuscript submitted to ACM
+
+38 DING, et al.
+Recognition . Springer, 147–166.
+[108] Jake Snell, Kevin Swersky, and Richard Zemel. 2017. Prototypical networks for few-shot learning. Advances in neural information processing
+systems 30 (2017).
+[109] Kihyuk Sohn. 2016. Improved deep metric learning with multi-class n-pair loss objective. Advances in neural information processing systems 29
+(2016).
+[110] Robyn Speer, Joshua Chin, and Catherine Havasi. 2017. Conceptnet 5.5: An open multilingual graph of general knowledge. In Proceedings of the
+AAAI conference on artificial intelligence , Vol. 31.
+[111] Tomasz Stanisławek, Filip Graliński, Anna Wróblewska, Dawid Lipiński, Agnieszka Kaliska, Paulina Rosalska, Bartosz Topolski, and Przemysław
+Biecek. 2021. Kleister: key information extraction datasets involving long documents with complex layouts. In Document Analysis and Recognition–
+ICDAR 2021: 16th International Conference, Lausanne, Switzerland, September 5–10, 2021, Proceedings, Part I . Springer, 564–579.
+[112] Nishant Subramani, Alexandre Matton, Malcolm Greaves, and Adrian Lam. 2020. A survey of deep learning approaches for ocr and document
+understanding. arXiv preprint arXiv:2011.13534 (2020).
+[113] Hao Tan and Mohit Bansal. 2019. LXMERT: Learning Cross-Modality Encoder Representations from Transformers. In Proceedings of the 2019
+Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing
+(EMNLP-IJCNLP) . 5100–5111.
+[114] Ryota Tanaka, Kyosuke Nishida, and Sen Yoshida. 2021. Visualmrc: Machine reading comprehension on document images. In Proceedings of the
+AAAI Conference on Artificial Intelligence , Vol. 35. 13878–13888.
+[115] Zineng Tang, Ziyi Yang, Guoxin Wang, Yuwei Fang, Yang Liu, Chenguang Zhu, Michael Zeng, Cha Zhang, and Mohit Bansal. 2022. Unifying
+Vision, Text, and Layout for Universal Document Processing. arXiv preprint arXiv:2212.02623 (2022).
+[116] Rubèn Tito, Dimosthenis Karatzas, and Ernest Valveny. 2023. Hierarchical multimodal transformers for Multipage DocVQA. Pattern Recognition
+144 (2023), 109834.
+[117] Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric
+Hambro, Faisal Azhar, et al. 2023. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971 (2023).
+[118] Yi Tu, Ya Guo, Huan Chen, and Jinyang Tang. 2023. LayoutMask: Enhance Text-Layout Interaction in Multi-modal Pre-training for Document
+Understanding. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 15200–15212.
+[119] Jordy Van Landeghem, Rubèn Tito, Łukasz Borchmann, Michał Pietruszka, Pawel Joziak, Rafal Powalski, Dawid Jurkiewicz, Mickaël Coustaty,
+Bertrand Anckaert, Ernest Valveny, et al .2023. Document understanding dataset and evaluation (DUDE). In Proceedings of the IEEE/CVF International
+Conference on Computer Vision . 19528–19540.
+[120] Alex Wang, Amanpreet Singh, Julian Michael, Felix Hill, Omer Levy, and Samuel R Bowman. 2018. GLUE: A Multi-Task Benchmark and Analysis
+Platform for Natural Language Understanding. In International Conference on Learning Representations .
+[121] Chien-Yao Wang, Hong-Yuan Mark Liao, Yueh-Hua Wu, Ping-Yang Chen, Jun-Wei Hsieh, and I-Hau Yeh. 2020. CSPNet: A new backbone that can
+enhance learning capability of CNN. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition workshops . 390–391.
+[122] Jiapeng Wang, Lianwen Jin, and Kai Ding. 2022. LiLT: A Simple yet Effective Language-Independent Layout Transformer for Structured Document
+Understanding. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 7747–7757.
+[123] Jiapeng Wang, Chongyu Liu, Lianwen Jin, Guozhi Tang, Jiaxin Zhang, Shuaitao Zhang, Qianying Wang, Yaqiang Wu, and Mingxiang Cai. 2021.
+
+[123] Jiapeng Wang, Chongyu Liu, Lianwen Jin, Guozhi Tang, Jiaxin Zhang, Shuaitao Zhang, Qianying Wang, Yaqiang Wu, and Mingxiang Cai. 2021.
+Towards robust visual information extraction in real world: new dataset and novel solution. In Proceedings of the AAAI Conference on Artificial
+Intelligence , Vol. 35. 2738–2745.
+[124] Peng Wang, An Yang, Rui Men, Junyang Lin, Shuai Bai, Zhikang Li, Jianxin Ma, Chang Zhou, Jingren Zhou, and Hongxia Yang. 2022. Ofa: Unifying
+architectures, tasks, and modalities through a simple sequence-to-sequence learning framework. In International Conference on Machine Learning .
+PMLR, 23318–23340.
+[125] Yansen Wang, Ying Shen, Zhun Liu, Paul Pu Liang, Amir Zadeh, and Louis-Philippe Morency. 2019. Words can shift: Dynamically adjusting word
+representations using nonverbal behaviors. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 33. 7216–7223.
+[126] Zilong Wang, Jiuxiang Gu, Chris Tensmeyer, Nikolaos Barmpalios, Ani Nenkova, Tong Sun, Jingbo Shang, and Vlad Morariu. 2022. MGDoc:
+Pre-training with Multi-granular Hierarchy for Document Image Understanding. In Proceedings of the 2022 Conference on Empirical Methods in
+Natural Language Processing . 3984–3993.
+[127] Zilong Wang and Jingbo Shang. 2022. Towards Few-shot Entity Recognition in Document Images: A Label-aware Sequence-to-Sequence Framework.
+InFindings of the Association for Computational Linguistics: ACL 2022 . 4174–4186.
+[128] Zilong Wang, Yiheng Xu, Lei Cui, Jingbo Shang, and Furu Wei. 2021. LayoutReader: Pre-training of Text and Layout for Reading Order Detection.
+InProceedings of the 2021 Conference on Empirical Methods in Natural Language Processing . 4735–4744.
+[129] Zilong Wang, Mingjie Zhan, Xuebo Liu, and Ding Liang. 2020. Docstruct: A multimodal method to extract hierarchy structure in document for
+general form understanding. arXiv preprint arXiv:2010.11685 (2020).
+[130] Zifeng Wang, Zizhao Zhang, Jacob Devlin, Chen-Yu Lee, Guolong Su, Hao Zhang, Jennifer Dy, Vincent Perot, and Tomas Pfister. 2023. QueryForm:
+A Simple Zero-shot Form Entity Query Framework. In Findings of the Association for Computational Linguistics: ACL 2023 . 4146–4159.
+[131] Zilong Wang, Yichao Zhou, Wei Wei, Chen-Yu Lee, and Sandeep Tata. 2023. Vrdu: A benchmark for visually-rich document understanding. In
+Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining . 5184–5193.
+Manuscript submitted to ACM
+
+Deep Learning based Visually Rich Document Content Understanding: A Survey 39
+[132] Toyohide Watanabe, Qin Luo, and Noboru Sugie. 1995. Layout recognition of multi-kinds of table-form documents. IEEE Transactions on Pattern
+Analysis and Machine Intelligence 17, 4 (1995), 432–445.
+[133] Mengxi Wei, Yifan He, and Qiong Zhang. 2020. Robust layout-aware IE for visually rich documents with pre-trained language models. In Proceedings
+of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval . 2367–2376.
+[134] Xinya Wu, Duo Zheng, Ruonan Wang, Jiashen Sun, Minzhen Hu, Fangxiang Feng, Xiaojie Wang, Huixing Jiang, and Fan Yang. 2022. A region-based
+document VQA. In Proceedings of the 30th ACM International Conference on Multimedia . 4909–4920.
+[135] Yiheng Xu, Minghao Li, Lei Cui, Shaohan Huang, Furu Wei, and Ming Zhou. 2020. Layoutlm: Pre-training of text and layout for document image
+understanding. In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining . 1192–1200.
+[136] Yiheng Xu, Tengchao Lv, Lei Cui, Guoxin Wang, Yijuan Lu, Dinei Florencio, Cha Zhang, and Furu Wei. 2021. Layoutxlm: Multimodal pre-training
+for multilingual visually-rich document understanding. arXiv preprint arXiv:2104.08836 (2021).
+[137] Yang Xu, Yiheng Xu, Tengchao Lv, Lei Cui, Furu Wei, Guoxin Wang, Yijuan Lu, Dinei Florencio, Cha Zhang, Wanxiang Che, et al .2020. Layoutlmv2:
+Multi-modal pre-training for visually-rich document understanding. arXiv preprint arXiv:2012.14740 (2020).
+[138] Xiao Yang, Ersin Yumer, Paul Asente, Mike Kraley, Daniel Kifer, and C Lee Giles. 2017. Learning to extract semantic structure from documents using
+multimodal fully convolutional neural networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 5315–5324.
+[139] Lewei Yao, Runhui Huang, Lu Hou, Guansong Lu, Minzhe Niu, Hang Xu, Xiaodan Liang, Zhenguo Li, Xin Jiang, and Chunjing Xu. 2021. FILIP:
+Fine-grained Interactive Language-Image Pre-Training. In International Conference on Learning Representations .
+[140] Fisher Yu and Vladlen Koltun. 2015. Multi-scale context aggregation by dilated convolutions. arXiv preprint arXiv:1511.07122 (2015).
+[141] Wenwen Yu, Ning Lu, Xianbiao Qi, Ping Gong, and Rong Xiao. 2021. PICK: processing key information extraction from documents using improved
+graph learning-convolutional networks. In 2020 25th International Conference on Pattern Recognition (ICPR) . IEEE, 4363–4370.
+[142] Yuechen Yu, Yulin Li, Chengquan Zhang, Xiaoqiang Zhang, Zengyuan Guo, Xiameng Qin, Kun Yao, Junyu Han, Errui Ding, and Jingdong Wang.
+2022. StrucTexTv2: Masked Visual-Textual Prediction for Document Image Pre-training. In The Eleventh International Conference on Learning
+Representations .
+[143] Mingliang Zhai, Yulin Li, Xiameng Qin, Chen Yi, Qunyi Xie, Chengquan Zhang, Kun Yao, Yuwei Wu, and Yunde Jia. 2023. Fast-StrucTexT: an
+efficient hourglass transformer with modality-guided dynamic token merge for document understanding. In Proceedings of the Thirty-Second
+International Joint Conference on Artificial Intelligence . 5269–5277.
+[144] Peng Zhang, Yunlu Xu, Zhanzhan Cheng, Shiliang Pu, Jing Lu, Liang Qiao, Yi Niu, and Fei Wu. 2020. TRIE: end-to-end text reading and information
+extraction for document understanding. In Proceedings of the 28th ACM International Conference on Multimedia . 1413–1422.
+[145] Yue Zhang, Zhang Bo, Rui Wang, Junjie Cao, Chen Li, and Zuyi Bao. 2021. Entity Relation Extraction as Dependency Parsing in Visually Rich
+Documents. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing . 2759–2768.
+[146] Zhenrong Zhang, Jiefeng Ma, Jun Du, Licheng Wang, and Jianshu Zhang. 2022. Multimodal pre-training based on graph attention network for
+document understanding. IEEE Transactions on Multimedia (2022).
+
+document understanding. IEEE Transactions on Multimedia (2022).
+[147] Xiaohui Zhao, Endi Niu, Zhuo Wu, and Xiaoguang Wang. 2019. Cutie: Learning to understand documents with convolutional universal text
+information extractor. arXiv preprint arXiv:1903.12363 (2019).
+[148] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric Xing, et al .
+2024. Judging llm-as-a-judge with mt-bench and chatbot arena. Advances in Neural Information Processing Systems 36 (2024).
+[149] Xu Zhong, Jianbin Tang, and Antonio Jimeno Yepes. 2019. Publaynet: largest dataset ever for document layout analysis. In 2019 International
+Conference on Document Analysis and Recognition (ICDAR) . IEEE, 1015–1022.
+[150] Fengbin Zhu, Wenqiang Lei, Fuli Feng, Chao Wang, Haozhou Zhang, and Tat-Seng Chua. 2022. Towards complex document understanding by
+discrete reasoning. In Proceedings of the 30th ACM International Conference on Multimedia . 4857–4866.
+[151] Fengbin Zhu, Wenqiang Lei, Youcheng Huang, Chao Wang, Shuo Zhang, Jiancheng Lv, Fuli Feng, and Tat-Seng Chua. 2021. TAT-QA: A Question
+Answering Benchmark on a Hybrid of Tabular and Textual Content in Finance. In Proceedings of the 59th Annual Meeting of the Association for
+Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) . 3277–3287.
+[152] Zihao Zhu, Jing Yu, Yujing Wang, Yajing Sun, Yue Hu, and Qi Wu. 2021. Mucko: multi-layer cross-modal knowledge reasoning for fact-based
+visual question answering. In Proceedings of the Twenty-Ninth International Conference on International Joint Conferences on Artificial Intelligence .
+1097–1103.
+Manuscript submitted to ACM
+

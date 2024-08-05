@@ -1,0 +1,16 @@
+Entity Alignment (EA) aims to match equivalent entities in different
+Knowledge Graphs (KGs), which is essential for knowledge fusion and
+integration. Recently, embedding-based EA has attracted significant attention
+and many approaches have been proposed. Early approaches primarily focus on
+learning entity embeddings from the structural features of KGs, defined by
+relation triples. Later methods incorporated entities' names and attributes as
+auxiliary information to enhance embeddings for EA. However, these approaches
+often used different techniques to encode structural and attribute information,
+limiting their interaction and mutual enhancement. In this work, we propose a
+dense entity retrieval framework for EA, leveraging language models to
+uniformly encode various features of entities and facilitate nearest entity
+search across KGs. Alignment candidates are first generated through entity
+retrieval, which are subsequently reranked to determine the final alignments.
+We conduct comprehensive experiments on both cross-lingual and monolingual EA
+datasets, demonstrating that our approach achieves state-of-the-art performance
+compared to existing EA methods.

@@ -1,0 +1,897 @@
+1
+High-Throughput Phenotyping of Clinical Text
+Using Large Language Models
+Daniel B. Hier, S. Ilyas Munzir, Anne Stahlfeld, Tayo Obafemi-Ajayi, and Michael D. Carrithers
+Abstract —High-throughput phenotyping automates the map-
+ping of patient signs to standardized ontology concepts and
+is essential for precision medicine. This study evaluates the
+automation of phenotyping of clinical summaries from the
+Online Mendelian Inheritance in Man (OMIM) database using
+large language models. Due to their rich phenotype data, these
+summaries can be surrogates for physician notes. We conduct a
+performance comparison of GPT-4 and GPT-3.5-Turbo. Our re-
+sults indicate that GPT-4 surpasses GPT-3.5-Turbo in identifying,
+categorizing, and normalizing signs, achieving concordance with
+manual annotators comparable to inter-rater agreement. Despite
+some limitations in sign normalization, the extensive pre-training
+of GPT-4 results in high performance and generalizability across
+several phenotyping tasks while obviating the need for manually
+annotated training data. Large language models are expected
+to be the dominant method for automating high-throughput
+phenotyping of clinical text.
+Index Terms —phenotype, large language model, natural lan-
+guage processing, high-throughput, OMIM, neurology, HPO,
+GPT-4
+I. I NTRODUCTION
+MANUAL phenotyping of electronic health records is
+laborious [1], [2]. Precision medicine has intensified
+the need for high-throughput methods to support the acquisi-
+tion and processing of vast volumes of unstructured medical-
+related data [3], [4]. High-throughput phenotyping remains
+challenging due to the complexity of the task and the volume
+of physician notes [5]–[7]. Natural language processing (NLP)
+methods for identifying signs (concept recognition) in clin-
+ical text have evolved from rule-based and dictionary-based
+systems [8], [9], to machine learning and statistical models
+[10], [11], to deep learning methods such as recurrent neural
+networks (RNNs) and convolutional neural networks (CNNs)
+[12]–[15], and more recently to transformer architectures [16]–
+[21]. Barriers to the wider application of NLP methods to high-
+throughput phenotyping include limited accuracy, the need for
+large quantities of manually annotated data for training, and
+an inability to generalize an application from one domain of
+interest to another [2], [6], [7], [22].
+Daniel B. Hier (email: dhier@uic.edu), Syed Ilyas Munzir (email:
+smunz2@uic.edu), Anne Stahlfeld (email: astahl5@uic.edu), and Michael
+D. Carrithers (email: mcar1@uic.edu) are with the University of Illinois at
+Chicago, Chicago IL 60612.
+Tayo Obafemi-Ajayi is with the Engineering Program at Missouri State Uni-
+versity, Springfield MO 65897 (email: tayoobafemiajayi@missouristate.edu).
+No protected health information was used in this research.
+Python code and data files are available at the project GitHub site https:
+//github.com/clslabMSU/highthroughput-phenotyping.
+OMIM®and Online Mendelian Inheritance in Man®are registered trade-
+marks of the Johns Hopkins University.The emergence of large language models (LLMs) offers an
+opportunity to address previously unsolvable NLP problems,
+including the high-throughput phenotyping of physician notes
+[23]–[25]. LLMs belong to a class of foundation models
+which are inherently strong learners of heterogeneous data
+due to their large capacity, unified input modeling of different
+modalities, and improved multi-modal learning techniques
+[26]. LLMs have a superior ability to extract, summarize,
+translate, and generate textual information with only a few
+or even no prompt/fine-tuning samples [26]. Thus, they have
+been shown to perform well in high-throughput phenotyping
+[27] as they offer scalability and generalizability and require
+minimal additional training. Recent work in [28], [29] demon-
+strates their usefulness in processing large volumes of text in
+electronic health records (EHR) [28], [29]. They are also able
+
+minimal additional training. Recent work in [28], [29] demon-
+strates their usefulness in processing large volumes of text in
+electronic health records (EHR) [28], [29]. They are also able
+to derive phenotypes from other text sources, such as PubMed
+abstracts and clinical summaries [27].
+A goal of the precision medicine initiative is to use patient
+phenotypes to guide treatments and improve outcomes [30].
+Patient phenotypes must be computable before being entered
+into precision medicine machine learning models. Patient
+phenotypes are recorded in EHRs as unstructured text. The
+most widely used standard for recording phenotypes is Human
+Phenotype Ontology (HPO) [1], [31], [32]. In a medical set-
+ting, the patient reports symptoms to the physician, who then
+examines the patient to obtain clinical signs. Together, these
+signs and symptoms constitute the phenotype of the patient.
+For brevity, we will collectively refer to these signs and
+symptoms as simply signs . The usual signs of the disease are
+the phenotypes of the disease. Online Mendelian Inheritance
+in Man (OMIM) provides a view of genetic heterogeneity of
+similar phenotypes across the genome for related diseases.
+This is referred to as phenotypic series i.e. a collection of
+phenotypes (diseases or traits) that are caused by mutations in
+different genes but have similar clinical features. For example,
+in OMIM, dystonia phenotypic series include several types of
+dystonia with different genetic causes such as DYT6, DYT11,
+and DYT25 [33], [34]. Each type of dystonia in this phenotypic
+series has similar clinical features, such as involuntary muscle
+contractions and abnormal postures but differ in their genetic
+causes based on mutations in different genes (e.g., TOR1A,
+THAP1, SGCE, GNAL). The phenotypic series in OMIM
+helps to categorize and understand the genetic heterogeneity of
+multiple diseases aiding in diagnosis and treatment strategies.
+Patient phenotyping involves multiple steps, including sign
+identification (finding the sign in the text), sign categorization
+(assigning signs to high-level categories), sign normalization
+(mapping signs to terms in an ontology), and sign binarizationarXiv:2408.01214v1  [cs.CL]  2 Aug 2024
+
+2
+and vectorization. Sign categorization plays a crucial role in
+model interpretability and performance. For example, HPO
+currently has 17,957 terms descended from the root term phe-
+notypic abnormality . Given this complexity, feature reduction
+is necessary to make phenotypes interpretable [35]–[38]. One
+approach (which we adopt in this work) to feature reduction
+of phenotypes is to ‘roll-up’ many granular terms into a small
+number of high-level categories [39].
+The goal of this project is to perform automated high-
+throughput phenotyping on OMIM clinical summaries as a
+surrogate for the phenotyping of physician notes. This use
+case has advantages in that the text is easily available via an
+application programming interface (API), is rich in phenotypes
+and not protected by health privacy laws. Moreover, the
+task is similar to the phenotyping of physician notes [29].
+The operational requirements of high-throughput phenotyping
+applied to healthcare include high processing speed, high
+accuracy, scalability to large data volumes, generalizability
+to various diseases, maintenance of privacy, and resilience to
+imperfect data inputs. The functional requirements of such
+a system include the ability to identify signs in free text,
+assign signs to high-level categories, map (normalize) signs
+to concepts in a designated ontology, and vectorize signs
+for use in computational models. This work evaluates the
+capabilities of two LLMs (GPT-4 and GPT-3.5-Turbo) in
+identifying, categorizing, and normalizing signs in clinical
+narratives. As a proof of concept, we vectorized phenotype
+data obtained from OMIM to visualize neurological disease
+variability within a phenotypic series with heatmaps as well as
+distances between different phenotypic series with dimension-
+reduced scatter plots.
+II. D ATA
+The neurological disease and phenotypic data was retrieved
+from the OMIM database via their API (api.omim.org). Dis-
+ease phenotypes are described in the clinical synopsis and the
+clinical features sections for each disease within the OMIM
+database. The clinical synopsis is a list of signs, symptoms,
+mode of inheritance, and age of onset. The clinical features
+section summarizes the published literature that underpins
+the phenotype of each disease. The OMIM API has separate
+calls for clinical features and clinical synopsis. The text from
+OMIM served as a surrogate for text from physician notes.
+Diseases in OMIM with similar phenotypes are grouped in
+a phenotypic series. OMIM currently has 582 Phenotypic
+Series, each with anidentifier beginning with PS. We evaluated
+16 phenotypic series that spanned across 405 neurogenetic
+diseases (see Table I).
+III. M ETHODS
+The high-throughput phenotyping pipeline extracts
+phenotypic terms in clinical text through the following steps
+(Fig. 1). Parameter details for the OMIM API and Open AI
+API calls are available on the project GitHub site.
+Text Extraction and Preprocessing. Given a list of diseases
+and MIM numbers for each phenotypic series, the model
+Fig. 1. Pipeline for high-throughput phenotyping of clinical summaries
+from OMIM . To support high-throughput, text retrieval, sign identification,
+sign categorization, and sign normalization is performed by an API.
+TABLE I
+PHENOTYPIC SERIES PROCESSED BY HIGH-THROUGHPUT
+PHENOTYPING
+Phenotypic Series PS MIM Diseases
+amyotrophic lateral sclerosis (ALS) PS105400 35
+Charcot-Marie-Tooth disease (CMT) PS118220 81
+dystonia PS128100 37
+epilepsy generalized PS600669 29
+episodic ataxia PS160120 9
+familial febrile seizures PS121210 17
+hereditary spastic paraparesis (HSP) PS303350 83
+hyperekplexia PS149400 4
+leukodystrophy, hypomyelinating PS312080 27
+narcolepsy PS161400 7
+nemaline myopathy PS161800 13
+Parkinson PS168600 33
+progressive supranuclear palsy PS601104 3
+restless legs PS102300 8
+spinocerebellar ataxia PS105400 40
+striato nigral degeneration PS609161 2
+reads and extracts clinical summaries from the OMIM API.
+(Parameter details are described on the project GitHub site.)
+
+spinocerebellar ataxia PS105400 40
+striato nigral degeneration PS609161 2
+reads and extracts clinical summaries from the OMIM API.
+(Parameter details are described on the project GitHub site.)
+White spaces and tabs were converted to a single white
+space. Commas, hyphens, semicolons, single quotes, double
+quotes, forward slashes, and backslashes were converted to a
+single white space. Periods were retained to identify sentence
+boundaries. The Clinical Features and Description sections
+from OMIM were normalized for further analysis.
+Sign Identification. The aim is to identify neurological signs
+in the preprocessed text using the OpenAI API using the LLM.
+Text was passed to the OpenAI API with instructions to find
+all the signs within the text (Box 1).
+Box 1: Prompt for Sign Identification
+You are a neurologist analyzing a case summary from
+OMIM. Your input is text containing ‘Clinical
+Features’ and ‘Description’. Extract relevant
+neurological symptoms (patient complaints) and
+signs (findings on examination). Here’s how the
+output should look:
+‘Signs’: [‘symptom a’, ‘symptom b’, ‘symptom c’]
+Sign Categorization. The OpenAI API was given a list of
+identified signs with instructions to categorize them into one
+of 30 high-level categories (Box 2).
+
+HIER et al. : HIGH-THROUGHPUT PHENOTYPING 3
+Sign Normalization. Signs were normalized by mapping
+them to the HPO using two approaches: the deep learning
+method combined spaCy (Explosion AI, Berlin) with Gensim
+BioWordVec embeddings. Vectors were generated for each
+sign and compared to vectorized HPO terms using cosine
+similarity. The HPO term with the highest cosine similarity to
+the retrieved sign was assigned as the best match. The LLM
+method involved passing a list of signs to GPT-4 or GPT-3.5-
+Turbo with instructions to map the sign to a term and ID in
+the HPO (Box 3).
+Box 2: Prompt for Sign Categorization
+You are a neurologist analyzing a list of signs.
+Classify each sign into one of these categories:
+‘Behavior,’ ‘Bowel and Bladder,’ ‘Cognitive,’
+‘Deformity,’ ‘Dysautonomia,’ ‘Dystonia,’ ‘Extraocular
+Movements,’ ‘Fatigue,’ ‘Gait,’ ‘Head Shape,’
+‘Hearing,’ ‘Hyperkinesia,’ ‘Hyperreflexia,’
+‘Hypertonia,’ ‘Hypokinesia,’ ‘Hyporeflexia,’
+‘Hypotonia,’ ‘Incoordination,’ ‘Muscle Atrophy,’
+‘Other Cranial Nerve,’ ‘Pain,’ ‘Seizure,’ ‘Sensory,’
+‘Skin,’ ‘Sleep,’ ‘Speech,’ ‘Tremor,’ ‘Unclassified,’
+‘Vision,’ ‘Weakness.’
+Your output should be a JSON object with each
+category as a key and a list of signs in that category
+as items.
+Box 3: Prompt for Sign Normalization
+You are a neurologist tasked with mapping each
+sign to a concept in the Human Phenotype Ontology
+(HPO). Your output should be a JSON object with
+each input sign as a key and two item values: the
+‘HPO Term’ and the ‘HPO ID.’
+For example:
+{‘input’: ‘Apraxia oral,’
+‘HPO Term’: ‘Oromotor apraxia,’
+‘HPO ID’: ‘HP:0000687’ }
+If the input term cannot be mapped to HPO,
+return ‘not-mappable’ in the ‘HPO Term’ and ‘HPO
+ID’ fields.
+Category Binarization. Categories were binarized as either
+‘0’ (no signs found in that category) or ‘1’ (one or more signs
+found in that category). If a disease had two or more terms
+in a phenotype category, such as ‘areflexia’ and ‘decreased
+reflexes’ in the hyporeflexia category, the category was scored
+as ‘1’, indicating one or more signs. The high-level categories
+are shown in Box 2.
+Disease Vectorization. For each disease, a vector was as-
+sembled from the 30 binary phenotype categories so that the
+disease vector had 30 elements, each with a value of ‘0’ or
+‘1’. Of the 405 diseases evaluated, 283 had adequate clinicalsummaries in OMIM to allow high-throughput phenotyping
+and the creation of a disease vector. The disease vectors were
+stored as a data frame.
+Visualization of Disease Heterogeneity within a Phenotypic
+Series. We created a separate heatmap for each phenotypic
+series to visualize similarities and differences between diseases
+within a phenotypic series (Seaborn library [40]). Each row
+in the heatmap was a disease in the phenotypic series. Each
+column was one of the 30 binarized phenotype categories ( red
+for ‘present’, blue for ‘absent’.)
+Visualization of Distances between the Centroids of Phe-
+notypic Series. The 30 phenotype categories were reduced to
+two dimensions by principal component analysis (PCA). PCA
+calculated the coordinates of each disease in the phenotypic
+series, which were then shown as markers on a scatter plot
+(Fig. 7 ). Using the enhanced explainability plot approach
+described in [41], we calculated centroids for each pheno-
+typic series, as showns as an ‘ X’ on the scatter plot. For
+interpretability, we limited centroids to five phenotypic series
+per scatter plot. Distances between phenotypic series centroids
+represented relative similarities between different series as
+computed by PCA using the phenotype vectors.
+Performance Metrics. The disease processing rate, the sign
+identification rate, sign categorization rate, and sign normal-
+ization rate were based on 405 diseases, a corpus of 175,724
+words, and 16 phenotypic series (Table I).
+The metrics for sign identification, sign categorization, and
+sign normalization were calculated based on a validation
+dataset of 40 diseases selected from the Dystonia, Parkin-
+
+The metrics for sign identification, sign categorization, and
+sign normalization were calculated based on a validation
+dataset of 40 diseases selected from the Dystonia, Parkin-
+son, Hereditary Spastic Paraparesis, and Charcot-Marie-Tooth
+phenotypic series. In the validation dataset, GPT-4 found 609
+signs, and GPT-3.5-Turbo found 358 signs. Sign identification
+was assessed by comparing signs identified by GPT-3.5-Turbo
+and GPT-4 with those identified by two manual annotators
+using the Prodigy annotation tool (Explosion AI, Berlin).
+Annotation methods have previously been described [42].
+Manual annotators received instructions similar to those given
+to GPT-4 and GPT-3.5-Turbo. Two sets of signs were created
+for each of the 40 diseases in the validation dataset. The first
+set of signs were those found by GPT-3.5-Turbo or GPT-4.
+The second set was those found by the two manual annotators.
+Measures of agreement between the manual annotators and the
+LLMs included the mean Jaccard Index for each pair of sets,
+the highest cosine text similarity index (based on the spaCy
+similarity method and the Gensim BioWordVec embeddings)
+averaged across all available signs from each set, and the
+number of weak matches’ (similarity of less than 0.80) in each
+set. For sign identification, a sign from the GPT-sign set with at
+least 0.80 similarity to a sign in the manual-annotator-sign set
+was rated as a true positive’. A sign in the GPT-sign set with
+less than 0.80 similarity to any sign in the manual-annotator-
+sign set was rated as a false positive’. A sign in the manual-
+annotator-sign set with no counterpart in the GPT-sign-set with
+at least 0.80 similarity was rated as a false negative’.
+To evaluate sign categorization, a neurology domain expert
+manually reviewed GPT-4 and GPT-3.5-Turbo sign categoriza-
+tion for diseases for each classifiable sign in the validation
+dataset and rated them as correct’ (true positive) or incorrect’
+
+4
+Fig. 2. Heatmap for ALS phenotypic series with alphabetical category
+columns. Diseases are along the y-axis. A unique MIM number identifies
+each disease. Compare to Fig. 3 with columns sorted by sign prevalence.
+Categories have been binarized so that ‘red’ indicates that the phenotype was
+present, and ‘blue’ indicates the phenotype was absent.
+(false negative). Signs considered uncategorizable by the do-
+main expert were rated true negative’, whereas unclassifiable
+signs assigned a category by GPT-4 were rated false positives’.
+The expert also manually reviewed sign normalization using
+the SOTA NLP method, GPT-4, and GPT-3.5-Turbo.
+For sign normalization to be rated as correct,’ both the
+normalized HPO term and the HPO ID had to be accurate.
+Signs that were considered unnormalizable by the domain
+expert were rated true negatives’. Unnormalizable signs nor-
+malized by GPT-4 were rated false positive.’ For normalizable
+signs, matching was rated as true positive’ or ‘false negative.’
+Accuracy, precision, and recall were calculated using standard
+methods [43].
+TABLE II
+PERFORMANCE METRICS
+Model GPT-3.5 Turbo GPT-4
+Counts
+Diseases 405 405
+Usable Diseases 207 283
+Signs Identified 4,227 5,595
+Unique Signs Identified 2,567 2,705
+Words Processed 175,724 175,724
+Rates†
+Disease Rate (sec/disease) 14.2 16.4
+Identification Rate (sign/sec) 5.7 4.2
+Categorization Rate (sign/sec) 2.9 2.3
+Normalization Rate (sign/sec) 9.3 9.3
+†Performance times and rates are representative. They were
+obtained on Apple Mac Studio with an M2 ultra CPU running
+Mac OS 14.5.
+IV. R ESULTS
+We performed high-throughput neurological phenotyping
+on 405 disease variants from 16 OMIM phenotypic series
+(Table I). Sign identification, sign categorization, and sign
+normalization were performed by GPT-3.5-Turbo or GPT-4
+in three sequential submissions to the OpenAI API. GPT-
+3.5-Turbo and GPT-4 processing rates were 14.2 sec per
+disease and 16.4 sec per disease, respectively. Although higher
+Fig. 3. Heatmap for ALS phenotypic series with category columns
+sorted by sign prevalence The most prevalent signs are weakness and muscle
+atrophy. Categories have been binarized so that ‘red’ indicates the phenotype
+was present and ‘blue’ indicates the phenotype was absent.
+Fig. 4. Heatmap for Charcot-Marie-Tooth phenotypic series. The most
+prevalent signs are sensory symptoms, hyporeflexia, muscle atrophy, and
+weakness. MIM numbers for each disease in the phenotypic series are shown
+along the y-axis. Each row is a separate disease within the CMT phenotypic
+series and illustrates the diversity of phenotypic presentations of CMT within
+the phenotypic series. Categories have been binarized so that ‘red’ indicates
+the phenotype was present and ‘blue’ indicates the phenotype was absent.
+throughput might be possible with a faster CPU, more than
+90% of the time expended was due to the four API calls.
+The GPT-4 model outperformed the GPT-3.5-Turbo model
+on several performance metrics (Table II). GPT-4 produced
+usable data for 283 diseases, whereas GPT-3.5-Turbo produced
+usable data for 207 diseases. GPT-4 identified more signs
+(5,595 compared to 4,227) and more unique signs (2,705
+compared to 2,567) than GPT-3.5-Turbo. The Jaccard Index,
+a stringent measure of concordance requiring exact matches
+between the large language models and the manual annotators,
+was higher for GPT-4 (0.31) than GPT-3.5-Turbo (0.16).
+A more relaxed measure of concordance, the maximum
+
+HIER et al. : HIGH-THROUGHPUT PHENOTYPING 5
+Fig. 5. Word cloud for phenotypic terms for Charcot-Marie-Tooth disease
+phenotypic series. 939 Terms were identified through GPT-4 API. Term size
+reflects relative frequency. Note that many similar terms include ‘areflexia’,
+‘hyporeflexia’, and ‘decreased or absent reflexes’. Compare to Fig. 5 after
+terms have been further categorized by GPT-4 API.
+Fig. 6. Word cloud for category frequencies for Charcot-Marie-Tooth
+(MCT) disease phenotypic series . Phenotypic terms used to describe CMT
+diseases have been reduced to 30 categories. Word size in the word cloud
+reflects the size of each category. Compare to Fig. 4. The largest categories
+are Weakness, Deformity, and Gait.
+Fig. 7. Centroids plotted by phenotypic series. The feature space has
+been reduced from 30 high-level categories to 2 dimensions by PCA. Each
+round marker is a disease in one of the five plotted phenotypic series. The X
+indicates the centroids for each phenotypic series. The expected proximities
+between ALS and HSP (both with weakness and spasticity) and between
+Parkinson and Dystonia (both movement disorders) are visualized. Five of the
+16 available phenotypic series centroids are shown. Creating centroid plots
+for any combinations of the phenotypic series in Table I is possible. Due to
+concerns about interpretability, we have limited centroids plots to no more
+than 5 phenotypic series per plot.similarity index (based on cosine similarity from spaCy and
+BioWordVec embeddings from Gensim), showed high maxi-
+mal mean similarities for signs compared to manual annotators
+(93.1 for GPT-3.5-Turbo and 94.2 for GPT-4). ‘Weak’ matches
+(maximum similarity less than 0.80) were lower with GPT-
+4 than with GPT-3.5-Turbo. Compared to manual annotators,
+precision, recall, and F1 for sign identification were higher
+with GPT-4 than with GPT-3.5.
+The OpenAI API interface assigned each sign to one of 30
+high-level categories. A significant simplification of the feature
+space was achieved by categorization of signs, as illustrated
+by comparing the word clouds for CMT signs (Fig.5 with
+CMT categories (Fig. 5). The ability of GPT-3.5-Turbo and
+GPT-4 to correctly assign signs to high-level categories was
+manually checked by a neurology expert for signs in the
+disease validation set. The accuracy of the GPT-4 was higher
+than that of the GPT-3.5-Turbo on sign categorization (94.0%
+compared to 58.4%). Sign categorization allowed us to create
+heatmaps for each phenotypic series where rows were diseases
+and columns were phenotype categories as illustrated by Figs.
+2 to Fig. 4. Distances between phenotypic series centroids can
+be plotted using PCA for dimension reduction. Fig. 7 shows
+an example of five phenotypic series centroids.
+Sign normalization was evaluated for the disease validation
+set. The SOTA NLP method performed best at 90.6% accuracy,
+followed by GPT-4 at 57.9% accuracy, and GPT-3.5-Turbo at
+44.8% accuracy.
+V. D ISCUSSION
+We have developed a high-throughput pipeline that pro-
+cesses clinical text and identifies signs of disease. To sup-
+port high-throughput, ease of use, and processing speed,
+the pipeline uses application programming interfaces (APIs)
+[44]. We used an API to retrieve summary text from OMIM
+and another API to allow GPT-4 to identify, categorize, and
+normalize signs. Clinical summaries from the OMIM database
+were utilized as our use case since the text is easily retrievable,
+rich with phenotypes, and not regulated as protected health in-
+formation. However, these methods can be applied to text from
+other sources, including electronic health records, PubMed
+abstracts, full-text articles, and other clinical summaries. This
+work involved ’deep phenotyping,’ which can be distinguished
+from other work on ’surface phenotyping.’ In deep phenotyp-
+ing, the granular signs of disease are identified and mapped to
+an ontology [1]. Surface phenotyping is a less exacting process
+
+from other work on ’surface phenotyping.’ In deep phenotyp-
+ing, the granular signs of disease are identified and mapped to
+an ontology [1]. Surface phenotyping is a less exacting process
+that assigns disease codes such as International Classification
+of Diseases (ICD) to physician notes or other clinical text [7],
+[15], [45], [46].
+Recognizing (identifying signs) and normalizing (mapping
+signs to an ontology) are challenging tasks for traditional
+NLP methods [2], [22], [46]–[49]. Progress has been made
+toward improving the recognition and normalization of med-
+ical concepts using transformers combined with specialized
+biomedical word embeddings [20], [21]. Large pre-trained
+language models provide a new approach to deep phenotyping
+(concept identification and normalization) that does not require
+additional training or a large corpus of manual annotations
+
+6
+[27], [50]–[52]. Our pipeline for high-throughput phenotyping
+performed three phenotyping operations: sign identification,
+sign categorization, and sign normalization. In general, GPT-4
+performed these operations with high accuracy and outper-
+formed GPT-3.5-Turbo (Tables III, and IV).
+TABLE III
+SIGNIDENTIFICATION METRICS
+Model GPT-3.5-Turbo* GPT-4* Inter-Rater**
+Signs Identified 358 609 694
+Weak Matches (%) 15.0 11.6 4.0
+Jaccard Index 0.16 0.35 0.36
+Max Similarity Index 93.1 94.2 96.7
+F1 0.52 0.66 0.60
+Precision 0.61 0.66 0.96
+Recall 0.45 0.65 0.44
+*Concordance for sign identification between GPT-
+3.5-Turbo and GPT-4 with the two manual annotators
+for 40 diseases in the validation dataset.
+**Inter-rater concordance for the manual annotators.
+Note that GPT-4 achieves a Jaccard Index similar to
+that between manual annotators.
+TABLE IV
+SIGNCATEGORIZATION & N ORMALIZATION
+ModelAccuracy
+C|NPrecision
+C|NRecall
+C|N
+GPT-4 94.0|57.9 98.3 |59.0 95.5 |94.1
+GPT-3.5 Turbo 58.4|44.8 78.4 |49.8 95.2 |52.9
+SOTA NLP -|90.6 - |90.8 - |99.8
+Metrics based on manual review of the categorization (C) and
+normalization (N) of signs of the 40 diseases in the validation
+dataset.
+SOTA NLP is the spaCy cosine similarity method with
+Gensim BioWordVec embeddings.
+Similarly, Groza et al. [27] evaluated GPT models for
+phenotype concept recognition using the ChatGPT interface.
+Their study demonstrated that GPT-4 outpaced state-of-the-art
+methods in mention-level F1 scores of 0.7. Our work extends
+that of Groza et al. by demonstrating the utility of the GPT
+API to facilitate high-throughput phenotyping. In previous
+work, we have shown that GPT-4 can identify phenotypes in
+physician notes [28], [29], which is important for precision
+medicine [53], [54].
+GPT-4 exhibited some weaknesses in sign normalization,
+achieving an accuracy of only 57.9%. This task has been noted
+by others as particularly challenging for GPT-4 [27]. In com-
+parison, a state-of-the-art (SOTA) NLP model that combined
+BioWordVec from Gensim with the spaCy NLP similarity
+method demonstrated significantly higher accuracy at 90.6%.
+While GPT-4 excelled at identifying plausible HPO terms for
+each input term, it was notably less accurate in providing
+the correct HPO IDs. In some instances, it even produced
+implausible HPO IDs. This discrepancy likely stems from
+GPT-4’s design, which relies heavily on pre-training to infer
+HPO IDs rather than employing a direct lookup capability.
+Currently, GPT-4 does not have an inherent mechanism to
+verify or retrieve accurate HPO IDs from a database.Moreover, an inherent limitation of GPT models like GPT-4
+is their non-deterministic nature. The choice of HPO ID for
+sign normalization can vary between different runs, even when
+the same input is provided [27]. This variability introduces
+inconsistencies that can be problematic in clinical applications
+where precision and reliability are paramount. Despite these
+limitations, GPT-4’s ability to generate plausible HPO terms
+highlights its potential for improvement with enhancements
+such as integrating a lookup mechanism for HPO IDs or
+using hybrid models that combine the strengths of GPT-4 with
+deterministic systems like BioWordVec and spaCy.
+We used GPT-4 to categorize the signs into 30 high-level
+categories. These high-level categories were chosen for their
+relevance to neurological phenotypes [55]. Although HPO
+has 28 high-level categories under Phenotypic abnormality
+[56], these categories are too broad to be useful in analyzing
+the phenotypes of neurological diseases. This categorization
+process significantly reduced the number of phenotypic terms
+needed to describe the diseases (compare Fig. 5 to Fig. 6).
+By assigning each phenotypic term to one of 30 high-level
+categories, we gained the ability to represent each disease in
+a phenotypic series as a row on a heatmap (Figs. 2 to 4).
+Heatmaps have also been used to visualize Orphadata disease
+phenotypes [55].
+
+categories, we gained the ability to represent each disease in
+a phenotypic series as a row on a heatmap (Figs. 2 to 4).
+Heatmaps have also been used to visualize Orphadata disease
+phenotypes [55].
+Once the phenotypic terms are acquired, a disease phe-
+notype can be represented as a vector. Various methods to
+calculate similarity between these disease vectors are available
+[35], [37], [57]–[60]. We used Principal Component Analysis
+(PCA) to reduce the dimensionality of these vectors to two
+dimensions (x and y), enabling us to visualize each disease
+as a marker on a scatter plot. To visualize distances between
+the phenotypic series, we represented each series as a centroid
+of its component diseases. Although Fig. 7 is representative,
+these methods can be applied to display phenotypic distances
+between any combination of diseases or phenotypic series.
+Large language models, including GPT-4, show promise
+for high-throughput phenotyping of clinical text though some
+issues identified in this work warrant further investigation.
+The level of accuracy required by LLMs for clinical decision-
+making remains uncertain [61]. It is important to recognize
+that human annotators do not always agree perfectly [42], and
+even expert physicians are susceptible to diagnostic errors [62].
+There is ongoing debate over whether health informatics tasks,
+such as phenotyping, are better suited to large general-purpose
+models or smaller, specially trained language models [63].
+Concerns have been raised about the foundational weaknesses
+of large language models in healthcare, stemming from their
+limited training on EHR data [64]. Additionally, LLMs often
+struggle to process EHR data in tabular form (e.g., long tables
+of biochemical results found in EHRs) [65]. Groza et al. [27]
+have highlighted the stochastic nature of LLM outputs. If
+these models are to be used routinely in healthcare, issues
+of trust, privacy, equity, fairness, and confidentiality must be
+satisfactorily addressed [66], [67]. Furthermore, the problem
+of ‘hallucinations’ and ‘confabulations’ by LLMs remains
+unresolved [68].
+Future work will fully assess the robustness and error-
+handling capabilities of our pipeline. While we tested GPT-
+
+HIER et al. : HIGH-THROUGHPUT PHENOTYPING 7
+3.5-Turbo and GPT-4, we did not compare their performance
+with other proprietary or open-source models. Scalability, cost
+analysis and stability studies are also required. Note that the
+neurological disease and phenotypic data utilized in this work
+were not protected health information, but privacy concerns
+must still be addressed.
+Nonetheless, the case for applying large language models to
+high-throughput phenotyping is compelling [25], [27], [50]–
+[52], [69]–[71]. These models are fast, accurate, and ready
+to run ‘out of the box.’ Unlike traditional neural network
+models, they do not rely on an extensive corpus of manual
+annotations. These models should be generalizable to a variety
+of diseases without additional training. Current limitations in
+sign normalization can be addressed using techniques from
+augmented retrieval generation [72], by additional pre-training,
+or by creating small specialized models specifically for sign
+normalization. Large language models such as GPT-4 are
+expected to become the dominant method for high-throughput
+clinical text phenotyping.
+REFERENCES
+[1] P. N. Robinson, “Deep phenotyping for precision medicine,” Human
+mutation , vol. 33, no. 5, pp. 777–780, 2012.
+[2] J. Pathak, A. N. Kho, and J. C. Denny, “Electronic health records-driven
+phenotyping: challenges, recent advances, and perspectives,” Journal of
+the American Medical Informatics Association , vol. 20, no. e2, pp. e206–
+e211, 2013.
+[3] M. Afzal, S. R. Islam, M. Hussain, and S. Lee, “Precision medicine
+informatics: principles, prospects, and challenges,” IEEE Access , vol. 8,
+pp. 13 593–13 612, 2020.
+[4] M. Sahu, R. Gupta, R. K. Ambasta, and P. Kumar, “Artificial intelligence
+and machine learning in precision medicine: A paradigm shift in big data
+analysis,” Progress in Molecular Biology and Translational Science , vol.
+190, no. 1, pp. 57–100, 2022.
+[5] C. Shivade, P. Raghavan, E. Fosler-Lussier, P. J. Embi, N. Elhadad,
+S. B. Johnson, and A. M. Lai, “A review of approaches to identifying
+patient phenotype cohorts using electronic health records,” Journal of the
+American Medical Informatics Association , vol. 21, no. 2, pp. 221–230,
+2014.
+[6] Y . Chen, R. J. Carroll, E. R. M. Hinz, A. Shah, A. E. Eyler, J. C. Denny,
+and H. Xu, “Applying active learning to high-throughput phenotyping
+algorithms for electronic health records data,” Journal of the American
+Medical Informatics Association , vol. 20, no. e2, pp. e253–e259, 2013.
+[7] K. P. Liao, J. Sun, T. A. Cai, N. Link, C. Hong, J. Huang, J. E. Huffman,
+J. Gronsbell, Y . Zhang, Y .-L. Ho et al. , “High-throughput multimodal
+automated phenotyping (map) with application to phewas,” Journal of
+the American Medical Informatics Association , vol. 26, no. 11, pp.
+1255–1262, 2019.
+[8] S. Eltyeb and N. Salim, “Chemical named entities recognition: a review
+on approaches and applications,” Journal of cheminformatics , vol. 6,
+no. 1, pp. 1–12, 2014.
+[9] A. P. Quimbaya, A. S. M ´unera, R. A. G. Rivera, J. C. D. Rodr ´ıguez,
+O. M. M. Velandia, A. A. G. Pe ˜na, and C. Labb ´e, “Named entity recogni-
+tion over electronic health records through a combined dictionary-based
+approach,” Procedia Computer Science , vol. 100, pp. 55–61, 2016.
+[10] L. Hirschman, A. A. Morgan, and A. S. Yeh, “Rutabaga by any other
+name: extracting biological names,” Journal of Biomedical Informatics ,
+vol. 35, no. 4, pp. 247–259, 2002.
+[11] ¨O. Uzuner, B. R. South, S. Shen, and S. L. DuVall, “2010 i2b2/va
+challenge on concepts, assertions, and relations in clinical text,” Journal
+of the American Medical Informatics Association , vol. 18, no. 5, pp.
+552–556, 2011.
+[12] G. Lample, M. Ballesteros, S. Subramanian, K. Kawakami, and C. Dyer,
+“Neural architectures for named entity recognition,” arXiv preprint
+arXiv:1603.01360 , 2016.
+[13] J. P. Chiu and E. Nichols, “Named entity recognition with bidirectional
+LSTM-CNNs,” Transactions of the Association for Computational Lin-
+
+arXiv:1603.01360 , 2016.
+[13] J. P. Chiu and E. Nichols, “Named entity recognition with bidirectional
+LSTM-CNNs,” Transactions of the Association for Computational Lin-
+guistics , vol. 4, pp. 357–370, 2016.[14] M. Habibi, L. Weber, M. Neves, D. L. Wiegandt, and U. Leser, “Deep
+learning with word embeddings improves biomedical named entity
+recognition,” Bioinformatics , vol. 33, no. 14, pp. i37–i48, 2017.
+[15] S. Gehrmann, F. Dernoncourt, Y . Li, E. T. Carlson, J. T. Wu, J. Welt,
+J. Foote Jr, E. T. Moseley, D. W. Grant, P. D. Tyler et al. , “Comparing
+deep learning and concept extraction based methods for patient pheno-
+typing from clinical narratives,” PloS one , vol. 13, no. 2, p. e0192360,
+2018.
+[16] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, “BERT: Pre-training
+of deep bidirectional transformers for language understanding,” arXiv
+preprint arXiv:1810.04805 , 2018.
+[17] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
+Ł. Kaiser, and I. Polosukhin, “Attention is all you need,” in Advances
+in neural information processing systems , 2017, pp. 5998–6008.
+[18] R. Zhu, X. Tu, and J. X. Huang, “Utilizing BERT for biomedical and
+clinical text mining,” in Data Analytics in Biomedical Engineering and
+Healthcare . Elsevier, 2021, pp. 73–103.
+[19] X. Yu, W. Hu, S. Lu, X. Sun, and Z. Yuan, “Biobert based named entity
+recognition in electronic medical record,” 2019 10th international con-
+ference on information technology in medicine and education (ITME) ,
+pp. 49–52, 2019.
+[20] J. Lee, W. Yoon, S. Kim, D. Kim, S. Kim, C. H. So, and J. Kang,
+“Biobert: a pre-trained biomedical language representation model for
+biomedical text mining,” Bioinformatics , vol. 36, no. 4, pp. 1234–1240,
+2020.
+[21] Z. Ji, Q. Wei, and H. Xu, “Bert-based ranking for biomedical entity
+normalization,” AMIA Summits on Translational Science Proceedings ,
+vol. 2020, p. 269, 2020.
+[22] H. Alzoubi, R. Alzubi, N. Ramzan, D. West, T. Al-Hadhrami, and
+M. Alazab, “A review of automatic phenotyping approaches using
+electronic health records,” Electronics , vol. 8, no. 11, p. 1235, 2019.
+[23] C. Yan, H. Ong, M. Grabowska, M. Krantz, W.-C. Su, A. Dickson, J. F.
+Peterson, Q. Feng, D. M. Roden, C. M. Stein et al. , “Large language
+models facilitate the generation of electronic health record phenotyping
+algorithms,” medRxiv , pp. 2023–12, 2023.
+[24] J. Yang, C. Liu, W. Deng, D. Wu, C. Weng, Y . Zhou, and K. Wang,
+“Enhancing phenotype recognition in clinical notes using large language
+models: Phenobcbert and phenogpt,” Patterns , 2023.
+[25] A. Wang, C. Liu, J. Yang, and C. Weng, “Fine-tuning large language
+models for rare disease concept normalization,” bioRxiv , pp. 2023–12,
+2023.
+[26] J. Qiu, L. Li, J. Sun, J. Peng, P. Shi, R. Zhang, Y . Dong, K. Lam, F. P.-W.
+Lo, B. Xiao et al. , “Large ai models in health informatics: Applications,
+challenges, and the future,” IEEE Journal of Biomedical and Health
+Informatics , 2023.
+[27] T. Groza, H. Caufield, D. Gration, G. Baynam, M. A. Haendel, P. N.
+Robinson, C. J. Mungall, and J. T. Reese, “An evaluation of gpt models
+for phenotype concept recognition,” BMC Medical Informatics and
+Decision Making , vol. 24, no. 1, p. 30, 2024.
+[28] S. I. Munzir, D. B. Hier, C. Oommen, and M. D. Carrithers, “A
+large language model outperforms other computational approaches to
+the high-throughput phenotyping of physician notes,” arXiv preprint
+arXiv:2406.14757 , 2024, accepted in AMIA Annual Symposium 2024.
+[Online]. Available: https://arxiv.org/abs/2406.14757
+[29] S. I. Munzir, D. B. Hier, and M. D. Carrithers, “High throughput
+phenotyping of physician notes with large language and hybrid
+nlp models,” arXiv preprint arXiv:2403.05920 , 2024, accepted in
+International Conference of the IEEE Engineering in Medicine
+& Biology Society (EMBC 2024). [Online]. Available: https:
+//doi.org/10.48550/arXiv.2403.05920
+[30] J. P. Ackerman, D. C. Bartos, J. D. Kapplinger, D. J. Tester, B. P. Delisle,
+
+& Biology Society (EMBC 2024). [Online]. Available: https:
+//doi.org/10.48550/arXiv.2403.05920
+[30] J. P. Ackerman, D. C. Bartos, J. D. Kapplinger, D. J. Tester, B. P. Delisle,
+and M. J. Ackerman, “The promise and peril of precision medicine:
+phenotyping still matters most,” in Mayo Clinic Proceedings , vol. 91,
+no. 11. Elsevier, 2016, pp. 1606–1616.
+[31] J. S. Amberger, C. A. Bocchini, F. Schiettecatte, A. F. Scott, and
+A. Hamosh, “Omim. org: Online mendelian inheritance in man
+(omim®), an online catalog of human genes and genetic disorders,”
+Nucleic acids research , vol. 43, no. D1, pp. D789–D798, 2015.
+[32] S. K ¨ohler, N. A. Vasilevsky, M. Engelstad, E. Foster, J. McMurry,
+S. Aym ´e, G. Baynam, S. M. Bello, C. F. Boerkoel, K. M. Boycott
+et al. , “The human phenotype ontology in 2017,” Nucleic acids research ,
+vol. 45, no. D1, pp. D865–D876, 2017.
+[33] D. Hier, R. Yelugam, S. Azizi, and D. Wunsch III, “A focused review
+of deep phenotyping with examples from neurology,” Eur Sci J , vol. 18,
+pp. 4–19, 2022.
+
+8
+[34] D. Hier, R. Yelugam, S. Azizi, M. Carrithers, and I. Wunsch, “Dc. high
+throughput neurological phenotyping with metamap,” Eur Sci J , vol. 18,
+pp. 37–49, 2022.
+[35] M. Chagoyen and F. Pazos, “Characterization of clinical signs in the
+human interactome,” Bioinformatics , vol. 32, no. 12, pp. 1761–1765,
+2016.
+[36] L. Licata, A. Via, P. Turina, G. Babbi, S. Benevenuta, C. Carta,
+R. Casadio, A. Cicconardi, A. Facchiano, P. Fariselli et al. , “Resources
+and tools for rare disease variant interpretation,” Frontiers in Molecular
+Biosciences , vol. 10, p. 1169109, 2023.
+[37] L. Cheng, H. Zhao, P. Wang, W. Zhou, M. Luo, T. Li, J. Han, S. Liu,
+and Q. Jiang, “Computational methods for identifying similar diseases,”
+Molecular Therapy-Nucleic Acids , vol. 18, pp. 590–604, 2019.
+[38] J. Peng, H. Xue, Y . Shao, X. Shang, Y . Wang, and J. Chen, “A novel
+method to measure the semantic similarity of hpo terms,” International
+Journal of Data Mining and Bioinformatics , vol. 17, no. 2, pp. 173–188,
+2017.
+[39] D. C. Wunsch III and D. B. Hier, “Subsumption reduces dataset
+dimensionality without decreasing performance of a machine learning
+classifier,” in 2021 43rd Annual International Conference of the IEEE
+Engineering in Medicine & Biology Society (EMBC) . IEEE, 2021, pp.
+1618–1621.
+[40] M. L. Waskom, “seaborn: statistical data visualization,” Journal of
+Open Source Software , vol. 6, no. 60, p. 3021, 2021. [Online].
+Available: https://doi.org/10.21105/joss.03021
+[41] D. B. Hier, T. Obafemi-Ajayi, G. R. Olbricht, D. M. Burns, S. Petrenko,
+and D. C. Wunsch II, “Enhancing dimension-reduced scatter plots with
+class and feature centroids,” arXiv preprint arXiv:2403.20246 , 2024.
+[42] C. Oommen, Q. Howlett-Prieto, M. D. Carrithers, and D. B. Hier, “Inter-
+rater agreement for the annotation of neurologic signs and symptoms
+in electronic health records,” Frontiers in Digital Health , vol. 5, p.
+1075771, 2023.
+[43] D. M. Powers, “Evaluation: from precision, recall and f-measure
+to roc, informedness, markedness and correlation,” arXiv preprint
+arXiv:2010.16061 , 2020.
+[44] A. Tarkowska, D. Carvalho-Silva, C. E. Cook, E. Turner, R. D. Finn,
+and A. D. Yates, “Eleven quick tips to build a usable rest api for life
+sciences,” PLoS computational biology , vol. 14, no. 12, p. e1006542,
+2018.
+[45] M. A. Gehan and E. A. Kellogg, “High-throughput phenotyping,”
+American journal of botany , vol. 104, no. 4, pp. 505–508, 2017.
+[46] Y . Zhang, T. Cai, S. Yu, K. Cho, C. Hong, J. Sun, J. Huang, Y .-L. Ho,
+A. N. Ananthakrishnan, Z. Xia et al. , “High-throughput phenotyping
+with electronic medical record data using a common semi-supervised
+approach (phecap),” Nature protocols , vol. 14, no. 12, pp. 3426–3444,
+2019.
+[47] S. Fu, D. Chen, H. He, S. Liu, S. Moon, K. J. Peterson, F. Shen, L. Wang,
+Y . Wang, A. Wen et al. , “Clinical concept extraction: a methodology
+review,” Journal of Biomedical Informatics , p. 103526, 2020.
+[48] M. Agrawal, C. O’Connell, Y . Fatemi, A. Levy, and D. Sontag, “Robust
+benchmarking for machine learning of clinical entity extraction,” in
+Machine Learning for Healthcare Conference . PMLR, 2020, pp. 928–
+949.
+[49] S. Yang, P. Varghese, E. Stephenson, K. Tu, and J. Gronsbell, “Machine
+learning approaches for electronic health records phenotyping: a method-
+ical review,” Journal of the American Medical Informatics Association ,
+vol. 30, no. 2, pp. 367–381, 2023.
+[50] C. Shyr, Y . Hu, P. A. Harris, and H. Xu, “Identifying and extracting
+rare disease phenotypes with large language models,” arXiv preprint
+arXiv:2306.12656 , 2023.
+[51] C. Shyr, Y . Hu, L. Bastarache, A. Cheng, R. Hamid, P. Harris, and H. Xu,
+“Identifying and extracting rare diseases and their phenotypes with large
+language models,” Journal of Healthcare Informatics Research , pp. 1–
+24, 2024.
+[52] N. J. Dobbins, “Generalizable and scalable multistage biomedical con-
+cept normalization leveraging large language models,” arXiv preprint
+arXiv:2405.15122 , 2024.
+
+24, 2024.
+[52] N. J. Dobbins, “Generalizable and scalable multistage biomedical con-
+cept normalization leveraging large language models,” arXiv preprint
+arXiv:2405.15122 , 2024.
+[53] M. Simmons, A. Singhal, and Z. Lu, “Text mining for precision
+medicine: bringing structure to ehrs and biomedical literature to un-
+derstand genes and health,” Translational Biomedical Informatics: A
+Precision Medicine Perspective , pp. 139–166, 2016.
+[54] A. Sitapati, H. Kim, B. Berkovich, R. Marmor, S. Singh, R. El-Kareh,
+B. Clay, and L. Ohno-Machado, “Integrated precision medicine: the role
+of electronic health records in delivering personalized treatment,” Wiley
+Interdisciplinary Reviews: Systems Biology and Medicine , vol. 9, no. 3,
+p. e1378, 2017.[55] D. B. Hier, R. Yelugam, M. D. Carrithers, and D. C. Wunsch III, “The
+visualization of orphadata neurology phenotypes,” Frontiers in Digital
+Health , vol. 5, p. 1064936, 2023.
+[56] J. Foreman, S. Brent, D. Perrett, A. P. Bevan, S. E. Hunt, F. Cunningham,
+M. E. Hurles, and H. V . Firth, “Decipher: Supporting the interpretation
+and sharing of rare disease phenotype-linked variant data to advance
+diagnosis and research,” Human Mutation , vol. 43, no. 6, pp. 682–697,
+2022.
+[57] T. Mabotuwana, M. C. Lee, and E. V . Cohen-Solal, “An ontology-based
+similarity measure for biomedical data–application to radiology reports,”
+Journal of biomedical informatics , vol. 46, no. 5, pp. 857–868, 2013.
+[58] A. Gamba, M. Salmona, L. Cant `u, and G. Bazzoni, “The similarity
+of inherited diseases (ii): clinical and biological similarity between the
+phenotypic series,” BMC Medical Genomics , vol. 13, pp. 1–11, 2020.
+[59] A. Gamba, M. Salmona, and G. Bazzoni, “The similarity of inherited
+diseases (i): clinical similarity within the phenotypic series,” BMC
+Medical Genomics , vol. 14, pp. 1–12, 2021.
+[60] H. Xue, J. Peng, and X. Shang, “Predicting disease-related phenotypes
+using an integrated phenotype similarity measurement based on hpo,”
+BMC systems biology , vol. 13, pp. 1–12, 2019.
+[61] Z. Grotenhuis, “Text mining of clinical outcomes for medical research:
+how accurate should it be?” MSc. Thesis, Utrecht University, Utrecht,
+The Netherlands, October 2022.
+[62] M. I. Chimowitz, E. L. Logigian, and L. R. Caplan, “The accuracy of
+bedside neurological diagnoses,” Annals of neurology , vol. 28, no. 1, pp.
+78–85, 1990.
+[63] E. Hernandez, D. Mahajan, J. Wulff, M. J. Smith, Z. Ziegler, D. Nadler,
+P. Szolovits, A. Johnson, E. Alsentzer et al. , “Do we still need clinical
+language models?” in Conference on Health, Inference, and Learning .
+PMLR, 2023, pp. 578–597.
+[64] M. Wornow, Y . Xu, R. Thapa, B. Patel, E. Steinberg, S. Fleming, M. A.
+Pfeffer, J. Fries, and N. H. Shah, “The shaky foundations of large
+language models and foundation models for electronic health records,”
+npj Digital Medicine , vol. 6, no. 1, p. 135, 2023.
+[65] J. Lov ´on-Melgarejo, T. Ben-Haddi, J. Di Scala, J. G. Moreno, and
+L. Tamine, “Revisiting the mimic-iv benchmark: Experiments using lan-
+guage models for electronic health records,” in Proceedings of the First
+Workshop on Patient-Oriented Language Processing (CL4Health)@
+LREC-COLING 2024 , 2024, pp. 189–196.
+[66] S. Harrer, “Attention is not all you need: the complicated case of
+ethically using large language models in healthcare and medicine,”
+EBioMedicine , vol. 90, 2023.
+[67] L. Sun, Y . Huang, H. Wang, S. Wu, Q. Zhang, C. Gao, Y . Huang, W. Lyu,
+Y . Zhang, X. Li et al. , “Trustllm: Trustworthiness in large language
+models,” arXiv preprint arXiv:2401.05561 , 2024.
+[68] I. S. Schwartz, K. E. Link, R. Daneshjou, and N. Cort ´es-Penfield, “Black
+box warning: large language models and the future of infectious diseases
+consultation,” Clinical infectious diseases , vol. 78, no. 4, pp. 860–866,
+2024.
+[69] W. E. Thompson, D. M. Vidmar, J. K. De Freitas, J. M. Pfeifer, B. K.
+Fornwalt, R. Chen, G. Altay, K. Manghnani, A. C. Nelsen, K. Morland
+
+2024.
+[69] W. E. Thompson, D. M. Vidmar, J. K. De Freitas, J. M. Pfeifer, B. K.
+Fornwalt, R. Chen, G. Altay, K. Manghnani, A. C. Nelsen, K. Morland
+et al. , “Large language models with retrieval-augmented generation for
+zero-shot disease phenotyping,” arXiv preprint arXiv:2312.06457 , 2023.
+[70] S ¸. Kafkas, M. Abdelhakim, A. Althagafi, S. Toonsi, M. Alghamdi, P. N.
+Schofield, and R. Hoehndorf, “The application of large language models
+to the phenotype-based prioritization of causative genes in rare disease
+patients,” medRxiv , pp. 2023–11, 2023.
+[71] A. Wang, C. Liu, J. Yang, and C. Weng, “Fine-tuning large language
+models for rare disease concept normalization,” Journal of the American
+Medical Informatics Association , p. ocae133, 2024.
+[72] J. Chen, H. Lin, X. Han, and L. Sun, “Benchmarking large language
+models in retrieval-augmented generation,” in Proceedings of the AAAI
+Conference on Artificial Intelligence , vol. 38, no. 16, 2024, pp. 17 754–
+17 762.
+

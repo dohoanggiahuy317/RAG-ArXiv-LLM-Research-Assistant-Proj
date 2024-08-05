@@ -1,0 +1,1800 @@
+Reconsidering Token Embeddings with the Definitions
+for Pre-trained Language Models
+Ying Zhang1, Dongyuan Li2, and Manabu Okumura1,2
+1RIKEN Center for Advanced Intelligence Project
+2Tokyo Institute of Technology
+ying.zhang@riken.jp lidy94805@gmail.com oku@lr.pi.titech.ac.jp
+Abstract
+Learning token embeddings based on token
+co-occurrence statistics has proven effective
+for both pre-training and fine-tuning in natural
+language processing. However, recent stud-
+ies have pointed out the distribution of learned
+embeddings degenerates into anisotropy, and
+even pre-trained language models (PLMs) suf-
+fer from a loss of semantics-related informa-
+tion in embeddings for low-frequency tokens.
+This study first analyzes fine-tuning dynamics
+of a PLM, BART-large, and demonstrates its
+robustness against degeneration. On the ba-
+sis of this finding, we propose DefinitionEMB,
+a method that utilizes definitions to construct
+isotropically distributed and semantics-related
+token embeddings for PLMs while maintain-
+ing original robustness during fine-tuning. Our
+experiments demonstrate the effectiveness of
+leveraging definitions from Wiktionary to con-
+struct such embeddings for RoBERTa-base and
+BART-large. Furthermore, the constructed em-
+beddings for low-frequency tokens improve the
+performance of these models across various
+GLUE and four text summarization datasets.1
+1 Introduction
+Learning word embeddings, also known as word
+representations, is a fundamental challenge in natu-
+ral language processing (NLP), given that embed-
+ding comprehensive word information serves as the
+initial step in many NLP tasks (Turian et al., 2010).
+Since the introduction of the Skip-gram model by
+Mikolov et al. (2013), the predominant approach
+for learning precise syntactic and semantic word
+embeddings in neural models is to train the models
+to predict words within given contexts based on
+word co-occurrence statistics.
+Recent studies highlight representation degen-
+eration issues that arise from learning word em-
+1Our code will be available at Github. Ying Zhang con-
+ducted this research when she was worked at the Tokyo Insti-
+tute of Technology.beddings: the distribution of learned embeddings
+suffers from frequency bias (Yu et al., 2022) and ex-
+hibits a narrow cone-shaped anisotropy (Gao et al.,
+2019). Specifically, Tissier et al. (2017) claimed
+that, when using the co-occurrence principle, words
+that frequently appear together within contexts tend
+to have close representations. It aligns well with the
+anisotropy phenomenon observed in word embed-
+dings of Word2Vec and GloVe (Mu and Viswanath,
+2018). That is, embeddings tend to share a common
+direction and occupy a low-dimensional subspace,
+instead of being angularly uniformly distributed
+(i.e., isotropic). Bi ´s et al. (2021) claimed that this
+phenomenon causes the shape of the word embed-
+ding matrix to degenerate into a narrow cone in a
+low-dimensional embedding space, when weight
+tying is applied during training; thereby, reducing
+the network’s ability for effective generalization,
+especially for low-frequency (rare) words. Fur-
+thermore, Gong et al. (2018) observed that high-
+frequency (popular) and rare words occupy dif-
+ferent areas in the embedding space and that em-
+beddings for rare words contain more frequency-
+related information than semantics-related informa-
+tion, which raises concerns when replacing popular
+words with their rare counterparts (or vice versa).
+To address the representation degeneration is-
+sues, previous studies have proposed solutions to
+post-process embeddings or enhance model opti-
+mization, for example, by eliminating specific di-
+rections from the embeddings (Mu and Viswanath,
+2018), merging popular and rare words during train-
+ing (Gong et al., 2018), and gating the gradients of
+embeddings (Yu et al., 2022). While these meth-
+ods have improved the distribution of embeddings
+in task-specific models and the distribution of pre-
+trained word embeddings (e.g., Word2Vec), they
+
+embeddings (Yu et al., 2022). While these meth-
+ods have improved the distribution of embeddings
+in task-specific models and the distribution of pre-
+trained word embeddings (e.g., Word2Vec), they
+cannot ensure learning of semantics-related embed-
+dings for rare or out-of-vocabulary (OOV) words,
+due to underfitting caused by limited corresponding
+training data. Discounting the gradients or elimi-arXiv:2408.01308v1  [cs.CL]  2 Aug 2024
+
+nating directions from embeddings may even lead
+to a loss of semantics-related information and ag-
+gravate the underfitting problem. Considering that
+a vast majority of words are rare, as indicated by
+the Zipfian distribution (Zipf, 1949), it is worth ex-
+ploring effective strategies to construct semantics-
+related embeddings for rare or OOV words while
+ensuring the isotropic distribution across the entire
+embedding matrix. Additionally, pre-trained lan-
+guage models (PLMs) with vocabularies consisting
+of subwords as tokens have become dominant in
+many NLP tasks due to their plug-and-play con-
+venience and outstanding efficacy. However, ex-
+periments by Schick and Schütze (2020) and Bi ´s
+et al. (2021) revealed that even BERT (Devlin et al.,
+2019) failed to understand many rare words and
+suffered from frequency bias in token embeddings.
+Given the current situation, a natural question
+arises: how can embeddings be constructed for
+PLMs to better understand rare tokens? In edu-
+cational psychology, achieving a deep understand-
+ing of a new word involves linking it to relevant
+concepts that students already possess, a process
+known as meaningful learning (Ausubel, 1968).
+Specifically, in classroom settings, these concepts
+can be conveyed through easily understood con-
+tent to describe an aspect of the semantics of the
+new word, such as using dictionary definitions to
+elucidate the meaning of foreign language words.
+Throughout this paper, we refer to such explanatory
+content as “definitions.” Inspired by the meaning-
+ful learning, we propose an architecture-agnostic
+method, DefinitionEMB, to construct token embed-
+dings through denoising corresponding definitions.
+Our main contributions are summarized as follows:
+•To the best of our knowledge, DefinitionEMB is
+the first method for constructing isotropically dis-
+tributed and semantics-related token embeddings
+to improve PLMs’ fine-tuned performance.
+•Our experiments demonstrated that constructed
+embeddings for rare tokens, as a plug-and-play
+component, improve the fine-tuned performance
+for RoBERTa-base (Liu et al., 2019b) and BART-
+large (Lewis et al., 2020) across various GLUE and
+four text summarization datasets.
+•We observed that using Mu and Viswanath
+(2018) for BART results in degeneration during
+fine-tuning, while BART with and without Def-
+initionEMB are robust against the degeneration.
+Additionally, BART with DefinitionEMB mixes
+embeddings with different frequencies and related
+semantics more thoroughly than the original BART.2 Related Work
+Previous studies have attempted to improve the dis-
+tribution of word/token embeddings. Both Gong
+et al. (2018) and Yu et al. (2022) observed that
+popular and rare word/token embeddings tend to
+occupy different subregions within the embedding
+space, even when they are semantically similar.
+Gong et al. (2018) further found that embeddings
+of popular words in Word2Vec usually have seman-
+tically related neighbors, while rare words do not,
+with many of the nearest neighbors also being rare
+words. To merge popular and rare word embed-
+dings geometrically, Gong et al. (2018) utilized a
+discriminator of generative adversarial networks to
+classify embeddings as belonging to either popu-
+lar or rare words. These word embeddings were
+concurrently trained with a task-dependent loss
+to fool the discriminator. To achieve an isotrop-
+ically distributed embedding matrix, Gao et al.
+(2019) proposed minimizing the cosine similarity
+between any two word embeddings during train-
+ing and Zhang et al. (2020) followed to minimize
+the squared Euclidean distance between word em-
+beddings with large context similarity. Mu and
+Viswanath (2018) eliminated the common mean
+vector and several dominating directions from em-
+beddings, and Rajaee and Pilehvar (2021) followed
+Mu and Viswanath (2018) to eliminate principal
+components within clustered embeddings. Bi ´s et al.
+(2021) simply removed the mean vector to improve
+the performance of GPT-2, BERT, and RoBERTa
+
+Mu and Viswanath (2018) to eliminate principal
+components within clustered embeddings. Bi ´s et al.
+(2021) simply removed the mean vector to improve
+the performance of GPT-2, BERT, and RoBERTa
+on the word similarity task. Subsequent empirical
+findings by Yu et al. (2022) indicated that the gra-
+dients of rare token embeddings push these token
+embeddings away from popular token embeddings,
+causing the word embedding matrix to degenerate
+into a narrow cone when weight tying is applied.
+To address this issue, Yu et al. (2022) proposed
+gating the gradients for rare token embeddings.
+In contrast to the previous studies, our research
+considers both semantic and distributional informa-
+tion for embeddings. It is also the first to apply
+such considerations to improve the fine-tuned per-
+formance of PLMs, whose vocabulary consists of
+tokens created using byte-pair-encoding (Sennrich
+et al., 2016), WordPiece (Wu et al., 2016), or simi-
+lar subword tokenization algorithms.
+The OOV word issue has long been discussed
+in NLP. Previous studies have explored various
+solutions, such as leveraging surface-form infor-
+mation (Luong et al., 2013; Pinter et al., 2017;
+
+Sasaki et al., 2019; Schick and Schütze, 2020) or
+the contexts in which these words occur (Khodak
+et al., 2018; Liu et al., 2019a; Schick and Schütze,
+2019). Lexical definitions have also been con-
+sidered. For instance, Tissier et al. (2017) aug-
+mented co-occurrence information with terms ex-
+tracted from definitions to bring semantically re-
+lated words closer. Bahdanau et al. (2018) trained
+a network to predict word embeddings based on
+definitions. Ruzzetti et al. (2022) extracted crucial
+words from each definition and fed them into a
+neural network to produce embeddings for the cor-
+responding target words. Existing studies that uti-
+lize definitions to mimic embeddings for full words
+with a one-to-one mapping inspire us to explore
+a one-to-many mapping for the use of definitions
+for mimicking token embeddings. Thus, our con-
+structed new embeddings can be easily applied to
+transformer-based (Vaswani et al., 2017) PLMs.
+3 Preliminaries
+LetV={vn}N
+n=1denote the predefined restricted
+vocabulary of a PLM, where Ntokens are ranked
+in descending order according to their frequencies
+in the dataset for pre-training. E∈RN×Hedenotes
+the pre-trained token embedding matrix of the PLM
+forV, where Heis the embedding size. Given a
+word w, we assume that wis tokenized into K
+tokens (vw1, . . . , vwK), and e(v)∈RHedenotes
+the embedding of token vin the PLM.
+The geometry of Eis assumed to capture lin-
+guistic regularities: the similarity between token
+embeddings reflects the semantic similarity of the
+corresponding tokens. Therefore, researchers ex-
+pectEto exhibit a uniform distribution, denoted as
+isotropic, to maximize the containment of linguistic
+information for distinguishing tokens. Improving
+isotropy has been proven effective in enhancing
+performance for text classification and word sim-
+ilarity tasks (Mu and Viswanath, 2018; Bi ´s et al.,
+2021). To estimate isotropy, Mu and Viswanath
+(2018) proposed the metric I(E)∈[0,1], where
+a value closer to 1 indicates higher isotropy. Ap-
+pendix A describes the detail. Mu and Viswanath
+also proposed a post-processing technique to im-
+prove isotropy for Eby eliminating the common
+mean vector and top- βdominating directions from
+E. We denote this method as DelDirection and
+consider it as a baseline, with βset to 10.2
+2According to Mu and Viswanath (2018), β≈He/100.4 Token Embedding Dynamics: An
+Experimental Investigation
+Inspired by Yu et al. (2022)’s observation that the
+presence of a degenerated narrow cone is influ-
+enced by token frequency, we investigate whether
+the token frequency influences the embedding dy-
+namics of PLMs during fine-tuning. To explore this
+phenomenon, we first examined the vocabulary dis-
+tribution in downstream training datasets used for
+fine-tuning. We classified tokens in Vinto appear-
+ing and non appearing groups based on their ap-
+pearance in the corresponding fine-tuning dataset.
+We observed that the CNNDM dataset has the most
+uniform distribution and the greatest variety of ap-
+pearing tokens among CNNDM, Y-BIGPATENT,3
+XSum, and Billsum text summarization datasets.
+The token frequency in the Y-BIGPATENT dataset
+is significantly higher than in the other datasets,
+despite having the smallest variety of appearing to-
+kens. Appendix B shows the detailed distributions.
+We continue to uncover the embedding dynamics
+of PLMs, focusing on BART as an empirical study.
+We concluded that BART does not degenerate
+into a narrow cone; instead, it exhibits drift pat-
+terns influenced by token frequency. Addition-
+ally, merely improving isotropy for BART does
+not guarantee semantically distributed embed-
+dings and improve performance for downstream
+tasks. We describe the details below. We visual-
+ized the distribution of Eand measured the isotropy
+ofEin the BART-large model before and after
+fine-tuning on the CNNDM and Y-BIGPATENT
+datasets. For detailed results, 30%, 50%, and 20%
+of the appearing tokens in Vare assigned to the
+frequent, medium, and rare groups, respectively,
+
+fine-tuning on the CNNDM and Y-BIGPATENT
+datasets. For detailed results, 30%, 50%, and 20%
+of the appearing tokens in Vare assigned to the
+frequent, medium, and rare groups, respectively,
+based on their frequency in the fine-tuning dataset.
+We made several observations by visualizing Eus-
+ing singular value decomposition (SVD) projection
+in Figure 1: (1) Using DelDirection before fine-
+tuning yields higher I(E)and more thoroughly
+mixed embeddings with different token frequen-
+cies for BART, as shown in Figures 1 (a), (f), (c),
+and (h). (2) However, these benefits do not per-
+sist during fine-tuning. Instead, using DelDirection
+yields a fragile distribution, where more updating
+steps result in greater degeneration (Figures 1 (f) to
+(g) and (h) to (j)) and no further improved ROUGE
+scores (Lin, 2004) on the downstream datasets (Fig-
+ures 1 (g) and (j)). Specifically, the popular tokens
+drift away from the original overlapping position,
+3The “y” category of BIGPATENT.
+
+(a)BART, %&=0.751,before CNNDM(b) BART,%&=0.755,after CNNDM 20,000 steps
+(f) +DelDirection, %&=0.788,before CNNDM(g) +DelDirection, %&=0.806,after CNNDM 20,000 steps(c) BART, %&=0.751,before Y-BIGPATENT(e) BART, %&=0.676,after Y-BIGPATENT 92,000 steps
+(h) +DelDirection, %&=0.788,before Y-BIGPATENT(j) +DelDirection, %&=0.688,after Y-BIGPATENT 92,000 steps
+(i) +DelDirection, %&=0.785,after Y-BIGPATENT 7,000 steps
+(d) BART, %&=0.751,after Y-BIGPATENT 7,000 stepsROUGE-L40.31
+ROUGE-L40.32ROUGE-L37.80
+ROUGE-L37.79FrequentMediumRareNon appearingFigure 1: Projected token embeddings of BART with and without DelDirection on the CNNDM and Y-BIGPATENT
+datasets. The x-axis and y-axis represent the right singular vectors associated with the largest and the second largest
+singular values, respectively. Appendix C provides additional examples for BART and RoBERTa.
+(a) BART(b) + DelDirection
+FrequentMediumRare
+Figure 2: Case study of the token embeddings before
+fine-tuning on the CNNDM dataset. “ ˙G” denotes whites-
+pace. The dashed lines from “ ˙Geverlasting” point to its
+semantics-related tokens, recognized by both ChatGPT
+3.5 (Achiam et al., 2023) and Claude 3 Haiku (An-
+thropic, 2024). Appendix D lists their recognitions.
+as seen in Figures 1 (g) and (i). After more up-
+dates, tokens degenerate into a narrow cone with
+frequency bias, as seen in Figure 1 (j). (3) As for
+BART, it appears to be highly robust to the degen-
+eration with the increasing number of updates, as
+seen in Figures 1 (b), (d), and (e). From Figure 2,
+we also observed that (4) the majority of neigh-
+bors of the rare token “ ˙Geverlasting” in both BART
+with and without DelDirection are not semantically
+related to “ ˙Geverlasting”.
+5 Methodology
+This research assumes that there exists a function
+f, referred to as DefinitionEMB , which consists
+of a definition reader gand a linear mapping ofor
+constructing token embeddings for a PLM from
+the corresponding word definition. Building on
+!!(%")!!(%"#$%&#)…Definition EmbeddingsLinear!(%#)Pre-trained Embeddings…!(%"#$%)Pre-trained Language Model
+DefinitionsPre-trained Language Model!(%")!(%#)Pre-trained Embeddings…!(%"#$%)…Definition ReaderFigure 3: Overview of constructing definition embed-
+dings to replace last α% of pre-trained embeddings.
+previous empirical studies, we expect new token
+embeddings for the PLM could preserve the robust-
+ness of pre-trained embeddings against degenera-
+tion while achieving a semantic and isotropic dis-
+tribution. Hereafter, we denote the constructed em-
+beddings as definition embeddings ed(v)∈RHe.
+Figure 3 provides an overview.
+5.1 Embedding Construction
+To establish a mapping from the definition of the
+word wto the target tokens (vw1, . . . , vwK), we
+base our approach on prompt learning (Petroni
+et al., 2019) and denoising autoencoders (Vincent
+et al., 2010) to design prompts for fto trigger the
+corresponding target tokens. This involves cor-
+rupting the tokens in the prompt and training f
+to construct the embeddings of these corrupted to-
+kens. The prompt incorporates the definition, part-
+of-speech, capitalization, and case sensitivity of
+the word w, along with the tokenizer’s specific set-
+tings. Figure 4 shows examples of a prompt and
+its corrupted version. Let p(w) = ( vp1, . . . , vpJ)
+be the tokenized corrupted prompt for the word
+w. In this scenario, given p(w)with the j-th to-
+
+kenvpj∈wbeing corrupted, the definition reader
+gutilizes a BERT-style denoising objective (De-
+vlin et al., 2019) to generate the last hidden state
+sj∈RHsat the j-th time step, where Hsis the
+hidden size. Then, we linearly map sjtoed(vpj)
+ased(vpj) =o(sj) =Asj, where A∈RHe×Hs
+is a weight matrix. sjis computed as follows.
+To ensure that the definition reader gperforms ef-
+fectively for PLMs, we initialize gusing the given
+PLM. Because definitions contain popular, easily
+understandable words to explain their correspond-
+ing target words, and gis initialized from the PLM,
+we assume that the pre-trained embeddings of most
+tokens in p(w)are isotropically distributed and
+semantics-related. Consequently, gcan capture the
+directional aspects of these embeddings to create
+token embeddings for unknown tokens or tokens
+with anisotropically distributed or semantically un-
+related pre-trained embeddings. Considering the
+most widely known PLM architectures, we propose
+two possible models for g: an encoder-only model
+and an encoder-decoder model. For the encoder-
+only reader, the training process involves randomly
+corrupting tokens within the corruption spans as
+follows: 50% of the tokens are replaced with a
+special mask token <MASK>, 25% are replaced
+with a random token, and the remaining 25% are
+left unchanged.4During inference, only one to-
+ken within the corruption spans is replaced with
+<MASK> at a time, and this procedure is repeated
+until all tokens in the corruption spans have been
+replaced. With the corrupted prompt as an input, sj
+is computed using the masked language modeling
+objective (Devlin et al., 2019). As for the encoder-
+decoder reader, we follow the approach by Raffel
+et al. (2020) to replace each corruption span with a
+mask token to construct the source sequence. Sub-
+sequently, we construct the target sequence using
+the replaced tokens delimited by the mask tokens
+used for replacement. sjis computed using the
+causal language modeling objective (Hyndman and
+Athanasopoulos, 2018) by giving the source and
+previous tokens of vpjin the target.
+5.2 Objective Function
+LetD={(wm, p(wm))}M
+m=1denote a corpus with
+Mword-definition pairs. Given that fis optimized
+4Our pre-experiments demonstrated that a large mask ratio
+would result in slow convergence, while a small ratio would
+cause limited change between e(v)anded(v). To ensure com-
+putational efficiency and to prevent the model from relying
+too heavily on unmasked tokens, we manually set these ratios.
+(a) Merged prompt(b) Corrupted promptThe definition of [word] is [definition] . Its part-of-speech ,bpe-form without space , capitalization, and uppercase are [pos] , [wospace-word] ,[cap-word] , and [upper-word] , respectively .The definition of {corruption} is [definition] . Its part-of-speech , bpe-form without space , capitalization , and uppercase are [pos] , {corruption} , {corruption} , and {corruption} , respectively .Figure 4: Constructed prompts. Brackets [] are a place-
+holder for the given word and its corresponding infor-
+mation. Texts with the same color indicate positions of
+a prompt and corresponding word information. {cor-
+ruption} indicates the span for corrupted tokens. The
+bpe-form without space refers to the word’s surface-
+form without the symbol “ ˙G” when using the BART’s
+tokenizer. Appendix E lists detailed examples.
+to find the overall optimal embedding space for V,
+and pre-trained embeddings e(v)for rare tokens in
+Vmay also contain corresponding representations,
+we incorporate definitions involving all tokens in
+Vfor training. Thus, the model parameters for
+fare optimized by minimizing the mean squared
+error (MSE) between pre-trained embeddings and
+definition embeddings as follows:
+L=X
+(w,p(w))∈DPK
+k=1(e(vwk)−ed(vwk))2
+MK.(1)
+5.3 Replacing Strategy in Inference
+Because we use Eq. (1) for model training, we
+hypothesize that e(v), which contains definition in-
+formation, would yield a low MSE, indicating that
+
+MK.(1)
+5.3 Replacing Strategy in Inference
+Because we use Eq. (1) for model training, we
+hypothesize that e(v), which contains definition in-
+formation, would yield a low MSE, indicating that
+e(v)is nearly equivalent to ed(v). Conversely, a
+high error in e(v)suggests missing definition infor-
+mation or excessive noise, and should be replaced
+byed(v). Therefore, in inference, we straightfor-
+wardly replace pre-trained embeddings with defi-
+nition embeddings as e(v) =ed(v). Next, we dis-
+cuss which tokens should be replaced. Given a spe-
+cific downstream task, we remove tokens from V
+that do not appear in the corresponding fine-tuning
+dataset. The remaining set of tokens is denoted as
+V[task].5Our preliminary experiments, presented
+in Appendix F, demonstrated that, when replac-
+ing the last tokens in V[task], BART achieves the
+highest accuracy compared to replacing random
+or top tokens in V[task]. Therefore, as an initial
+study on constructing token embeddings for PLMs,
+this study focuses on definition embeddings for
+5Tokens in V[task]are also ranked in descending order
+according to their frequency in the dataset for pre-training.
+
+ModelI(E)↑
+Frequent Medium Rare All Tokens
+RoBERTa 0.694 0.501 0.315 0.504
++ DelDirection 0.639 0.641 0.599 0.624
++ DefinitionEMB 0.649 0.470 0.382 0.519
+BART 0.851 0.668 0.515 0.751
++ DelDirection 0.790 0.775 0.731 0.788
++ DefinitionEMB 0.834 0.800 0.603 0.876
+Table 1: Isotropy of E. The frequent (30%), medium
+(50%), and rare (20%) groups are determined based on
+the token index in V. Appendix I shows projected E.
+only low-frequency tokens, in line with previous
+studies.6Considering diverse data distributions and
+task requirements for downstream tasks, we replace
+min(α%∗N,|V[task]|)of the last tokens in V[task],
+where αserves as a hyperparameter.
+6 Experiments
+In addition to evaluating the isotropy of E, we eval-
+uate the performance of PLMs before and after
+replacing embeddings by DefinitionEMB on vari-
+ous benchmark tasks, following Mu and Viswanath
+(2018) and Lewis et al. (2020), including a word
+similarity task, two natural language understanding
+tasks on General Language Understanding Evalua-
+tion (GLUE), and a text summarization task.
+6.1 Experimental Settings
+We adopted the RoBERTa-base and BART-large
+models as our baseline PLMs with encoder-only
+and encoder-decoder architectures, respectively.
+Both models used the same vocabulary Vwith the
+sizeN= 50 ,265. BART utilizes the weight ty-
+ing (Press and Wolf, 2017) technique when pre-
+dicting texts, which involves using Eas the weight
+matrix for computing logits.
+We utilized the English-language Wiktionary
+(1.5GB) as definitions for training DefinitionEMB.
+The 1,464,327 extracted definitions were randomly
+divided into 1,454,327 for training and 10,000 for
+validation. Additionally, we manually added defi-
+nitions for 1,252 numbers in Vby translating num-
+bers into their corresponding words, such as “2” to
+“two”. Furthermore, we added definitions for 136
+named entity tokens in V, such as “ ˙GNVIDIA”,
+based on their Wikipedia pages or Google search
+results. Overall, 1,455,715 examples were used for
+training DefinitionEMB.7During inference, these
+6Following Bahdanau et al. (2018), handling unknown
+tokens v /∈ V is deferred for future investigation.
+7When using DefinitionEMB, 2305 tokens from VwereModelSpearman Score ↑
+RG65 RW SimLex SimVerb Ave
+RoBERTa 16.05 18.89 26.67 11.81 18.36
++ DefinitionEMB 18.88 18.96 27.15 11.91 19.23
+BART 15.32 19.66 28.56 13.09 19.16
++ DefinitionEMB 15.67 19.76 28.63 12.72 19.20
+Table 2: Experimental results on the word similarity task
+with dot product. DefinitionEMB completely replaces
+E. Appendix K shows the results with cosine similarity.
+examples were reused for loading definition em-
+beddings.8Appendix G lists the hyperparameter
+settings for training DefinitionEMB and fine-tuning
+all models for downstream tasks. Experimental re-
+sults were averaged over three trials. We tuned
+α(the ratio for replacing pre-trained token em-
+beddings) based on the model performance on the
+validation set. The experimental results for tuning
+αare described in Appendix H.
+6.2 Quantitative Evaluation
+)Initial Isotropy. We measured the initial
+isotropy of token embeddings Ein PLMs and the
+isotropy after completely replacing E. Table 1
+shows that both RoBERTa and BART exhibit high
+isotropy in the frequent group but low isotropy
+in the rare group. DelDirection helps achieve a
+uniformly distributed isotropy across frequency
+groups and results in the highest isotropy for the
+rare group, although it decreases isotropy in the
+frequent group. DefinitionEMB also showcases a
+more uniform isotropy distribution than the original
+PLMs, displaying lower isotropy for the frequent
+group but higher isotropy for the rare group. Ad-
+ditionally, DefinitionEMB for BART achieves the
+highest isotropy for the medium group as well as
+for the entire E. Appendix J analyzes differences
+of using DefinitionEMB on BART and RoBERTa.
+)Word Similarity. Compared to BART and
+RoBERTa, which utilize over 160 GB of contexts
+to learn semantic embeddings, DefinitionEMB uti-
+
+of using DefinitionEMB on BART and RoBERTa.
+)Word Similarity. Compared to BART and
+RoBERTa, which utilize over 160 GB of contexts
+to learn semantic embeddings, DefinitionEMB uti-
+lizes definition information at only 1% of their
+contexts’ size. To evaluate the construction capa-
+bilities of DefinitionEMB on representations given
+such limited information, we adopted the word sim-
+ilarity task to investigate whether DefinitionEMB
+can maintain the original semantic relationships.9
+always excluded from replacement because they do not have a
+corresponding definition, such as “ )=(”.
+8Once a token embedding has been replaced, it will not be
+replaced during the rest of the procedure.
+9The DelDirection was excluded because it does not con-
+
+Model SST MRPC STS QQPMNLIQNLI RTE Averagem mm
+RoBERTa 95.7 87.5 89.6 /89.0 89.6 87.3 86.7 93.1 73.9 88.0
++ DelDefinition 95.9 86.9 89.0 / 88.3 89.3 87.3 86.8 93.0 72.3 87.6
++ DefinitionEMB 95.9 87.7 89.6 /89.0 89.4 87.6 87.0 93.0 75.3 88.3
+BART 96.5 87.8 91.2 / 90.6 90.1 90.0 89.2 94.7 82.4 90.3
++ DelDefinition 96.4 87.3 90.9 / 90.4 89.9 89.9 89.2 94.7 78.7 89.7
++ DefinitionEMB 96.4 88.3 91.3 /90.7 90.1 90.0 89.2 94.9 83.3 90.5
+Table 3: Experimental results on GLUE. For the STS dataset, we report the Pearson/Spearman’s rank correlation,
+while for other datasets, we report accuracy scores. For the MNLI dataset, we report results for Matched (m) and
+Mismatched (mm) sets. Appendix L describes corresponding I(E).
+Model CNNDM Y-BIGPATENT XSum Billsum Average
+BART 43.57 / 20.93 / 40.31 43.96 / 18.92 / 37.80 43.76 / 20.40 / 34.65 51.02 / 32.44 / 39.11 45.58 / 23.17 / 37.97
++DelDirection 43.59 / 20.93 / 40.32 43.91 / 18.85 / 37.79 43.90 / 20.58 / 34.86 50.89 / 32.22 / 38.97 45.57 / 23.15 / 37.99
++DefinitionEMB 43.78†/20.94 /40.52†44.16‡/19.06‡/38.01‡43.96†/20.61†/34.87†50.96 / 32.64‡/39.28 45.72 /23.31 /38.17
+Table 4: Experimental results (ROUGE1-F1 / ROUGE2-F1 / ROUGEL-F1) on the text summarization task. †and‡
+indicate that the score is significantly superior to BART with a p-value < 0.01 and < 0.05, respectively.
+Following Mu and Viswanath (2018), we assessed
+whether the similarity between the embeddings of
+two given words aligns with the ground truth, in
+terms of Spearman’s rank correlation. We used dot
+product to measure the similarity between word em-
+beddings across four datasets: RG65 (Rubenstein
+and Goodenough, 1965), rare-words (RW) (Luong
+et al., 2013), SimLex-999 (Hill et al., 2015), and
+SimVerb-3500 (Gerz et al., 2016). We estimated
+the word embeddings by summing the embeddings
+of the corresponding tokens. As Table 2 shows, us-
+ing DefinitionEMB yields higher Spearman scores
+than the original PLMs on the RG65, SimLex-999,
+and RW datasets. Notably, the results on the RW
+dataset, which consists of only rare words, under-
+score the effectiveness of DefinitionEMB in captur-
+ing semantic information for these words.
+)GLUE. To evaluate the performance of PLMs
+with replaced embeddings in natural language un-
+derstanding, we followed a previous study (Lewis
+et al., 2020) and conducted experiments on the
+GLUE benchmark (Wang et al., 2018) across seven
+datasets: SST, MRPC, STS, QQP, MNLI, QNLI,
+and RTE. We also report the test set results obtained
+from the public leaderboard.10Table 3 demon-
+strates that using DefinitionEMB improved the per-
+formance of both RoBERTa and BART on average,
+particularly for the MRPC and RTE datasets. This
+may be because the frequency of tokens in the two
+classification datasets is low, causing rare tokens
+struct representations but rather updates existing embeddings.
+10https://gluebenchmark.com/to be insufficiently fine-tuned, thus enhancing the
+necessity for their embeddings to be replaced.
+)Text Summarization. For the downstream
+summarization task, we used public abstractive
+summarization datasets, including CNN/DailyMail
+(CNNDM) (Hermann et al., 2015), Extreme Sum-
+marization (XSum) (Narayan et al., 2018), Bill-
+Sum (Kornilova and Eidelman, 2019), and Y-
+BIGPATENT (Sharma et al., 2019). We evalu-
+ate the model performance on these datasets using
+the ROUGE scores and compare BART + Defi-
+nitionEMB with the original BART using paired
+bootstrap resampling (Koehn, 2004) for the signifi-
+cance test. Table 4 shows that using DelDirection
+improved the ROUGEL-F1 score by 0.21 points for
+BART on the XSum dataset. However, the differ-
+ence between BART and DelDirection is very lim-
+ited on other datasets; DelDirection achieves even
+a lower ROUGEL-F1 score, with a decrease of 0.14
+points, than BART on the Billsum dataset. In con-
+trast, by improving semantics-related information
+and frequency-aware I(E)for rare tokens, Defini-
+tionEMB achieves the highest ROUGEL-F1 scores,
+
+points, than BART on the Billsum dataset. In con-
+trast, by improving semantics-related information
+and frequency-aware I(E)for rare tokens, Defini-
+tionEMB achieves the highest ROUGEL-F1 scores,
+with improvements of 0.21, 0.21, 0.22, and 0.17
+points on the CNNDM, Y-BIGPATENT, XSum,
+and Billsum datasets, respectively, for BART.
+7 Analysis of DefinitionEMB
+7.1 Ablation Study
+Appendix M analyzes the effectiveness of replac-
+ing only appearing tokens instead of all tokens.
+
+(a)+DefinitionEMB, %&=0.808,before CNNDM(b) + DefinitionEMB, %&=0.792,after CNNDM 20,000 steps(c) + DefinitionEMB, %&=0.764,before Y-BIGPATENT(e) + DefinitionEMB, %&=0.676,after Y-BIGPATENT 92,000 steps
+(d) + DefinitionEMB, %&=0.799,after Y-BIGPATENT 7,000 stepsROUGE-L40.52ROUGE-L38.01Figure 5: Projected token embeddings in BART+DefinitionEMB before and after fine-tuning. The embeddings in
+(a) and (c) exhibit different shapes due to the different α.
+ModelsROUGE (F1)
+1 2 L
+BART 34.99 14.67 32.19
++DelDirection 35.13 (+0.14) 15.05 (+0.38) 32.33 (+0.14)
++DefinitionEMB 36.11‡(+1.12) 15.75 †(+1.08) 33.44 ‡(+1.25)
+Table 5: Experimental results on the CNNDM subset for
+rare tokens (index > 40,000 in V). (+scores) indicates
+the improvement compared to BART.
+Reference: MarvelStudios … Age ofUltron… Daredevil constume. X-MenApocalypse Angel played by Ben Hardy.BART: … Age ofUltronsequal. The actor has been playing theandroid for many years in the comics. …+DelDirection: … Age ofUltronis finally revealed. …+DefinitionEMB: … Age ofUltronsequal. Marvel Studios also announed a  new character for X-Men:Apocalypse Ben Hardy will play the wingedmutant Angel in X-Men: Apocalypse, Director Bryan Singer said.(a) Token Embeddings before fine-tuning.(b) Generated summarization.
+Figure 6: Case study on the CNNDM dataset.
+(a) visualizes the projected token embeddings in
+BART+DefinitionEMB. Underline in (b) indicates the
+rare tokens with index larger than 40,000 in V. See
+Appendix N for a full version.
+Considering that DefinitionEMB is designed to
+handle rare tokens, we conducted experiments on
+65 data pairs of the CNNDM test set, whose tar-
+get sentence consists of a high proportion of rare
+tokens (at least 5%). Details of this subset are
+provided in Appendix G. As shown in Table 5,
+DefinitionEMB achieves superior scores, with im-
+provements of over 1 point across all ROUGE met-
+rics, compared to BART, while DelDirection only
+improves ROUGE1 and ROUGEL by 0.14 points.
+These results highlight the effectiveness of Defini-
+tionEMB and show that DelDirection, as an update
+method rather than a construction method for em-
+beddings, is less effective for rare tokens.
+7.2 Embedding Dynamics
+Figure 5 depicts the projected token embed-
+dings of BART+DefinitionEMB on the CNNDM
+and Y-BIGPATENT datasets. On the CNNDMdataset, the BART+DefinitionEMB tokens ex-
+hibit minimal drift from before to after fine-
+tuning. Conversely, on the Y-BIGPATENT dataset,
+BART+DefinitionEMB tokens within the same
+group move together after fine-tuning. These find-
+ings align with those of BART in Figure 1, indi-
+cating that using DefinitionEMB helps maintain
+BART’s robustness to degeneration into a narrow
+cone. Additionally, using DefinitionEMB before
+fine-tuning increases I(E)for BART across the
+CNNDM and Y-BIGPATENT datasets, supporting
+our observation that, compared with BART, em-
+beddings in BART+DefinitionEMB with different
+frequencies are more thoroughly mixing with each
+other. Figure 6 (a) provides a closer view of Fig-
+ure 5 (a), revealing that the token “ ˙Geverlasting” is
+surrounded by more semantically related tokens, in-
+cluding “ ˙Gsun”, “ ˙Gstar”, and “ ˙Gvast”, than BART
+with and without DelDirection.
+8 Conclusion
+In this study, we found that during fine-tuning on
+text summarization tasks, the embeddings of the
+BART-large model do not degenerate into a nar-
+row cone in a low-dimensional space. However,
+eliminating specific directions from BART’s em-
+beddings using Mu and Viswanath (2018) leads
+to degeneration, where embeddings with differ-
+ent token frequencies are pushed away from each
+other. Experimental results demonstrated that
+using DefinitionEMB for RoBERTa and BART
+improves the distribution of embeddings and en-
+ables low-frequency token embeddings to retain
+semantics-related information. DefinitionEMB
+also maintained BART’s robustness to degenera-
+tion. While PLMs suffer from stale information,
+DefinitionEMB provided access to external data
+
+semantics-related information. DefinitionEMB
+also maintained BART’s robustness to degenera-
+tion. While PLMs suffer from stale information,
+DefinitionEMB provided access to external data
+to construct embeddings for OOV tokens. Further-
+more, our observed embedding dynamics paved the
+way for future work to explore why PLMs, such as
+BART, are robust to degeneration.
+
+9 Limitations
+The scope of this paper is limited to the investiga-
+tion of two early transformer-based pre-trained lan-
+guage models, RoBERTa and BART, with encoder-
+only and encoder-decoder architectures, respec-
+tively. The effectiveness of using definitions for
+decoder-only transformer-based or transformer-
+unrelated pre-trained language models was not dis-
+cussed. Additionally, our experiments focused ex-
+clusively on embeddings for tokens within the pre-
+defined vocabulary, and the effectiveness of utiliz-
+ing DefinitionEMB for unknown tokens remains
+unexplored. Furthermore, while we directly em-
+ployed a 2:1:1 strategy for corrupting tokens in
+the encoder-only reader, the optimal value for this
+strategy is worth exploring. Lastly, tuning αwill
+be inefficient if the fine-tuning process for a given
+dataset is slow, and the improvements would be lim-
+ited for tasks mainly comprising popular tokens.
+Acknowledgements
+We thank Prof. Min-Yen Kan for suggesting the
+types of rare tokens to us.
+References
+Josh Achiam, Steven Adler, Sandhini Agarwal, et al.
+2023. Gpt-4 technical report. arXiv preprint
+arXiv:2303.08774 .
+Anthropic. 2024. The claude 3 model family: Opus,
+sonnet, haiku. Technique Report from Website .
+David Paul Ausubel. 1968. Educational psychology: A
+cognitive view . Holt, Rinehart and Winston.
+Dzmitry Bahdanau, Tom Bosc, Stanisław Jastrz˛ ebski,
+Edward Grefenstette, Pascal Vincent, and Yoshua
+Bengio. 2018. Learning to compute word embed-
+dings on the fly. arXiv preprint arXiv:1706.00286 .
+Daniel Bi ´s, Maksim Podkorytov, and Xiuwen Liu. 2021.
+Too much in common: Shifting of embeddings in
+transformer language models and its implications.
+InProceedings of the 2021 Conference of the North
+American Chapter of the Association for Computa-
+tional Linguistics: Human Language Technologies ,
+pages 5117–5130.
+Xingyu Cai, Jiaji Huang, Yuchen Bian, and Kenneth
+Church. 2021. Isotropy in the contextual embedding
+space: Clusters and manifolds. In International Con-
+ference on Learning Representations .
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2019. BERT: Pre-training of
+deep bidirectional transformers for language under-
+standing. In Proceedings of the 2019 Conferenceof the North American Chapter of the Association
+for Computational Linguistics: Human Language
+Technologies , pages 4171–4186.
+Jun Gao, Di He, Xu Tan, et al. 2019. Representation
+degeneration problem in training natural language
+generation models. In International Conference on
+Learning Representations .
+Daniela Gerz, Ivan Vuli ´c, Felix Hill, Roi Reichart, and
+Anna Korhonen. 2016. SimVerb-3500: A large-scale
+evaluation set of verb similarity. In Proceedings
+of the 2016 Conference on Empirical Methods in
+Natural Language Processing , pages 2173–2182.
+Chengyue Gong, Di He, Xu Tan, Tao Qin, Liwei Wang,
+and Tie-Yan Liu. 2018. Frage: Frequency-agnostic
+word representation. In Advances in Neural Informa-
+tion Processing Systems , volume 31.
+Karl Moritz Hermann, Tomas Kocisky, Edward Grefen-
+stette, et al. 2015. Teaching machines to read and
+comprehend. In Advances in Neural Information
+Processing Systems , volume 28.
+Felix Hill, Roi Reichart, and Anna Korhonen. 2015.
+SimLex-999: Evaluating semantic models with (gen-
+uine) similarity estimation. Computational Linguis-
+tics, 41(4):665–695.
+Rob J Hyndman and George Athanasopoulos. 2018.
+Forecasting: principles and practice . OTexts.
+Mikhail Khodak, Nikunj Saunshi, Yingyu Liang,
+Tengyu Ma, Brandon Stewart, and Sanjeev Arora.
+2018. A la carte embedding: Cheap but effective in-
+duction of semantic feature vectors. In Proceedings
+of the 56th Annual Meeting of the Association for
+Computational Linguistics , pages 12–22.
+Philipp Koehn. 2004. Statistical significance tests for
+machine translation evaluation. In Proceedings of the
+2004 Conference on Empirical Methods in Natural
+Language Processing , pages 388–395.
+Anastassia Kornilova and Vladimir Eidelman. 2019.
+
+machine translation evaluation. In Proceedings of the
+2004 Conference on Empirical Methods in Natural
+Language Processing , pages 388–395.
+Anastassia Kornilova and Vladimir Eidelman. 2019.
+BillSum: A corpus for automatic summarization of
+US legislation. In Proceedings of the 2nd Workshop
+on New Frontiers in Summarization , pages 48–56.
+Mike Lewis, Yinhan Liu, Naman Goyal, et al. 2020.
+BART: Denoising sequence-to-sequence pre-training
+for natural language generation, translation, and com-
+prehension. In Proceedings of the 58th Annual Meet-
+ing of the Association for Computational Linguistics ,
+pages 7871–7880.
+Chin-Yew Lin. 2004. ROUGE: A package for automatic
+evaluation of summaries. In Text Summarization
+Branches Out , pages 74–81.
+Qianchu Liu, Diana McCarthy, and Anna Korhonen.
+2019a. Second-order contexts from lexical substi-
+tutes for few-shot learning of word representations.
+InProceedings of the Eighth Joint Conference on
+Lexical and Computational Semantics (*SEM 2019) ,
+pages 61–67.
+
+Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, et al.
+2019b. Roberta: A robustly optimized bert pretrain-
+ing approach. arXiv preprint arXiv:1907.11692 .
+Thang Luong, Richard Socher, and Christopher Man-
+ning. 2013. Better word representations with recur-
+sive neural networks for morphology. In Proceedings
+of the Seventeenth Conference on Computational Nat-
+ural Language Learning , pages 104–113.
+Tomas Mikolov, Kai Chen, Greg Corrado, and Jef-
+frey Dean. 2013. Efficient estimation of word
+representations in vector space. arXiv preprint
+arXiv:1301.3781 .
+Jiaqi Mu and Pramod Viswanath. 2018. All-but-the-top:
+Simple and effective postprocessing for word repre-
+sentations. In International Conference on Learning
+Representations .
+Shashi Narayan, Shay B. Cohen, and Mirella Lapata.
+2018. Don’t give me the details, just the summary!
+topic-aware convolutional neural networks for ex-
+treme summarization. In Proceedings of the 2018
+Conference on Empirical Methods in Natural Lan-
+guage Processing , pages 1797–1807.
+Myle Ott, Sergey Edunov, Alexei Baevski, et al. 2019.
+fairseq: A fast, extensible toolkit for sequence mod-
+eling. In Proceedings of the 2019 Conference of
+the North American Chapter of the Association for
+Computational Linguistics , pages 48–53.
+Fabio Petroni, Tim Rocktäschel, Sebastian Riedel, et al.
+2019. Language models as knowledge bases? In
+Proceedings of the 2019 Conference on Empirical
+Methods in Natural Language Processing and the 9th
+International Joint Conference on Natural Language
+Processing , pages 2463–2473.
+Yuval Pinter, Robert Guthrie, and Jacob Eisenstein.
+2017. Mimicking word embeddings using subword
+RNNs. In Proceedings of the 2017 Conference on
+Empirical Methods in Natural Language Processing ,
+pages 102–112.
+Ofir Press and Lior Wolf. 2017. Using the output embed-
+ding to improve language models. In Proceedings of
+the 15th Conference of the European Chapter of the
+Association for Computational Linguistics: Volume
+2, Short Papers , pages 157–163.
+Colin Raffel, Noam Shazeer, Adam Roberts, et al. 2020.
+Exploring the limits of transfer learning with a unified
+text-to-text transformer. The Journal of Machine
+Learning Research , 21(1).
+Sara Rajaee and Mohammad Taher Pilehvar. 2021. A
+cluster-based approach for improving isotropy in con-
+textual embedding space. In Proceedings of the 59th
+Annual Meeting of the Association for Computational
+Linguistics and the 11th International Joint Confer-
+ence on Natural Language Processing (Volume 2:
+Short Papers) , pages 575–584.Herbert Rubenstein and John B. Goodenough. 1965.
+Contextual correlates of synonymy. Communications
+of the ACM , 8(10):627–633.
+Elena Sofia Ruzzetti, Leonardo Ranaldi, Michele Mas-
+tromattei, Francesca Fallucchi, Noemi Scarpato, and
+Fabio Massimo Zanzotto. 2022. Lacking the embed-
+ding of a word? look it up into a traditional dictionary.
+InFindings of the Association for Computational Lin-
+guistics: ACL 2022 , pages 2651–2662.
+Shota Sasaki, Jun Suzuki, and Kentaro Inui. 2019.
+Subword-based Compact Reconstruction of Word
+Embeddings. In Proceedings of the 2019 Conference
+of the North American Chapter of the Association
+for Computational Linguistics: Human Language
+Technologies , pages 3498–3508.
+Timo Schick and Hinrich Schütze. 2019. Attentive
+mimicking: Better word embeddings by attending
+to informative contexts. In Proceedings of the 2019
+Conference of the North American Chapter of the
+Association for Computational Linguistics: Human
+Language Technologies , pages 489–494.
+Timo Schick and Hinrich Schütze. 2020. Rare words:
+A major problem for contextualized embeddings and
+how to fix it by attentive mimicking. In Proceedings
+of the AAAI Conference on Artificial Intelligence ,
+volume 34, pages 8766–8774.
+Rico Sennrich, Barry Haddow, and Alexandra Birch.
+2016. Neural machine translation of rare words with
+subword units. In Proceedings of the 54th Annual
+Meeting of the Association for Computational Lin-
+guistics (Volume 1: Long Papers) , pages 1715–1725.
+
+subword units. In Proceedings of the 54th Annual
+Meeting of the Association for Computational Lin-
+guistics (Volume 1: Long Papers) , pages 1715–1725.
+Eva Sharma, Chen Li, and Lu Wang. 2019. BIG-
+PATENT: A large-scale dataset for abstractive and
+coherent summarization. In Proceedings of the 57th
+Annual Meeting of the Association for Computational
+Linguistics , pages 2204–2213.
+Julien Tissier, Christophe Gravier, and Amaury Habrard.
+2017. Dict2vec : Learning word embeddings using
+lexical dictionaries. In Proceedings of the 2017 Con-
+ference on Empirical Methods in Natural Language
+Processing , pages 254–263.
+Joseph Turian, Lev-Arie Ratinov, and Yoshua Bengio.
+2010. Word representations: A simple and general
+method for semi-supervised learning. In Proceedings
+of the 48th Annual Meeting of the Association for
+Computational Linguistics , pages 384–394.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, et al.
+2017. Attention is all you need. In Advances in
+Neural Information Processing Systems , volume 30.
+Pascal Vincent, Hugo Larochelle, Isabelle Lajoie,
+Yoshua Bengio, and Pierre-Antoine Manzagol. 2010.
+Stacked denoising autoencoders: Learning useful rep-
+resentations in a deep network with a local denoising
+criterion. J. Mach. Learn. Res. , 11:3371–3408.
+
+Alex Wang, Amanpreet Singh, Julian Michael, Felix
+Hill, Omer Levy, and Samuel Bowman. 2018. GLUE:
+A multi-task benchmark and analysis platform for nat-
+ural language understanding. In Proceedings of the
+2018 EMNLP Workshop BlackboxNLP: Analyzing
+and Interpreting Neural Networks for NLP , pages
+353–355.
+Thomas Wolf, Lysandre Debut, Victor Sanh, et al. 2020.
+Transformers: State-of-the-art natural language pro-
+cessing. In Proceedings of the 2020 Conference on
+Empirical Methods in Natural Language Processing:
+System Demonstrations , pages 38–45.
+Yonghui Wu, Mike Schuster, Zhifeng Chen, et al. 2016.
+Google’s neural machine translation system: Bridg-
+ing the gap between human and machine translation.
+arXiv preprint arXiv:1609.08144 .
+Sangwon Yu, Jongyoon Song, Heeseung Kim, Seong-
+min Lee, Woo-Jong Ryu, and Sungroh Yoon. 2022.
+Rare tokens degenerate all tokens: Improving neural
+text generation via adaptive gradient gating for rare
+token embeddings. In Proceedings of the 60th An-
+nual Meeting of the Association for Computational
+Linguistics (Volume 1: Long Papers) , pages 29–45.
+Zhong Zhang, Chongming Gao, Cong Xu, Rui Miao,
+Qinli Yang, and Junming Shao. 2020. Revisiting rep-
+resentation degeneration problem in language mod-
+eling. In Findings of the Association for Computa-
+tional Linguistics: EMNLP 2020 , pages 518–527.
+George Kingsley Zipf. 1949. Human behavior and the
+principle of least effort. Addison-Wesley Press.
+
+A Isotropy Metric
+Edenotes the pre-trained token embedding matrix
+of the PLM. Following previous studies (Mu and
+Viswanath, 2018; Bi ´s et al., 2021; Yu et al., 2022),
+we compute the isotropy of Eusing Equation (1)
+from Mu and Viswanath (2018), which is given by:
+I(E) =minb∈BZ(b)
+maxb∈BZ(b), (1)
+where Z(b)is approximately constant, Bis the set
+of eigenvectors of ETEwithTrepresents transpo-
+sition operation.
+B Datasets
+Table 6 provides an overview of the data statis-
+tics for each task. For the GLUE task, we uti-
+lize Stanford Sentiment Treebank (SST), Microsoft
+Research Paraphrase Corpus (MRPC), Semantic
+Textual Similarity Benchmark (STS), Quora Ques-
+tion Pairs (QQP), MultiNLI (MNLI), Question
+NLI (QNLI), and Recognizing Textual Entailment
+(RTE) datasets. For the text summarization task,
+CNNDM comprises articles from the CNN and
+the Daily Mail newspapers, while Xsum con-
+sists of BBC articles paired with single-sentence
+summaries. BillSum contains summaries of US
+Congressional and California state bills, and Y-
+BIGPATENT contains U.S. patent documents cov-
+ering new or cross-sectional technology.
+Figures 7 and 8 show the distribution of tokens
+appearing in the GLUE and text summarization
+datasets. As these two figures show, the token
+frequency in text summarization datasets is much
+higher than that in the GLUE datasets. This find-
+ings suggest a potential difference when fine-tuning
+embeddings with respect to the task requirements.
+
+1234567891002,0004,000
+V ocab bin# of tokensBillsum
+XSum
+CNNDM
+Y-BIGPATENT
+(a) Number of tokens appearing in V.1 3 5 7 912345
+V ocab binLog(frequency)Billsum
+XSum
+CNNDM
+Y-BIGPATENT
+(b) Logarithmic averaged frequency of tokens
+appearing in the corresponding training set.
+Figure 7: Distribution of the BART vocabulary in the training sets of text summarization datasets, considering both
+source and target tokens. The first 50,000 tokens in Vare grouped into bins of 5,000 according to their index in V
+(e.g., [0:4,999]).
+1 2 3 4 5 6 7 8 9 1001,0002,0003,0004,0005,000
+V ocab bin# of tokens
+(a) Number of tokens appearing in V.1 3 5 7 90123
+V ocab binLog(frequency)MRPC
+MNLI
+QQP
+QNLI
+SST
+STS
+RTE
+(b) Logarithmic averaged frequency of tokens appearing in the
+corresponding training set.
+Figure 8: Distribution of the BART vocabulary in the training sets of GLUE datasets.
+Task Dataset # of train # of validation # of test
+Word similarityRG65 - - 65
+SimLex-999 - - 999
+RW - - 2,034
+SimVerb-3500 - - 3,500
+GLUERTE 2, 490 277 3, 000
+MRPC 3, 668 408 1, 725
+STS 5, 749 1, 500 1, 379
+SST 67, 349 872 1, 821
+QNLI 104, 743 5, 463 5, 463
+QQP 363, 846 40, 430 390, 965
+MNLI 392, 702 9, 815 (m) + 9, 832 (mm) 9, 796 (m) + 9, 847 (mm)
+Text summarizationBillSum 17, 054 1, 895 3, 269
+Y-BIGPATENT 124, 397 6, 911 6, 911
+XSum 204, 045 11, 332 11, 334
+CNNDM 287, 227 13, 368 11,490
+Table 6: Detailed statistic of train, validation and test Datasets. For the MNLI dataset, we report Matched (m) and
+Mismatched (mm) sets.
+(a)After CNNDM 100 steps(d) After CNNDM 20,000 steps
+(c) After CNNDM 3,000 steps
+(b) After CNNDM 1,000 stepsFrequentMediumRareNon appearing
+Figure 9: Projected token embeddings of a randomly initialized model (BART architecture) training on the CNNDM
+dataset. 30%, 50%, and 20% of the appearing tokens in Vare assigned to the frequent, medium, and rare groups,
+respectively, based on their frequency in the training set.
+
+C Additional Embedding Dynamics
+To investigate whether pre-training helps models to
+be robust against degeneration, we compare the pre-
+trained BART with a randomly initialized model
+(BART architecture). As shown in Figure 9, after
+1,000 training steps, the initialized model exhibits
+obvious degeneration, and after 3,000 steps, the
+shape of its embeddings becomes more like a nar-
+row cone. This result align well with previous
+studies (Gao et al., 2019; Yu et al., 2022). In con-
+trast, the pre-trained BART does not show such
+degeneration (Figure 1).
+Figures 10 (e) and (g) show that before fine-
+tuning, the embeddings of DelDirection form a nar-
+row ellipse. After fine-tuning, the minor axis of the
+ellipse lengthens, and the frequent, medium, and
+rare groups gradually disperse, eventually forming
+a square, as shown in Figures 10 (f) and (h). From
+Figures 10 (f) and (h), we also observe that the
+more updating steps, the longer the original minor
+axis of the ellipse, and the higher I(E)achieved
+by DelDirection. However, if DelDirection is fine-
+tuned further, the shape may resemble that in Fig-
+ure 1 (h), resulting in a much smaller I(E). Com-
+paring Figures 10 (a) to (d) with Figures 10 (i)
+to (ℓ), we observe that BART + DefinitionEMB
+performs similarly to BART. Specifically, on the
+XSum dataset, there is minimal drift in embeddings
+from before to after fine-tuning. Conversely, for the
+Billsum dataset, after fine-tuning, the embeddings
+of two ellipses move closer together.
+We do not observe drift for BART-related mod-
+els on the QQP and RTE datasets, as shown in
+Figure 11, which is different from text summa-
+rization datasets. This may be because the BART
+for classification tasks does not use the weight ty-
+ing technique, and the token frequency in QQP
+and RTE are much lower than in text summariza-
+tion datasets. Using DelDefinition for RoBERTa
+shows the spread of popular tokens from the origi-
+nal center as shown in Figures 12 (e) and (f). Al-
+though RoBERTa and BART have different model
+architectures (encoder-only vs. encoder-decoder),
+scales, and pre-training strategies, they both show
+similar robustness against representation degenera-
+tion. This suggests that PLMs’ robustness against
+representation degeneration might not be directly
+related to its architecture (encoder-only or encoder-
+decoder), scale, or pre-training strategy.
+Figures 13, 14, and 15 show case studies of spe-
+cific tokens before and after replacing their tokenembeddings. In BART, the central tokens are sur-
+rounded by tokens of the same frequency, rather
+than those with related semantics. In the case of
+BART+DelDirection, we observe tokens with dif-
+ferent token frequencies surrounding the central
+word. However, using DelDirection also does not
+guarantee the semantically related neighbors. After
+replacing embeddings with DefinitionEMB, seman-
+tically related tokens appear in the surrounding of
+the central tokens.
+Figure 16 depicts the projection of contextual
+embeddings11. Although BART + DelDirection
+(Figure 1 (g)) exhibits a totally different token em-
+bedding distribution from BART (Figure 1 (b)), it
+yield a similar contextual embeddings as BART.
+Specifically, Figures 16 (a) and (b) show that
+high-frequency tokens are closely grouped together
+based on their frequency, while low-frequency to-
+kens are spread out in specific directions. How-
+ever, when using DefinitionEMB, we observe a
+more concentrated distribution than BART. The
+projection resembles concentric ellipses, where
+tokens with similar frequencies are placed in the
+same ellipse. This finding may be related to Def-
+initionEMB yielding higher ROUGE scores than
+BART and BART + DelDirection.
+11The specific decoder layer hidden states of the token in a
+given context (Cai et al., 2021).
+
+(a)BART, %&=0.751,before XSum(b) BART,%&=0.759,after XSum15,000 steps(c) BART, %&=0.751,before Billsum(d) BART, %&=0.757,after Billsum21,200 steps
+(e) +DelDirection, %&=0.788,before XSum(f) +DelDirection,%&=0.778,after XSum15,000 steps(g) +DelDirection, %&=0.788,before Billsum(h) +DelDirection, %&=0.794,after Billsum21,200 steps
+(i) +DelDirection, %&=0.762,before XSum(j) +DelDirection,%&=0.760,after XSum15,000 steps(k) +DelDirection, %&=0.765,before Billsum(ℓ) +DelDirection, %&=0.778,after Billsum21,200 stepsROUGE-L34.65ROUGE-L39.11ROUGE-L34.86ROUGE-L38.97
+ROUGE-L34.87ROUGE-L39.28Figure 10: Projected token embeddings of BART-related models before and after fine-tuning on the XSum and
+Billsum datasets. 30%, 50%, and 20% of the appearing tokens in Vare assigned to the frequent, medium, and rare
+groups, respectively, based on their frequency in the fine-tuning set.
+(a)BART, %&=0.751,before QQP(b) BART,%&=0.752,after QQP 113,272 steps
+(e) +DelDirection, %&=0.788,before QQP(f) +DelDirection,%&=0.800,after QQP 113,272 steps
+(i) +DelDirection, %&=0.769,before QQP(j) +DelDirection,%&=0.777,after QQP 113,272 steps(c) BART, %&=0.751,before RTE(d) BART,%&=0.751,after RTE 2,036 steps
+(g) +DelDirection, %&=0.788,before RTE(h) +DelDirection,%&=0.788,after RTE 2,036 steps
+(k) +DelDirection, %&=0.753,before RTE(ℓ) +DelDirection,%&=0.753,after RTE 2,036 steps
+Accuracy90.1Accuracy82.4Accuracy89.9Accuracy78.7
+Accuracy90.1Accuracy83.3
+Figure 11: Projected token embeddings of BART-related models before and after fine-tuning on the QQP and RTE
+datasets.
+
+(a)RoBERTa, %&=0.504,before QQP(b) RoBERTa,%&=0.542,after QQP 113,272 steps
+(e) +DelDirection, %&=0.624,before QQP(f) +DelDirection,%&=0.642,after QQP 113,272 steps
+(i) +DelDirection, %&=0.530,before QQP(j) +DelDirection,%&=0.550,after QQP 113,272 steps
+(c) RoBERTa, %&=0.504,before RTE(d) RoBERTa,%&=0.505,after RTE 2,036 steps
+(g) +DelDirection, %&=0.624,before RTE(h) +DelDirection,%&=0.625,after RTE 2,036 steps
+(k) +DelDirection, %&=0.529,before RTE(ℓ) +DelDirection,%&=0.533,after RTE 2,036 steps
+Accuracy89.6Accuracy73.9
+Accuracy89.3Accuracy72.3
+Accuracy89.4Accuracy75.3Figure 12: Projected token embeddings of RoBERTa-related models before and after fine-tuning on the QQP and
+RTE datasets.
+(a) BART(c) + DefinitionEMB(b) + DelDirection
+Figure 13: Case study of the token embeddings of the token “ ˙GWikimedia” and its surrounding tokens. Non
+appearing, rare, medium, and frequent groups in the CNNDM dataset are represented by black, red, green, and blue
+points respectively.
+
+(a) BART(c) + DefinitionEMB(b) + DelDirectionFigure 14: Case study of the token embeddings of the token “ ˙Gclipping” and its surrounding tokens.
+(a) BART(c) + DefinitionEMB(b) + DelDirection
+Figure 15: Case study of the token embeddings of the token “ ˙G409” and its surrounding tokens.
+(a) BART(c) + DefinitionEMB
+(b) + DelDirectionROUGE-L40.31ROUGE-L40.32
+ROUGE-L40.52
+Figure 16: Projected contextual embedding in the 12th (final) decoder layer of BART-related models after fine-tuning
+on the CNNDM dataset. Colors indicate the token frequencies in corresponding test set.
+
+D Semantically Related Tokens
+Recognized by Large Language Models
+Table 7 shows the query we used to ask ChatGPT
+3.5 and Claude 3 Haiku about the semantic re-
+lationship between “ ˙Geverlasting” and other to-
+kens, along with their corresponding responses for
+semantics-related tokens only.
+E Corrupted Prompts
+Figure 17 shows examples of constructing merged
+and corrupted prompts for the word “discomfort”.
+
+Query Please help me to check the semantic relationship between the token “everlasting” and other tokens,
+including reassure, legalize, validate, underworld, typo, misdemeanor, jurisd, scripting, APIs, io, bye,
+complaining, LAB, arcade, incentive, hematically, mind, stagn, sun, vast, star, tw, general, click, rusty.
+Please return scores in the range [0,1] to indicate their semantic relationship, and tell me the reason.
+ChatGPT 3.5validate: 0.3 - "Validate" can mean to confirm or verify the accuracy or truth of something, which
+could have a moderate semantic relationship with "everlasting" if used in a context related to eternal
+validity or truth.
+mind: 0.2 - "Mind" refers to the faculty of consciousness and thought, which could have a moderate
+semantic relationship with "everlasting" if used in a context related to eternal consciousness or
+existence.
+sun: 0.3 - "Sun" refers to the star around which the Earth orbits and has a moderate semantic relationship
+with "everlasting" due to its association with eternal cycles and longevity.
+vast: 0.3 - "Vast" refers to something extremely large or extensive, which could have a moderate
+semantic relationship with "everlasting" if used in a context related to eternal expansiveness.
+star: 0.3 - "Star" refers to a celestial body that emits light and has a moderate semantic relationship
+with "everlasting" due to its association with eternal cycles and longevity.
+Claude 3 Haiku"everlasting" and "validate": Score: 0.4 Reason: "Everlasting" and "validate" share a sense of
+permanence and confirmation, as "validate" means to confirm or corroborate something as true or
+correct, which is somewhat related to the idea of something being eternal or lasting forever.
+"everlasting" and "mind": Score: 0.4 Reason: "Everlasting" suggests something that lasts forever,
+while the "mind" is a key part of human consciousness and experience, which are somewhat related in
+the sense that the human mind may be seen as an eternal or enduring aspect of the self.
+"everlasting" and "sun": Score: 0.4 Reason: "Everlasting" suggests something that lasts forever, and
+the "sun" is a celestial body that has existed for billions of years and is expected to continue shining
+for a very long time, so there is a connection between the idea of something being "everlasting" and
+the sun’s enduring presence.
+"everlasting" and "vast": Score: 0.5 Reason: "Everlasting" suggests something that is immense or
+boundless in its duration, while "vast" describes something that is immense in size or scope, so there is
+a semantic overlap between the two terms in terms of conveying a sense of immensity or grandeur.
+"everlasting" and "star": Score: 0.4 Reason: Similar to the connection with the "sun", the "star" is
+another celestial body that exists for long durations, so the idea of something being "everlasting" is
+somewhat related to the enduring nature of stars.
+Table 7: The query to ChatGPT 3.5 and Claude 3 Haiku, along with part of their responses.
+(a) Merged prompt
+The _ definition _ of _ discomfort _ is _ To_cause _annoyance _or_distress _to_ . _ Its _ part-of-speech _ , _ bpe-form
+_ without _ space _ , _ capitalization _ , _ and _ uppercase _ are _ verb _ ,discomfort _ , _ Discomfort _ , _ and _
+DISCOMFORT _ , _ respectively _ .
+(b) Source for the encoder-decoder reader
+The _ definition _ of <MASK 1> _ is _ To_cause _annoyance _or_distress _to_ . _ Its _ part-of-speech _ , _ bpe-form
+_ without _ space _ , _ capitalization _ , _ and _ uppercase _ are _ verb _ , <MASK 2> _ , <MASK 3> _ , _ and <MASK 4>
+_ , _ respectively _ .
+(c) Target for the encoder-decoder reader
+<MASK 1> _ discomfort <MASK 2> discomfort <MASK 3> _ Discomfort <MASK 4> _ DISCOMFORT
+(d) Source for the encoder-only reader during training
+The _ definition _ of <MASK> _ is _ To_cause _annoyance _or_distress _to_ . _ Its _ part-of-speech _ , _
+bpe-form _ without _ space _ , _ capitalization _ , _ and _ uppercase _ are _ verb _ , <MASK> comfort _ ,˙GDis <MASK>
+
+bpe-form _ without _ space _ , _ capitalization _ , _ and _ uppercase _ are _ verb _ , <MASK> comfort _ ,˙GDis <MASK>
+_ , _ and <MASK> COM BS˙GNations _ , _ respectively _ .
+(e) Source for the encoder-only reader during inference
+The _ definition _ of <MASK> _ is _ To_cause _annoyance _or_distress _to_ . _ Its _ part-of-speech _ , _ bpe-form _ without _
+space _ , _ capitalization _ , _ and _ uppercase _ are _ verb _ ,discomfort _ , _ Discomfort _ , _ and _ DISCOMFORT _ ,
+_ respectively _ .
+Figure 17: Example of constructing prompts for the word “discomfort”. “_” is whitespace. < MASK i> denotes the
+ithmask token. Italic indicates randomly replaced tokens.
+
+Strategy RoBERTa BART
+None 87.5 87.8
+Random 87.4 87.3
+Top 86.0 87.6
+Last 87.7 88.3
+Table 8: Using three different strategies to replace
+tokens in VMRPC with DefinitionEMB ( α= 5) for
+RoBERTa-base and BART-large on the MRPC test set.
+F Pre-experiment for Replacing Strategy
+Considering the appearance bias as indicated in Fig-
+ures 1 (e) and (j), we conducted pre-experiments to
+investigate which type of tokens in V[task]should
+be replaced. DefinitionEMB replaced the embed-
+dings of min(α%∗N,|V[task]|)of tokens in V[task]
+using one of the following strategies:
+Random : Randomly replace tokens.
+Top: Replace tokens with smallest indexes, where
+index≥5000 .
+Last : Replace tokens with largest indexes.
+As shown in Table 8, replacing the last tokens in
+V[task]results in the highest accuracy.
+G Hyperparameters
+Table 9 lists the artifacts utilized in the study. We
+used the Fairseq (Ott et al., 2019) and Hugging-
+Face (Wolf et al., 2020) to reproduce all models
+and run the downstream tasks.
+We adhered to the original fine-tuning settings
+of RoBERTa and BART on the GLUE task and
+CNNDM dataset. Details of the hyperparameter
+settings for training DefinitionEMB and fine-tuning
+models are outlined in Tables 10, 11 and 12. Dur-
+ing the training of DefinitionEMB, we utilized the
+Adam optimizer with a batch size of 4096 tokens
+and a 0.0001 learning rate with an “inverse square
+root” schedule. For fine-tuning models on GLUE
+and text summarization tasks, we employed the
+Adam optimizer and utilized a “polynomial decay”
+learning rate schedule. To reduce computation, we
+freeze the embedding layer of DefinitionEMB dur-
+ing training for BART. As for the initialized model
+in Figure 9, we set learning rate, batch size (tokens),
+number of updates, and number of warm-up steps
+as 0.001, 64,000, 50,000, and 4,000, respectively.
+To construct the rare token subset that used in
+Section 7.1, we first filtered the CNNDM test set
+to include target sentences whose tokens all appearin the training set. Additionally, each filtered target
+sentence must contain at least 5% rare tokens with
+indices larger than 40,000 in V, and these tokens’
+embeddings can be replaced by DefinitionEMB.
+This process finally yielded 65 pairs of data.
+H Tuning α
+For each downstream task, we tuned αwith
+a single trial on the corresponding validation
+set. Tables 13 to 23 display the performance of
+Basline+DefinitonEMB with various α. Tables 24
+and 25 provide the tuned αfor each downstream
+dataset. Overall, datasets in the GLUE task exhibit
+smaller αthan those in the text summarization task.
+This may be because the text summarization task
+involves a larger number of input tokens than the
+GLUE task. Additionally, the text summarization
+task involves predicting tokens, whereas BART
+employs a weight tying technique to connect token
+embeddings for prediction, enabling token embed-
+dings to be updated more during fine-tuning than
+in the GLUE task. Among all datasets, the SST
+dataset has the smallest tuned α, set at 1. This
+could be attributed to the dataset having the fewest
+unique tokens. The STS, RTE, and MPRC datasets
+have a similar number of unique tokens, slightly
+higher than that of the SST dataset, resulting in
+αvalues of 3 and 5. In the GLUE task, the QQP,
+QNLI, and MNLI datasets have the highest number
+of unique tokens, leading to αvalues for BART of
+3, 5, and 10, respectively. However, tuned αvalues
+of the three datasets for RoBERTa are all set to 3:
+this may be because MSE is larger in RoBERTa
+than in BART as discussed in Appendix J. Among
+the text summarization datasets, Billsum has the
+lowest token frequencies, resulting in the smallest
+αvalue of 7. Despite having the highest token fre-
+quencies, the Y-BIGPATENT dataset has the lowest
+number of unique tokens, resulting in an αvalue of
+only 30. The CNNDM dataset yields the highest α
+value, set at 100, possibly due to its most uniformly
+distributed and largest number of unique tokens,
+and larger training corpus. Although the XSum
+
+only 30. The CNNDM dataset yields the highest α
+value, set at 100, possibly due to its most uniformly
+distributed and largest number of unique tokens,
+and larger training corpus. Although the XSum
+dataset also contains a large number of unique to-
+kens, it has a smaller training corpus than CNNDN,
+resulting in a smaller αvalue of 10. These findings
+suggest a potential relationship between the distri-
+bution of training data and the value of α. Specif-
+ically, datasets with a larger number of unique to-
+kens, along with more training examples, tend to
+result in higher αvalues.
+
+Used artifacts Note
+RoBERTa https://huggingface.co/roberta-base
+BART https://huggingface.co/facebook/bart-large
+BART for GLUE https://github.com/facebookresearch/fairseq/blob/main/examples/bart/README.glue.md
+BART for CNNDM https://github.com/facebookresearch/fairseq/blob/main/examples/bart/README.summarization.md
+Wiktionary https://en.wiktionary.org/wiki/Wiktionary:Main_Page
+Wiktionary(extracted) https://github.com/tatuylonen/wiktextract/tree/master
+Isotropy metric https://github.com/danielbis/tooMuchInCommon/blob/main/src/isotropy.py
+View contextual embedding https://github.com/TideDancer/iclr21_isotropy_contxt
+Files2rouge https://github.com/pltrdy/files2rouge
+Paired bootstrap resampling https://github.com/neubig/util-scripts/blob/master/paired-bootstrap.py
+Fairseq https://github.com/facebookresearch/fairseq/
+HuggingFace https://github.com/huggingface/transformers/
+ChatGPT 3.5 https://chat.openai.com/
+Claude 3 Haiku https://claude.ai/chat/
+Table 9: Used artifacts.
+Hyperparameters SST MRPC STS QQP MNLI QNLI RTE
+# of updates 20,935 2,296 3,598 113,272 123,873 33,112 2,036
+# of warm-up updates 1,256 137 214 28,318 7,432 1,986 122
+Batch size (sentences) 32 16 16 32 32 32 16
+Learning rate 1e-5 1e-5 2e-5 1e-5 1e-05 1e-05 2e-05
+Table 10: Hyperparameters used for fine-tuning RoBERTa-related models across different datasets.
+Hyperparameters SST MRPC STS QQP MNLI QNLI RTE CNNDM Y-BIGPATENT XSUM Billsum
+# of updates 7,150 700 1,800 113,920 43,210 33,290 1020 20,000 92,880 15,000 21,320
+# of warm-up updates 429 42 108 6,835 2,593 1,997 61 500 7,430 500 1,705
+Batch size (sentences) 128 64 32 32 256 32 32 - - - -
+Batch size (tokens) - - - - - - - 65,536 8,192 32,768 8,192
+Learning rate 5e-6 2e-5 2e-5 1e-5 5e-6 1e-5 1e-5 3e-05 3e-5 3e-05 3e-5
+Table 11: Hyperparameters used for fine-tuning BART-related models across different datasets.
+Hyperparameters RoBERTa BART
+# of updates 400,000 250,000
+# of warm-up updates 24,000 20,000
+Table 12: Hyperparameters used for training DefinitionEMB.
+
+Baselineα1 5 10 20
+RoBERTa 89.2 90.2 89.5 89.7
+BART 88.2 90.2 88.7 89.2
+Table 13: Accuracy for Baseline+DefinitionEMB with
+various αon the MRPC validation set.
+Baselineα1 5 10 20
+RoBERTa 95.1 94.8 94.8 94.4
+BART 96.2 96.1 95.6 95.3
+Table 14: Accuracy for Baseline+DefinitionEMB with
+various αon the SST validation set.
+Baselineα3 5 10 20
+RoBERTa 77.3 79.1 76.2 76.5
+BART 85.9 85.9 84.8 84.1
+Table 15: Accuracy for Baseline+DefinitionEMB with
+various αon the RTE validation set.
+Baselineα3 5 7 10
+RoBERTa 90.7 90.5 90.3 90.3
+BART 91.8 91.7 91.5 91.3
+Table 16: Spearman’s rank correlation for Base-
+line+DefinitionEMB with various αon the STS vali-
+dation set.
+Baselineα3 7 10 30
+RoBERTa 92.9 92.9 92.8 92.5
+BART 94.8 94.7 94.5 94.4
+Table 17: Accuracy for Baseline+DefinitionEMB with
+various αon the QNLI validation set.
+Baselineα3 5 10 30
+RoBERTa 91.8 91.7 91.8 91.8
+BART 92.4 92.6 92.5 92.2
+Table 18: Accuracy for Baseline+DefinitionEMB with
+various αon the QQP validation set.Baselineα3 5 10 30
+RoBERTa 87.6 87.5 87.4 87.3
+BART 89.7 89.6 89.8 89.6
+Table 19: Accuracy for Baseline+DefinitionEMB with
+various αon the MNLI validation set.
+αROUGE (F1)
+1 2 L
+10 44.45 21.62 41.17
+30 44.30 21.44 41.04
+50 44.23 21.37 40.99
+100 44.62 21.54 41.40
+Table 20: ROUGE scores for BART+DefinitionEMB
+with various αon the CNNDM validation set.
+αROUGE (F1)
+1 2 L
+5 44.02 20.66 34.95
+10 44.22 20.95 35.24
+20 43.81 20.55 34.78
+100 42.46 19.18 33.62
+Table 21: ROUGE scores for BART+DefinitionEMB
+with various αon the XSUM validation set.
+αROUGE (F1)
+1 2 L
+5 50.63 32.19 38.81
+7 50.85 32.44 39.10
+10 51.08 32.17 38.97
+100 50.04 31.43 38.27
+Table 22: ROUGE scores for BART+DefinitionEMB
+with various αon the Billsum validation set.
+αROUGE (F1)
+1 2 L
+10 43.62 18.53 37.43
+20 43.93 18.84 37.74
+30 44.22 19.12 38.03
+100 42.96 17.76 36.73
+Table 23: ROUGE scores for BART+DefinitionEMB
+with various αon the Y-BIGPATENT validation set.
+Model MRPC SST RTE STS QNLI QQP MNLI
+RoBERTa 5 1 5 3 3 3 3
+BART 5 1 3 3 3 5 10
+Table 24: Tuned αfor GLUE datasets.
+Model CNNDM Y-BIGPATENT XSUM Billsum
+BART 100 30 10 7
+Table 25: Tuned αfor text summarization datasets.
+
+Token Index in V MSE
+sys 43103 23.3829
+˙GNASL 47179 23.2779
+resso 27989 23.2549
+˙GFAQ 39313 22.8146
+˙GpH 39228 22.1278
+˙GB 163 0.0061
+ER 2076 0.0059
+s 29 0.0055
+ING 1862 0.0051
+- 12 0.0040
+Table 26: Top and bottom 5 tokens based on the de-
+gree of MSE estimated by DefinitionEMB based on
+RoBERTa model, listed in descending order of MSE.
+Token Index in V MSE
+ourke 18338 18.7777
+esson 24711 17.6324
+aeus 39174 17.3797
+wagen 42099 16.8839
+auga 24491 16.8624
+ER 2076 0.0020
+ES 1723 0.0020
+ING 1862 0.0020
+- 12 0.0018
+S 104 0.0018
+Table 27: Top and bottom 5 tokens based on the degree
+of MSE estimated by DefinitionEMB based on BART
+model, listed in descending order of MSE.
+I Projected Initial Token Embeddings
+Figure 18 shows the projected token embeddings
+of models before and after replacing Ecompletely.
+J MSE between Pre-trained and
+Definition Embeddings
+Table 1 shows that when using DefinitionEMB,
+BART achieves more improvement than RoBERTa
+for medium and rare group tokens. To investigate
+the reason for this difference, for tokens in V, we
+analyze the MSE between their pre-trained and def-
+inition embeddings. Figure 19 presents the results
+for DefinitionEMB on the RoBERTa model. The
+left subfigure illustrates that around 20% of tokens
+have an MSE of less than 1, while less than 20%ModelSpearman Score ↑
+RG65 RW SimLex SimVerb Ave
+RoBERTa 25.55 22.33 18.04 10.78 19.18
++ DefinitionEMB 29.56 22.82 17.48 10.58 20.11
+BART 24.35 23.20 22.00 12.73 20.57
++ DefinitionEMB 22.93 23.40 21.04 12.09 19.87
+Table 28: Experimental results on the word similarity
+task with cosine similarity. DefinitionEMB replaces E
+completely.
+tokens have an MSE larger than 8. The right sub-
+figure shows that the distribution of token index is
+almost uniform across the MSE, indicating that the
+pre-trained embedding of high-frequency tokens
+may contain semantically unrelated information,
+while the pre-trained embedding of low-frequency
+tokens may contain semantically related informa-
+tion even with limited pre-training steps. In addi-
+tion, more tokens falling in the MSE range of [5, 8)
+than in the range of [0, 1), which indicates a signif-
+icant difference between pre-trained embeddings
+and definition embeddings. Figure 20 presents the
+results for DefinitionEMB on the BART model.
+The left subfigure illustrates that around 40% of
+tokens have an MSE of less than 1, while less than
+10% tokens have an MSE larger than 8. The right
+subfigure also shows that the distribution of token
+index is almost uniform across the MSE. However,
+most of the tokens fall in the MSE range [0, 1),
+indicating less difference between pre-trained em-
+beddings and definition embeddings than in the
+case of RoBERTa. These results align with the
+original representation distribution in PLMs, where
+RoBERTa has fewer embedding parameters and
+exhibits lower isotropy than BART. Because Defi-
+nitionEMB considers the pre-trained embeddings
+as gold embeddings, its constructed embeddings
+for RoBERTa naturally exhibit lower isotropy and
+higher MSE than those for BART. Additionally,
+the different masking strategies for encoder-only
+and encoder-decoder architectures may also lead
+to the different MSE and isotropy distributions,
+as Raffel et al. (2020) demonstrated that the T5-
+style masking mechanism is more effective than
+the BERT-style masking during pre-training.
+Tables 26 and 27 lists examples of tokens with
+corresponding MSE. The top 5 tokens with the
+highest MSE can be used as named entities.
+
+(a)RoBERTa,%&=0.504(b) RoBERTa+DelDirection,%&=0.624
+(d) BART, %&=0.751(e) BART+DelDirection,%&=0.788(c) RoBERTa+DefinitionEMB, %&=0.519
+(f) BART+DefinitionEMB, %&=0.876
+FrequentMediumRareFigure 18: Projected token embeddings of models before and after replacing Ecompletely. The frequent (30%),
+medium (50%), and rare (20%) groups are determined based on the token index in V.[0,1)
+[1,2)
+[2,3)
+[3,4)
+[4,5)
+[5,6)
+[6,7)
+[7,8)
+[8,9)
+[9,10)
+[10,11)
+[11,12)
+[12,13)
+[13,14)
+[14,15)
+[15,16)
+[16,17)
+[17,18)
+[18,19)00.20.40.60.81
+00.20.40.60.81·104
+MSE range# of tokens in V
+Cumulative ratio
+[0,1)
+[1,3)
+[3,5)
+[5,8)
+[8,) 00.20.40.60.811.21.41.6·104
+MSE range# of tokens in VToken index in [40000, 50000)
+Token index in [30000, 40000)
+Token index in [20000, 30000)
+Token index in [10000, 20000)
+Token index in [0, 10000)
+Figure 19: Number of tokens in Vversus MSE estimated by DefinitionEMB based on RoBERTA model.
+K Word Similarity Task Using Cosine
+Similarity
+Table 28 shows the results for word similarity tasks,
+where the similarity between word embeddings is
+calculated using cosine similarity. Comparing Ta-
+ble 28 with Table 2, we observe that when using dot
+product, DefinitionEMB achieves a higher Spear-
+man score than BART. However, when using cosine
+similarity, the opposite result is observed, which
+indicates the constructed embeddings for BART
+prioritize distance over angle aspects from the pre-
+trained embeddings.L Isotropy on GLUE Task
+Table 29 presents I(E)for models before and af-
+ter fine-tuning on the GLUE task. Because I(E)
+of PLMs and the DelDirection model before fine-
+tuning does not depend on V[task], it is reported
+only once in the table. For the MRPC, STS, and
+RTE datasets, I(E)shows a minimal difference
+between before and after fine-tuning models, likely
+due to the limited number of fine-tuning steps on
+these datasets. The token embedding distribution in
+BART appears to be more stable than RoBERTa on
+the SST, QQP, and MNLI datasets. Using DelDirec-
+tion for RoBERTa and BART achieves the highest
+I(E)across all datasets; however, it also results in
+the lowest accuracy and Pearson/Spearman’s rank
+
+[0,1)
+[1,2)
+[2,3)
+[3,4)
+[4,5)
+[5,6)
+[6,7)
+[7,8)
+[8,9)
+[9,10)
+[10,11)
+[11,12)
+[12,13)
+[13,14)
+[14,15)
+[15,16)
+[16,17)
+[17,18)
+[18,19)00.511.5
+00.20.40.60.81·104
+MSE range# of tokens in V
+Cumulative ratio
+[0,1)
+[1,3)
+[3,5)
+[5,8)
+[8,) 00.20.40.60.811.21.41.61.8·104
+MSE range# of tokens in VToken index in [40000, 50000)
+Token index in [30000, 40000)
+Token index in [20000, 30000)
+Token index in [10000, 20000)
+Token index in [0, 10000)
+Figure 20: Number of tokens in Vversus MSE estimated by DefinitionEMB based on BART model.
+ModelSST MRPC STS QQP MNLI QNLI RTE
+Before After Before After Before After Before After Before After Before After Before After
+RoBERTa 0.504 0.533 - 0.505 - 0.506 - 0.542 - 0.544 - 0.509 - 0.505
++DelDirection 0.624 0.627 - 0.624 - 0.625 - 0.642 - 0.639 - 0.629 - 0.625
++DefinitionEMB 0.528 0.536 0.529 0.529 0.529 0.530 0.530 0.550 0.530 0.554 0.539 0.541 0.529 0.533
+BART 0.751 0.751 - 0.751 - 0.751 - 0.752 - 0.751 - 0.751 - 0.751
++DelDirection 0.788 0.788 - 0.788 - 0.788 - 0.800 - 0.805 - 0.794 - 0.788
++DefinitionEMB 0.766 0.766 0.767 0.767 0.769 0.769 0.769 0.777 0.770 0.771 0.753 0.753 0.753 0.753
+Table 29: I(E)for models before and after fine-tuning on the GLUE task.
+Replaced Y-BIGPATENT Billsum
+tokens (X= 23,000) ( X= 41,000)
+Appearing 44.16 /19.06 /38.01 50.96 / 32.64 /39.28
+Both 44.00 / 18.90 / 37.84 51.23 / 32.44 / 39.20
+Table 30: Replacing appearing tokens only vs. replacing
+both appearing and non appearing tokens for BART on
+the Y-BIGPATENT and Billsum test sets.
+Model Replaced tokens MRPC
+RoBERTa Appearing 87.7
+Both 87.3
+BART Appearing 88.3
+Both 88.1
+Table 31: Replacing appearing tokens only vs. replacing
+both appearing and non appearing tokens for RoBERTa
+and BART on the MRPC test set with X= 24,900.
+correlation in most cases, as shown in Table 3. This
+supports our assumption that DelDirection model
+focuses on the distribution of embeddings at the
+expense of semantic information.M Ablation Study for Replacing Tokens
+We conducted an ablation study to analyze the ef-
+fectiveness of replacing only appearing tokens in-
+stead of all tokens. The index range of replaced
+tokens is denoted as [X, N ], and the number of
+tokens appearing in [X, N ]satisfies min(α%∗
+N,|V[task]|), as required in Section 5.3.
+Results for BART+DefinitionEMB are reported
+in Table 30. When replacing only appearing tokens,
+the model achieved higher ROUGE scores than
+when replacing all tokens. Specifically, ROUGEL-
+F1 improved by 0.17 and 0.08 for Y-BIGPATENT
+and Billsum, respectively. This difference may
+be caused by the varying token frequencies in the
+training sets. Table 31 shows the ablation study
+with respect to the replacing strategies for Base-
+line+DefinitionEMB on the MRPC test set. When
+replacing only appeared tokens, both RoBERTa
+and BART yield higher accuracy scores.
+N Sample of Summarization
+Tables 32 and 33 show sample summarizations of
+CNNDM test set.
+
+Source (CNN)For superhero fans, the cup runneth over. Most of us know the members of the Avengers by
+now: Iron Man, Captain America, Hulk and the rest, and the fact that a few more like Quicksilver are
+joining the cast in the "Avengers: Age of Ultron" sequel . But there was one character who remained
+a mystery: the Vision, to be played by Paul Bettany. Thus far, we’ve only seen his eyes in a trailer.
+With less than a month to go before the movie hits theaters, Marvel Studios put all the speculation
+to rest with a poster featuring Bettany as the heroic android , who was a member of the superhero
+group for many years in the comics. Meanwhile, as many Marvel fans know, Thursday was the
+eve of the new Netflix series "Daredevil," and after a photoshopped first look at Charlie Cox’s
+iconic red Daredevil suit went out, Marvel put out a video of the real one. Not to be outdone,
+director Bryan Singer announced a new character for next year’s sequel "X-Men: Apocalypse,"
+by telling Empire magazine that Ben Hardy would be playing the role of the winged mutant
+Angel. He even had a photo to share. And Thursday’s new super images weren’t quite done, because
+the questions over how Jamie Bell’s rocky character The Thing in the rebooted "Fantastic Four"
+movie (out August 7) might look were also finally answered . And he looks ... pretty much like The
+Thing we already knew (but reportedly, CGI this time). Within 24 hours, we got yet another indication
+that the superhero trend isn’t going anywhere anytime soon (and we didn’t even talk about the new
+photo of Ryan Reynolds’ "Deadpool").
+Reference Marvel Studios releases first looks at Paul Bettany as the Vision in "Avengers: Age of Ultron " and
+Charlie Cox in full "D aredevil " costume . Jamie Bell’s character of The Thing was also unveiled for
+20th Century Fox’s Marvel-based reboot of "Fantastic Four" Bryan Singer unveiled the first look at
+"X-Men: Apocalypse " Angel played by Ben Hardy .
+BART Paul Bettany will play the Vision in the "Avengers: Age of Ultron " sequel . The actor has been playing
+theandroid for many years in the comics . The "Fantastic For" reboot’s" The Thing" looks pretty much
+like The Thing we already knew .
++DelDirection Paul Bettany’s character in "Avengers: Age of Ultron " is finally revealed . The actor has been playing
+the Vision in the comics for many years . The "Fantastic Fou" reboot’s" The Thing" looks pretty much
+like The Thing we already knew (but CGI)
++DefinitionEMB Paul Bettany will play the Vision in the "Avengers: Age of Ultron " sequel . Marvel Studios also
+announced a new character for "X-Men: Apocalypse " Ben Hardy will play the winged mutant Angel
+in "X-Men: Apocalypse ," director Bryan Singer said .
+Table 32: Sample summarization of CNNDM test set. Bold in source indicates the reference-related text. Underline
+in reference and model outputs indicates the rare token with index larger than 40,000 in V.
+
+Source (CNN)It would have made Thomas Jefferson proud. Established on the birthday of the American
+founding father, Liberland – the world’s newest micronation – is founded on a firm belief in liberty and
+noninterference from the powers-that-be. A tiny, 7 square-kilometer parcel of land, marked on maps as
+Gornja Siga, its territory abuts the Danube on the border between Serbia and Croatia. The victim of
+a border dispute between Serbia and Croatia, it is claimed by neither side – effectively a no-man’s land.
+No one lives on this patch of land, which is heavily forested and contains only badly-maintained access
+roads and a run-down house, abandoned for decades. This is where Euroskeptic Czech politician
+Vit Jedlicka stepped in. On April 13 he planted his newly-designed yellow and black flag in the
+territory, declaring the area the Free Republic of Liberland – a tiny sliver of a country, bigger only
+than the Vatican and Monaco. He tells CNN that the country will be formally founded on May 1
+and is inviting, through the media, the world’s heads of state to attend a formal ceremony marking
+the presumptive nation’s birth. He says that he will also invite 7,500 of the 300,000 applicants that
+applied to become citizens of Liberland to the ceremony, where he will grant them citizenship. "I will
+grant citizenship if they can make it to the party," he told CNN by phone. "It’s short notice but a good
+challenge, and also for the presidents (and other heads of state) if they can make it to the founding
+of our country." Jedlicka, an active member of the Czech Republic’s Party of Free Citizens, opposes
+excessive government interference. He says his attempts to enact change in his home country led him
+to the political experiment that is Liberland. "I would describe it as a global revolution. It’s just the
+beginning," he tells CNN via Skype. Founded on staunchly libertarian principles – its motto is "To
+live and let live" – its website describes its system of governance as being a "constitutional republic
+with elements of direct democracy." It will use a form of cryptocurrency – similar to Bitcoin – as
+its national currency, bypassing the need for a central bank and will, according to its constitution,
+keep government’s noses out of everything possible, from the banks to prostitution. "Liberland prides
+itself on personal and economic freedom of its people, which is guaranteed by the Constitution, which
+significantly limits the power of politicians so they could not interfere too much in the freedoms of
+the Liberland nation," the world’s newest constitutional document states. Financial regulation will
+be minimal, if at all present. Jedlicka says almost 300,000 applications for citizenship have been
+received , about 20 of which have been accepted. "Thousands of Americans, Swiss people. Also a lot
+of Arabic peoples who feel oppressed by the regimes there." He envisions, ultimately, a community of
+around 35,000 Liberlanders, not all of whom will be full-time residents. He says he expects trouble
+from his neighbors, whose land he has effectively annexed. "From Serbia, Croatia, we expect some
+trouble but we expect international laws will applied and any movement against us would be an attack
+on a sovereign nation, and we will offer nothing but passive resistance. For now, (though) we will
+make roads, docks." For its part, the Serbian Ministry of Foreign Affairs released a statement to CNN
+that stated that Liberland would not theoretically impinge upon its border, which is delineated by
+the Danube, but "the Ministry also considers this a frivolous act which needs no further comment."
+Croatia’s counterpart was similarly dismissive. "Virtual quips, however interesting they occasionally
+sound, remain what they are – virtual quips, and for them we have no official comment."
+Reference Vit Jedlicka, the first president of Liberland, tells CNN that the country will be formally founded on
+
+Reference Vit Jedlicka, the first president of Liberland, tells CNN that the country will be formally founded on
+May 1. On April 13, Jedlicka declared an area between Croatia and Serbia "the Free Republic of
+Liberland" Jedlicka says that almost 300 ,000 applications for citizenship have so far been received .
+BART Liberland is a tiny, 7square-kilometer parcel of land, marked on maps as Gornja Siga, which abuts the
+Danube on the border between Serbia and Croatia . The land is claimed by neither Serbia or Croatia,
+and is effectively a no-man’s land . Czech politician Vit Jedlicka planted his newly-designed yellow
+and black flag in the territory, declaring the area the Free Republic of Liberland . He says he expects
+trouble from his neighbors, whose land he has effectively annexed .
++DelDirection Czech politician Vit Jedlicka has declared the Free Republic of Liberland, a tiny sliver of land on
+the border of Serbia and Croatia . He says he expects trouble from his neighbors, whose land he has
+effectively annexed . "I would describe it as a global revolution. It’s just the beginning," he tells CNN .
++DefinitionEMB Czech politician Vit Jedlicka has declared the Free Republic of Liberland, a tiny sliver of land on the
+Serbian-Croatian border . He says he will grant citizenship to 7,500of the 300,000applicants who
+applied to become citizens of Liberland . "I would describe it as a global revolution. It’s just the
+beginning," says Jedlicka via Skype .
+Table 33: Sample summarization of CNNDM test set. Bold in source indicates the reference-related text. Underline
+in reference and model outputs indicates the numeric in V.
+

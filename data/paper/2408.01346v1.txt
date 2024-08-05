@@ -1,0 +1,504 @@
+arXiv:2408.01346v1  [cs.CY]  2 Aug 2024Prompt Reﬁnement or Fine-tuning?
+Best Practices for using LLMs in Computational Social Scien ce Tasks
+Anders Giovanni Møller1, Luca Maria Aiello1,2,
+1IT University of Copenhagen,2Pioneer Center for AI
+agmo@itu.dk, luai@itu.dk
+Abstract
+Large Language Models are expressive tools that enable com-
+plex tasks of text understanding within Computational Soci al
+Science. Their versatility, while beneﬁcial, poses a barri er for
+establishing standardized best practices within the ﬁeld. To
+bring clarity on the values of different strategies, we pres ent
+an overview of the performance of modern LLM-based clas-
+siﬁcation methods on a benchmark of 23 social knowledge
+tasks. Our results point to three best practices: select mod -
+els with larger vocabulary and pre-training corpora; avoid
+simple zero-shot in favor of AI-enhanced prompting; ﬁne-
+tune on task-speciﬁc data, and consider more complex forms
+instruction-tuning on multiple datasets only when only tra in-
+ing data is more abundant.
+Introduction
+The release of ChatGPT in November 2022 has sparked
+broad interest for Large Language Models (LLMs) due to
+their capability to solve complex tasks of text understand-
+ing and generation (Bubeck and ohers 2023). The Compu-
+tational Social Science (CSS) community has rapidly recog-
+nized the potential of LLMs as tools for capturing textual
+dimensions of semantics and pragmatics – crucial elements
+of online discourse that have traditionally been challengi ng
+to quantify (Bail 2024).
+This new opportunity, however, comes with the hurdle
+of choosing the appropriate use of LLMs in a rapidly-
+expanding landscape of models and solutions. Prior to
+the widespread adoption of LLMs, CSS practitioners typ-
+ically relied on ﬁne-tuning smaller encoder-based models
+for domain-speciﬁc classiﬁcation tasks (Sun et al. 2019). B y
+contrast, LLMs can be used more ﬂexibly, enabling a variety
+of alternative classiﬁcation approaches (Chae and Davidso n
+2023). Such versatility, while beneﬁcial, poses a barrier f or
+establishing standardized best practices within the ﬁeld.
+In their most straightforward usage, LLMs can function
+as zero-shot classiﬁers, requiring only some target text an d
+a classiﬁcation prompt (Kojima et al. 2022). This approach
+is convenient because it applies the base model without the
+need of additional training to alter its weights. The prompt
+can be improved through various strategies, such as manual
+prompt engineering (White et al. 2023), automated prompt
+Copyright © 2024, Association for the Advancement of Artiﬁc ial
+Intelligence (www.aaai.org). All rights reserved.generation based on the task descriptions (Shin et al. 2020) ,
+or prompt augmentation with additional task-speciﬁc infor -
+mation (Brown et al. 2020) or by integration of external
+knowledge bases (Li et al. 2022).
+Alongside approaches that require no training, ﬁne-tuning
+on domain-speciﬁc data may offer better adaptability to
+speciﬁc tasks, albeit at the expense of increased computa-
+tion (Wei et al. 2022). Instruction-tuning is another ﬂavor of
+ﬁne-tuning, where the model is conditioned to adhere to ex-
+plicit instructions and align with human judgments, althou gh
+crafting high-quality instructions can be both costly and t ime
+consuming (Ouyang et al. 2022). Furthermore, the continu-
+ous introduction of new language models raises questions
+around the effectiveness of different prompting and traini ng
+techniques across various models.
+To bring some clarity on the value of these different prac-
+tices in the typical workﬂow of text classiﬁcation for the
+Computational Social Sciences, we provide an overview of
+how current LLM-based methods perform on a variety of
+CSS text classiﬁcation tasks. Our goal is to provide practi-
+tioners with actionable guidelines on how to prioritize the
+use of different classiﬁcation techniques. Speciﬁcally, w e
+seek to answer three questions to investigate the effective -
+
+tioners with actionable guidelines on how to prioritize the
+use of different classiﬁcation techniques. Speciﬁcally, w e
+seek to answer three questions to investigate the effective -
+ness of the three main families of LLM-based classiﬁcation:
+RQ1: What is the value of prompt-improvement strategies
+that add task-relevant knowledge?
+RQ2: How does ﬁne-tuning on static instructions compare
+with LLM-generated instructions?
+RQ3: To what extent an increase in the volume of pre-
+training data (e.g., Llama-2 vs. Llama-3) enhances down-
+stream performance?
+We apply 6 state-of-the-art methods on two LLMs and test
+them against a standard benchmark of 23text classiﬁcation
+tasks typical of the CSS domain (Choi et al. 2023). While
+not fully exhaustive of all possible nuances of classiﬁcati on
+methods and tasks, our experiments cover the main state-of-
+the-art classiﬁcation techniques, with the main goal of pro -
+viding pragmatic guidelines to practitioners in the ﬁeld.
+Materials and Methods
+We run all our experiments on two open-source mod-
+els of the Llama series: Llama-2-7B-chat and
+
+Meta-Llama-3-8B-Instruct , both released un-
+der commercial user license (https://ai.meta.com/llama/
+license/). We initialize both models with a temperature val ue
+of0.9, in line with the setup of previous work. Llama-3 is
+trained on a corpus of 15T tokens, about seven times larger
+than Llama-2, and it features a vocabulary size that is four
+times larger (128K tokens).
+The SOCKET benchmark The SocialKnowledge
+Evaluation Tests (SOCKET) is a collection of 58 datasets in
+the domain of social knowledge that can be used to bench-
+mark algorithms for natural language understanding (Choi
+et al. 2023). It is the ﬁrst collective benchmark that has bee n
+used to test the capabilities of LLMs in various social con-
+texts. The datasets are grouped into ﬁve types of task: humor
+& sarcasm ,offensiveness ,sentiment & emotion ,trustwor-
+thiness , and social factors . In addition to the labeled texts,
+SOCKET provides one prompt for each of the tasks.
+In our experiments, we only consider the 44 datasets
+that refer to classiﬁcation tasks, saving regression, pair -wise
+comparisons, and span identiﬁcation tasks for future work.
+For ﬁne-tuning, we use the data corresponding to the 44 clas-
+siﬁcation task. For evaluation, we use a representative sub -
+set of 23 datasets. We use the same train-test split as deﬁned
+in Choi et al. (2023). To manage computational resources ef-
+fectively, we constrained our test sample size to up to 2,000
+random samples per task.
+Zero-shot prompts We evaluate the performance of the
+models using the zero-shot prompts provided in SOCKET
+(cf. Prompt 1 in Appendix). The prompts are manually de-
+signed and do not include any examples, directing the model
+to solve tasks without any speciﬁc guidance. In this setting ,
+we rely entirely on the LLM’s internal representation and
+understanding of the individual tasks.
+AI-knowledge prompts We produce AI-based enhance-
+ment to the zero-shot prompts using generated knowledge
+prompting , a technique that relies on a language model to
+generate task-speciﬁc knowledge that can then be used as
+additional information to be included into the prompt (Liu
+et al. 2022). We use GPT-4 to generate task-speciﬁc label de-
+scriptions based on the zero-shot prompts and the available
+label options (cf. Prompt 2). This process adds task-aware
+elements to the prompts, providing descriptions for each in -
+dividual label-option (cf. Prompt 3).
+Retrieval-Augmented Generation Retrieval-Augmented
+Generation (RAG) integrates an information retrieval mod-
+ule within the generative framework of a Large Language
+Model (Lewis et al. 2021). The RAG system uses the prompt
+as a query to search a domain-speciﬁc knowledge base, re-
+trieving information that is relevant to both the prompt and
+the domain. The retrieved data is combined with the ini-
+tial prompt and submitted to the LLM for generation. This
+methodology is designed to adapt the LLM’s output to the
+target domain without the need of additional training on spe -
+cialized data (Hu and Lu 2024). Recent empirical studies
+indicate that RAG presents a competitive alternative to tra -
+ditional ﬁne-tuning, particularly due to the minimal compu -
+tational resources required for generating and querying th esearch index (Balaguer et al. 2024).
+For each task, we apply the all-MiniLM-l6-v2
+model to create dense embeddings of all the training in-
+stances. These vector representations are constructed usi ng
+text segments of 1000 characters, with a 150-character over -
+lap. We efﬁciently index all the embeddings with the FAISS
+library (Douze et al. 2024). During the evaluation phase on
+the test dataset, we calculate the embedding of the input tex t,
+and use it to query the index and retrieve the top ﬁve most
+similar texts, based on cosine similarity, along with their cor-
+responding labels. We then formulate a ﬁnal prompt for clas-
+siﬁcation, integrating the test sample and the retrieved do c-
+uments (cf. Prompt 4). In the system prompt, in addition to
+
+responding labels. We then formulate a ﬁnal prompt for clas-
+siﬁcation, integrating the test sample and the retrieved do c-
+uments (cf. Prompt 4). In the system prompt, in addition to
+the speciﬁcs of our RAG conﬁguration, we also include the
+AI-generated descriptions of the labels.
+Fine-tuning When Supervised Fine Tuning (SFT) an
+LLM for a speciﬁc classiﬁcation task, the model is provided
+with a series of prompts containing: i)ﬁxed classiﬁcation in-
+structions speciﬁc to the task, including all the classiﬁca tion
+labels allowed, and ii)a set of labeled texts (cf. Prompt 5).
+The loss calculated between the generated output and the
+examples’ true labels is used to update the model’s weights.
+We adopt a two-phase ﬁne-tuning approach that aligns
+with the current best practices. During the ﬁrst phase, we
+use Quantized Low-Rank Adaptation (QLoRA), an efﬁcient
+ﬁne-tuning technique (Dettmers et al. 2023). In QLoRA, the
+main model is frozen and quantized to a 4-bit representa-
+tion. The ﬁne-tuning process is used to learn separate low-
+rank matrices of gradients, which are then combined with
+the frozen model during inference, weighted by a factor α.
+In the second phase, we perform Direct Preference Op-
+timization (DPO), a technique that updates the model’s
+weights based on the explicit user preference for one traini ng
+example over another (Rafailov et al. 2023). During DPO,
+the model receives a prompt and pairs of responses ranked
+by preference. Based on cross-entropy loss, the model up-
+dates its weights to maximize the probability of generating
+the preferred example.
+We trained both phases for one epoch, and we set αto 16,
+the dropout rate to 0.05, and the matrix rank to 8.
+Instruction tuning Instruction tuning is a special type of
+ﬁne-tuning that, instead of ﬁne-tuning on labeled text ex-
+amples from a single task, provides the model with a set of
+instructions and desired corresponding outputs from multi -
+ple tasks (Wei et al. 2022). Unlike traditional ﬁne tuning,
+instruction tuning improves the model’s ability to follow
+classiﬁcation instructions correctly, and it produces a ﬁn al
+model that can be ﬂexibly employed to solve a series of
+classiﬁcation tasks within the same domain. To implement
+instruction tuning, we use the same SFT+DPO pipeline that
+we employed for ﬁne-tuning, but using instructions and ex-
+amples from all the tasks during training. This approach is
+similar to that used by SocialiteLlama , the ﬁrst example of
+instruction-tuned model on all the tasks from the SOCKET
+benchmark (Dey et al. 2024).
+Reverse instruction tuning Instruction tuning typically
+relies on one ﬁxed human-generated instruction for each
+
+Tasks Llama-2 7B chat Llama-3 8B Instruct
+Zero-shot AI Knowledge RAG Fine-tuningInstruction
+tuningReverse
+InstructionsZero-shot AI Knowledge RAG Fine-tuningInstruction
+tuningReverse
+Instructions
+Humor & Sarcasm
+hahackathon#is humor 0.459 0.56 0.462 0.834 0.564 0.548 0.765 0.864 0.636 0.442 0.904 0.933
+sarc 0.400 0.492 0.451 0.303 0.475 0.216 0.511 0.591 0.534 0.689 0.499 0.628
+tweet irony 0.313 0.497 0.366 0.458 0.464 0.638 0.540 0.663 0.551 0.510 0.889 0.788
+Offensiveness
+contextual-abuse#PersonDirectedAbuse 0.103 0.480 0.182 0.990 0.105 0.052 0.671 0.655 0.460 0.975 0.992 0.978
+implicit-hate#explicit hate 0.090 0.142 0.123 0.788 0.139 0.799 0.665 0.517 0.447 0.950 0.951 0.947
+contextual-abuse#IdentityDirectedAbuse 0.076 0.515 0.255 0.883 0.102 0.001 0.708 0.758 0.516 0.893 0.984 0.973
+hasbiasedimplication 0.245 0.426 0.574 0.530 0.390 0.767 0.463 0.499 0.432 0.487 0.577 0.833
+hateoffensive 0.503 0.326 0.625 0.765 0.548 0.776 0.488 0.424 0.440 0.870 0.838 0.841
+intentyn 0.090 0.157 0.463 0.158 0.251 0.595 0.566 0.289 0.261 0.413 0.719 0.741
+tweet offensive 0.412 0.577 0.723 0.762 0.533 0.506 0.693 0.702 0.698 0.837 0.822 0.688
+implicit-hate#implicit hate 0.085 0.202 0.108 0.449 0.268 0.466 0.589 0.494 0.45 0.783 0.762 0.737
+implicit-hate#stereotypical hate 0.047 0.164 0.725 0.892 0.150 0.769 0.329 0.499 0.378 0.887 0.953 0.929
+Sentiment & Emotion
+empathy#distress bin 0.048 0.565 0.554 0.349 0.172 0.494 0.285 0.597 0.667 0.382 0.602 0.500
+dailydialog 0.167 0.561 0.107 0.253 0.154 0.782 0.382 0.336 0.109 0.839 0.837 0.655
+tweet emotion 0.450 0.623 0.680 0.650 0.498 0.319 0.725 0.776 0.771 0.802 0.721 0.750
+crowdﬂower 0.215 0.288 0.224 0.303 0.235 0.154 0.179 0.243 0.282 0.342 0.286 0.353
+Social Factors
+hayati politeness 0.281 0.438 0.688 0.500 0.375 0.25 0.844 0.656 0.656 0.719 0.844 0.688
+complaints 0.438 0.649 0.780 0.901 0.562 0.559 0.806 0.878 0.809 0.916 0.872 0.817
+stanfordpoliteness 0.550 0.621 0.665 0.522 0.582 0.439 0.640 0.644 0.621 0.678 0.549 0.550
+questionintimacy 0.155 0.222 0.204 0.209 0.227 0.182 0.2 0.204 0.2 0.320 0.351 0.347
+Trustworthyness
+hypo-l 0.269 0.402 0.557 0.437 0.349 0.672 0.665 0.693 0.536 0.724 0.712 0.721
+rumor#rumor bool 0.282 0.606 0.887 0.444 0.458 0.592 0.514 0.542 0.549 0.620 0.647 0.669
+two-to-lie#receiver truth 0.490 0.430 0.899 0.945 0.549 0.449 0.366 0.613 0.682 0.945 0.943 0.933
+Cross-task average 0.268 0.432 0.491 0.579 0.354 0.479 0.547 0.571 0.508 0.697 0.750 0.739
+Table 1: Accuracy on SOCKET classiﬁcation tasks across mode ls. Best results for each model are highlighted in bold.
+task. This constrains the ability of LLMs to learn associa-
+tions between the semantics of instructions and their corre -
+sponding responses. Generating synthetic instruction var i-
+ants with LLMs mitigates this problem without needing
+extensive human labor (Møller et al. 2024). This process
+is known as reverse instruction generation (K¨ oksal et al.
+2024). It involves presenting the LLM with a textual out-
+put and prompting it to formulate a plausible instruction
+that could lead to that output (cf. Prompt 6). We extend this
+method to create instructions that are speciﬁc to classiﬁca -
+tion tasks consisting of a target text, a set of possible labe ls,
+and the label for the given text (cf. Prompt 7).
+For generating reverse instructions, we randomly sam-
+ple up to 4,000samples from each task’s training set. We
+use OpenAI’s gpt-3.5-turbo-0125 as LLM, setting
+its temperature to 1, to ensure the generation of diverse in-
+structions. For each task, we try generate up to 4,000new
+instructions for training, and 400 for each validation and
+test. In total, we generate 179,510samples. We then clean
+the output using simple heuristics designed to remove noisy
+generations, ﬁltering out instructions that repeat the inp ut
+text, explicitly reveal the label, or are improperly format ted.
+We create a new training set for instruction-tuning by sim-
+ply replicating each training example for all its instructi on
+
+text, explicitly reveal the label, or are improperly format ted.
+We create a new training set for instruction-tuning by sim-
+ply replicating each training example for all its instructi on
+variants, and then apply the SFT+DPO pipeline. During the
+evaluation phase, we randomly sample instructions from the
+training set and integrate them into the prompt template.
+Results
+Table 1 presents the classiﬁcation accuracy across methods
+and tasks. A critical factor impacting performance is the se -
+lection of the pre-trained model. On average, across tasks,
+there is an accuracy improvement ranging from 0.02to0.4when employing Llama-3 over Llama-2 (RQ3) . This result
+indicates that there is still room for improving the the lan-
+guage models’ understanding during pre-training, and sug-
+gests that switching to recent models is worth prioritizing .
+When comparing the performance of prompt enhance-
+ment methods, two main ﬁndings emerge. First, zero-shot
+yields relatively high accuracy, yet it is consistently out -
+performed by AI-generated knowledge prompting (RQ1) .
+This trend is not as pronounced in the offensiveness cate-
+gory, where some tasks exhibit a notable decrease in accu-
+racy with AI-enhanced prompts. This could be attributed to
+the safeguards built into the LLMs when addressing sensi-
+tive content, potentially restricting their ability to gen erate
+high-quality prompts. Second, the performance of Retrieva l-
+Augmented Generation (RAG) for prompt enhancement is
+inconsistent. Its relative performance to zero-shot is gen er-
+ally better with Llama-2, albeit with considerable variabi l-
+ity across tasks, and tends to be less effective with Llama-3
+(RQ1) . This suggests that models with less extensive pre-
+training may beneﬁt from external knowledge integration,
+but this advantage diminishes with models that have a more
+robust pre-training foundation.
+Fine-tuning markedly improves the accuracy of AI-
+knowledge prompting by an average of 0.15with Llama-2
+and0.13with Llama-3. In contrast to traditional ﬁne-tuning,
+which directly modiﬁes model weights, parameter-efﬁcient
+ﬁne-tuning using QLoRA is less resource-demanding and
+achieves good results with relatively small training sets,
+making it a practical alternative in many scenarios. The two
+forms of instruction tuning, however, yield divergent out-
+comes depending on the model. Llama-2’s performance de-
+clines by an average of 0.22with instruction tuning and by
+0.1with reverse instruction tuning, with many tasks expe-
+
+riencing accuracy drops even greater than 0.3. Conversely,
+Llama-3 shows a modest increase in accuracy of approxi-
+mately0.05on average. This disparity may be due to Llama-
+3’s superior capability to process complex and semanti-
+cally varied input data, thanks to its expanded vocabulary
+and training corpus. The added complexity, however, intro-
+duces noise into Llama-2’s classiﬁcation process, suggest -
+ing a need for more ﬁne-tuning data to bridge the perfor-
+mance gap with Llama-3. In summary, the results indicate
+that advanced ﬁne-tuning methods involving small sets of
+instructions and data from multiple tasks hold some promise
+but also risk performance decline if the foundational model
+lacks the necessary expressiveness (RQ2) . Moreover, while
+reverse instructions enhance training diversity, they can also
+lead to hallucinations and information leaks that require
+manual intervention, thus limiting their practicality.
+The robustness of our ﬁndings is supported by the limited
+performance variation across task categories, which can be
+largely attributed to the difﬁculty of individual tasks. Fo r in-
+stance, the crowdﬂower task exhibits the lowest performance
+due to its 13 possible classes that represent concepts chal-
+lenging to discern from textual information.
+Conclusion
+Our ﬁndings highlight three good practices that practition ers
+can adopt when using LLMs for classiﬁcation tasks within
+the ﬁeld of Computational Social Science. First, the selec-
+tion of the model is a crucial decision that signiﬁcantly im-
+pacts performance. Choosing models that have undergone
+extensive pre-training is recommended. Second, basic zero -
+shot methods should be avoided in favor of enhanced zero-
+shot techniques that incorporate LLM-generated descrip-
+tions of the task and labels into the prompt. This straightfo r-
+ward method offers substantial beneﬁts relative to its mini -
+mal cost, unlike more complex retrieval-based methods for
+prompt augmentation, which do not appear as effective for
+classiﬁcation purposes. Last, ﬁne-tuning should be pursue d
+whenever adequate computational resources are accessible ,
+as it consistently yields positive results and can be execut ed
+cost-effectively using contemporary methods like QLoRa.
+Nevertheless, in scenarios where ﬁne-tuning data is scarce ,
+advanced instruction tuning that integrates instructions and
+datasets from diverse tasks should be approached with cau-
+tion, as it may not generalize well and could potentially de-
+grade performance.
+References
+Bail, C. A. 2024. Can Generative AI improve social science?
+PNAS , 121(21).
+Balaguer; et al. 2024. RAG vs Fine-tuning: Pipelines, Trade -
+offs, and a Case Study on Agriculture. arXiv:2401.08406 .
+Brown; et al. 2020. Language models are few-shot learners.
+NeurIPS .
+Bubeck, S.; and ohers. 2023. Sparks of Artiﬁcial
+General Intelligence: Early experiments with GPT-4.
+ArXiv:2303.12712 .
+Chae, Y .; and Davidson, T. 2023. Large language models for
+text classiﬁcation: From zero-shot learning to ﬁne-tuning .
+Open Science Foundation .Choi, M.; Pei, J.; Kumar, S.; Shu, C.; and Jurgens, D. 2023.
+Do LLMs Understand Social Knowledge? Evaluating the
+Sociability of Large Language Models with SocKET Bench-
+mark. ArXiv:2305.14938 .
+Dettmers, T.; Pagnoni, A.; Holtzman, A.; and Zettlemoyer,
+L. 2023. QLoRA: Efﬁcient Finetuning of Quantized LLMs.
+ArXiv:2305.14314 .
+Dey, G.; Ganesan, A. V .; Lal, Y . K.; Shah, M.; Sinha, S.;
+Matero, M.; Giorgi, S.; Kulkarni, V .; and Schwartz, H. A.
+2024. SOCIALITE-LLAMA: An Instruction-Tuned Model
+for Social Scientiﬁc Tasks. ArXiv:2402.01980 .
+Douze, M.; Guzhva, A.; Deng, C.; Johnson, J.; Szilvasy, G.;
+Mazar´ e, P.-E.; Lomeli, M.; Hosseini, L.; and J´ egou, H. 202 4.
+The FAISS Library. ArXiv:2401.08281 .
+Hu, Y .; and Lu, Y . 2024. RAG and RAU: A Survey on
+Retrieval-Augmented Language Model in Natural Language
+Processing. ArXiv:2404.19543 .
+Kojima, T.; Gu, S. S.; Reid, M.; Matsuo, Y .; and Iwasawa,
+
+Hu, Y .; and Lu, Y . 2024. RAG and RAU: A Survey on
+Retrieval-Augmented Language Model in Natural Language
+Processing. ArXiv:2404.19543 .
+Kojima, T.; Gu, S. S.; Reid, M.; Matsuo, Y .; and Iwasawa,
+Y . 2022. Large language models are zero-shot reasoners.
+NeurIPS , 35.
+K¨ oksal, A.; Schick, T.; Korhonen, A.; and Sch¨ utze, H. 2024 .
+LongForm: Effective Instruction Tuning with Reverse In-
+structions. ArXiv:2304.08460 .
+Lewis, P.; Perez, E.; Piktus, A.; Petroni, F.; Karpukhin,
+V .; Goyal, N.; K¨ uttler, H.; Lewis, M.; Yih, W.-t.;
+Rockt¨ aschel, T.; Riedel, S.; and Kiela, D. 2021. Retrieval -
+Augmented Generation for Knowledge-Intensive NLP
+Tasks. ArXiv:2005.11401 .
+Li, H.; Su, Y .; Cai, D.; Wang, Y .; and Liu, L. 2022. A sur-
+vey on retrieval-augmented text generation. ArXiv preprint
+arXiv:2202.01110 .
+Liu, J.; Liu, A.; Lu, X.; Welleck, S.; West, P.; Bras,
+R. L.; Choi, Y .; and Hajishirzi, H. 2022. Gener-
+ated Knowledge Prompting for Commonsense Reasoning.
+ArXiv:2110.08387 .
+Møller, A. G.; Pera, A.; Dalsgaard, J.; and Aiello, L. 2024.
+The Parrot Dilemma: Human-Labeled vs. LLM-augmented
+Data in Classiﬁcation Tasks. In EACL .
+Ouyang, L.; et al. 2022. Training language models to follow
+instructions with human feedback. NeurIPS .
+Rafailov, R.; Sharma, A.; Mitchell, E.; Ermon, S.; Manning,
+C. D.; and Finn, C. 2023. Direct Preference Optimiza-
+tion: Your Language Model is Secretly a Reward Model.
+ArXiv:2305.18290 .
+Shin, T.; Razeghi, Y .; Logan IV , R. L.; Wallace, E.; and
+Singh, S. 2020. Autoprompt: Eliciting knowledge from
+language models with automatically generated prompts.
+ArXiv:2010.15980 .
+Sun, C.; Qiu, X.; Xu, Y .; and Huang, X. 2019. How to ﬁne-
+tune bert for text classiﬁcation? In CCL .
+Wei, J.; Bosma, M.; Zhao, V . Y .; Guu, K.; Yu, A. W.; Lester,
+B.; Du, N.; Dai, A. M.; and Le, Q. V . 2022. Finetuned Lan-
+guage Models Are Zero-Shot Learners. ArXiv:2109.01652 .
+White, J.; et al. 2023. A prompt pattern catalog to enhance
+prompt engineering with ChatGPT. ArXiv:2302.11382 .
+
+Appendix
+Prompt 1 : Zero-shot prompt
+# System prompt
+You are a helpful, respectful and honest
+assistant.
+# Task prompt (example for the sarctask)
+For the sentence: {text}, is it sarcastic?
+You can choose from the following labels:
+{labels}.
+Answer:
+Prompt 2 : AI-Knowledge Generation
+# Task prompt
+For the task: {taskdescription }. Explain briefly
+the labels: {labelslist}
+Prompt 3 : Knowledge-improved Zero-shot
+# System prompt
+You are a helpful, respectful and honest
+assistant. You have the following knowledge about
+task-specific labels: ’sarcastic’: This label
+indicates the sentence is sarcastic, meaning it
+conveys irony or mocks with a tone of detachment
+or insincerity. ’literal’: This label is used
+if the sentence is not sarcastic, implying a
+straightforward or sincere expression without
+irony.
+# ... Remainder of prompt as in Prompt 1 ...
+Prompt 5: Fine-tuning Prompt
+# System prompt
+You are a helpful, respectful and honest
+assistant.
+# Task prompt
+For the sentence: {taskdescription withtext}
+You can choose from the following labels:
+{labellist}. Answer: {label}Prompt 4: RAG Prompt
+# System prompt
+You are part of a RAG classification system
+designed to categorize texts. Continued
+specification of the RAG...
+# Task prompt
+Consider the relevance and content of each
+document in relation to the input text and
+the descriptions of the labels. If a retrieved
+document is highly relevant to the input text and
+aligns closely with the description of a label,
+that label might be the correct classification.
+Retrieved Documents:
+Document i:{doci}
+Input Text: {text}
+Answer: [/INST]
+Prompt 6: Reverse Instructions Generation Prompt
+Instruction: X
+Output: {doc}
+What kind of instruction could this be the answer
+to?
+X:
+Prompt 7: Reverse Instructions Generation for
+Classiﬁcation
+# System prompt
+You are a helpful assistant helping in creating
+instructions for a text classification task.
+# Task prompt
+Instruction: X
+Input: {text}
+Labels: {labellist}
+Output: {label}
+What kind of instruction could ‘‘Output’’ be the
+answer to given ‘‘Input’’ and ‘‘Labels’’? Please
+make only an instruction for the task and include
+brief descriptions of the labels.
+Begin your answer with ’X: ’
+

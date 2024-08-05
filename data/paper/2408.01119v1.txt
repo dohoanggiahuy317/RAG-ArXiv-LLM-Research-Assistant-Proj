@@ -1,0 +1,1796 @@
+Task Prompt Vectors: Effective Initialization through Multi-Task
+Soft-Prompt Transfer
+Robert Belanec♠†, Simon Ostermann‡, Ivan Srba†, Maria Bielikova†
+♠Faculty of Information Technology, Brno University of Technology, Brno, Czechia
+†Kempelen Institute of Intelligent Technologies, Bratislava, Slovakia
+{name.surname} @kinit.sk
+‡German Research Institute for Artificial Intelligence (DFKI), Saarland Informatics Campus, Germany
+simon.ostermann@dfki.de
+Abstract
+Prompt tuning is a modular and efficient solu-
+tion for training large language models (LLMs).
+One of its main advantages is task modular-
+ity, making it suitable for multi-task problems.
+However, current soft-prompt-based methods
+often sacrifice multi-task modularity, requir-
+ing the training process to be fully or partially
+repeated for each newly added task. While re-
+cent work on task vectors applied arithmetic
+operations on full model weights to achieve
+the desired multi-task performance, a similar
+approach for soft-prompts is still missing. To
+this end, we introduce Task Prompt Vectors ,
+created by element-wise difference between
+weights of tuned soft-prompts and their ran-
+dom initialization. Experimental results on 12
+NLU datasets show that task prompt vectors
+can be used in low-resource settings to effec-
+tively initialize prompt tuning on similar tasks.
+In addition, we show that task prompt vectors
+are independent of the random initialization
+of prompt tuning. This allows prompt arith-
+metics with the pre-trained vectors from differ-
+ent tasks. In this way, by arithmetic addition of
+task prompt vectors from multiple tasks, we are
+able to outperform a state-of-the-art baseline in
+some cases.
+1 Introduction
+Standard fine-tuning methods change the weights
+of a pre-trained language model (PLM) to increase
+its performance on a downstream task. As there is a
+trend of improving the overall results by increasing
+the number of parameters, the models require a
+vast amount of computational resources for training
+(e.g., GPT-3 (Brown et al., 2020) having 175 billion
+parameters). Besides their parameter hunger, large
+language models also require significant amounts
+of training data, which especially benefits well-
+resourced languages.
+To address the problem of the increasing num-
+ber of parameters, Parameter-Efficient Fine-Tuning
+(PEFT) methods (Lester et al., 2021; Houlsby et al.,
+Figure 1: An illustration of task prompt vector and the
+combination via addition that we include in our work.
+(a) A task prompt vector is created by subtracting the
+soft-prompt initialization weights θPprefrom the soft-
+prompt weights after prompt tuning θt
+Pft(Section 3,
+eq. 2). (b) A combination via the addition of two task
+prompt τPaandτPbresulting in τPnew(Section 3, eq. 4).
+(c) Different task prompt vectors pointing into the same
+sub-space in the embedding space of PLM (Section 3.1).
+The circles represent different random initializations.
+2019; Hu et al., 2022) were introduced, capable of
+solving multiple problems even with small amounts
+of labeled data while training only a fraction of the
+model parameters (e.g., for RoBERTa base (Liu
+et al., 2019), prompt tuning (Lester et al., 2021)
+is training only 0.5% parameters, and LoRA (Hu
+et al., 2022) is training only 0.7% of parameters
+(Xu et al., 2023)). The key concept that makes
+such methods effective is their task modularity –
+single modules can be trained for diverse tasks or
+languages and then just be swapped out inside of
+the same model.
+Some of the recent PEFT (Xu et al., 2023; Lester
+et al., 2021; Asai et al., 2022) methods focus on
+fine-tuning soft-prompts . Soft-prompts are train-
+able (parametrized) weights that are prepended to
+the input embeddings while training the model.
+Prompt tuning is one such modular and efficient
+solution for soft-prompt-based tuning of large lan-
+guage models (LLMs), with an advantage in task
+modularity, making it suitable for multi-task prob-
+
+Prompt tuning is one such modular and efficient
+solution for soft-prompt-based tuning of large lan-
+guage models (LLMs), with an advantage in task
+modularity, making it suitable for multi-task prob-
+lems. Prompt tuning scales linearly only with thearXiv:2408.01119v1  [cs.CL]  2 Aug 2024
+
+internal size of model embeddings not with the to-
+tal number of parameters, compared to other PEFT
+methods (the number of parameters is consistent
+across different model sizes), making it exception-
+ally efficient, while matching the performance of
+fully fine-tuned models.
+Current soft-prompt-based methods often lack
+multi-task modularity, requiring the training pro-
+cess to be fully or partially repeated for each newly
+added task (Vu et al., 2022; Wang et al., 2023).
+Other methods while keeping their relatively high
+modularity usually lack robustness and their perfor-
+mance depends on the quality and the number of
+pre-trained soft-prompts (Asai et al., 2022). More-
+over, creating a soft-prompt for multiple tasks may
+often reduce the overall multi-task performance
+and require further fine-tuning. Building upon
+the findings from task vector arithmetics (Ilharco
+et al., 2022), we utilize the efficiency and mod-
+ularity of prompt tuning (Lester et al., 2021) to
+create Task Prompt Vectors . We thoroughly in-
+vestigate the properties of task prompt vectors and
+demonstrate their functionality in combining pairs
+of task prompt vectors while evaluating their in-
+distribution performance and out-of-distribution
+performance in full and limited data scenarios.
+Our main contributions and findings are1:
+•We introduce the novel concept of task
+prompt vectors created from fine-tuned soft-
+prompts, as a method of weight interpolation
+that leverages findings from task vectors. In
+addition, we investigate vector arithmetics on
+such task prompt vectors, based on simple
+arithmetic operations as a method to reinforce
+PLMs to solve multi-task problems.
+•We provide a comprehensive investigation
+of task prompt vector properties on 12
+NLU datasets separated into 3 task types
+and demonstrate important properties of task
+prompt vectors. We show that their random
+initialization independence makes them ro-
+bust and universally applicable, while their
+similarity across related problems provides a
+necessary base for efficient cross-task transfer.
+•We show that task prompt vectors allow effi-
+cient prompt tuning initializations, by lever-
+aging multi-task combinations of the pre-
+1To support the replicability of our work, we provide a
+repository where we store all of our implementation and re-
+sults: https://github.com/Wicwik/task-prompt-vectorstrained task prompt vectors using the task
+prompt vector arithmetics. Experimental re-
+sults show that especially in zero- or few-shot
+settings, task-prompt-vector-based initializa-
+tion can outperform or match SPoT (Soft-
+Prompt Transfer learning, Vu et al. (2022)) for
+specific tasks while maintaining high multi-
+task modularity.
+2 Related Work
+Soft-prompt-based fine-tuning. After the intro-
+duction of prompt tuning (Lester et al., 2021)
+and prefix tuning (Li and Liang, 2021) many new
+soft-prompt-based methods (Gu et al., 2022; Liu
+et al., 2023; Shi and Lipani, 2024) were introduced.
+Some of these methods focus on task knowledge
+transfer (e.g., SPoT (Vu et al., 2022) or cross-model
+transfer (Su et al., 2022)) and task combinations
+(e.g., ATTEMPT (Asai et al., 2022), MPT (Wang
+et al., 2023), or BMTPT (Lee et al., 2023)). These
+can be classified as works on PEFT weight inter-
+polations to increase the performance of prompt
+tuning in single or multi-task settings. However,
+they do not represent the tasks as vectors in the em-
+bedding space and usually require further training
+of the added parameters.
+Model weights interpolation. Model weight in-
+terpolation (Frankle et al., 2020; Wortsman et al.,
+2022) is a widely discussed topic in the literature
+since it enables combining knowledge of different
+fine-tuned models without or with a small amount
+of training. Authors of tasks vectors (Ilharco et al.,
+2022) show, that it is possible to combine multiple
+task vectors created from fine-tuned models and
+still maintain the overall multi-task performance.
+Ortiz-Jimenez et al. (2024) focuses mostly on im-
+
+task vectors created from fine-tuned models and
+still maintain the overall multi-task performance.
+Ortiz-Jimenez et al. (2024) focuses mostly on im-
+proving the work on task vectors, by showing that
+training models in their tangent space contributes
+to the weight disentanglement and increases the
+performance of full model task arithmetic. Another
+subcategory for weight interpolation can be model
+merging (Stoica et al., 2024; Matena and Raffel,
+2022; Li et al., 2022; Davari and Belilovsky, 2023).
+In the work Ramé et al. (2023), the authors propose
+a strategy of merging multiple model weights pre-
+trained sets of auxiliary tasks as an initialization
+to multiple parallel fine-tunings to enhance out-of-
+distribution generalization. Most of these works
+on model weights interpolations usually focus only
+on the weights of the whole model or particular
+weights (e.g., classification heads, activation lay-
+
+ers) of the pre-trained model.
+There are also works on weight interpolation
+of PEFT methods in general (Zhang et al., 2023;
+Chronopoulou et al., 2023; Qin et al., 2021; Pfeif-
+fer et al., 2021), but not many of them focus on
+interpolation using task vectors. In the work Kli-
+maszewski et al. (2024) authors present a way of
+combining pre-trained adapters using task vector
+arithmetics, but the method lacks the investigation
+of the dependency of their method on the random
+initialization of adapters, therefore it may require
+training of specific adapters from the same random
+initialization, which we provide in our work in the
+context of prompt tuning.
+To the best of our knowledge, there is no re-
+search on task vectors in the context of soft-prompt-
+based fine-tuning. In this work, we address this
+drawback by combining the existing knowledge on
+prompt tuning and task vectors.
+3 Method
+3.1 Background
+In this section, we describe the necessary back-
+ground to Prompt Tuning and Task Vectors that we
+will build on in Section 3.2.
+Prompt tuning. Prompt tuning (Lester et al.,
+2021) is a widely used parameter-efficient fine-
+tuning (PEFT) method for fine-tuning a pre-trained
+language model (PLM) on a variety of downstream
+tasks. It is conceptually based on the prompting
+technique, i.e., the interaction with an LLM via text.
+Instead of using tokenized words, soft-prompts are
+continuous representations that are passed to an
+LLM. Prompt tuning, as introduced in Lester et al.
+(2021), casts all tasks as text generation, modeling
+a probability Pr(Y|X), where Xis a sequence
+of input tokens and Yis a sequence of output to-
+kens representing the class label. The classifica-
+tionPrθ(Y|X)is then parametrized by the model
+weights θ. Prompting adds extra information to
+the classification process by prepending a series
+of tokens (prompt) Pto the input X, such that the
+model maximizes the probability of getting current
+YinPrθ(Y|[P;X]), while keeping the parameters
+θfrozen. Prompt tuning adds another parameter
+θPto the equation, which parametrizes the prompt.
+During the training, only θPis updated as the fol-
+lowing function is optimized:
+LPT=−X
+ilogPr θ,θP(Yi|[P;Xi]) (1)Task vectors and task arithmetics. As a method
+of editing model weights without training, task
+vectors (Ilharco et al., 2022) assume the existence
+of pre-trained weights θpre∈Rd. Weights of the
+same model after fine-tuning on a downstream task
+tare represented as θt
+ft∈Rd. Task vector τt∈Rd
+is given by the element-wise difference:
+τt=θt
+ft−θpre (2)
+Task vectors can be then applied to any model
+weights θof the same dimensionality (architecture)
+by element-wise addition with a rescaling term:
+θnew=θ+λτt (3)
+The rescaling term λis a real number with respect
+to0< λ≤1and when λ= 1thenθnew=θt
+ft.
+The task vector representation in the weight
+space of the model has the same properties as stan-
+dard vectors, therefore it is possible to include them
+in arithmetic expressions like addition, negation,
+or combinations via the addition of two or more
+vectors together:
+τnew=X
+iτi (4)
+3.2 Task Prompt Vectors
+In this work, we proceed from the concepts orig-
+inating in the parameter-efficient prompt tuning
+and task vectors. Let T1, ..., T tbe a set of source
+tasks and θP1, ..., θ Pibe a set of random soft-prompt
+weights initializations. Intuitively, the random soft-
+prompt weights initializations are random points in
+the embedding space of the PLM. We then move
+each of these points (via prompt tuning) into a task
+sub-space where the optimization function from
+the equation 1 returns the (sufficiently) minimal
+value and we repeat this for each task t∈T. These
+points are further denoted as task prompts – soft-
+prompts fine-tuned by prompt tuning to a set of
+downstream tasks. The straight trajectory from the
+initial point to the task prompt is our task prompt
+vector (see Figure 1 part a)).
+Task prompt vector definition. LetθPpre∈Rd
+be the weights of the soft-prompt randomly initial-
+
+initial point to the task prompt is our task prompt
+vector (see Figure 1 part a)).
+Task prompt vector definition. LetθPpre∈Rd
+be the weights of the soft-prompt randomly initial-
+ized from the embedding vocabulary of a PLM,
+andθt
+Pft∈Rdbe the weights of the soft-prompt P
+fine-tuned on a specific task t, using the standard
+prompt tuning formula from equation 1. We formu-
+late the task prompt vector τPtfor soft-prompt P
+
+and task as an element-wise difference, according
+to the equation 2:
+τPt=θt
+Pft−θPpre (5)
+Similar to task vectors, applying a task prompt
+vector to the soft-prompt weights of the same size
+would follow the equation 3:
+θPnew=θP+λθt
+Pft(6)
+Where the rescaling term λis a number from the
+same interval 0< λ≤1and when λ= 1, then
+θPnew=θt
+Pft=θP.
+Task prompt vector arithmetic. The task
+prompt vectors for different tasks can be combined
+by a simple vector addition arithmetic, combining
+knowledge from different tasks. When we experi-
+ment specifically with combinations of two differ-
+ent task prompt vectors, we can rewrite equation 4
+into the additions of two task prompt vectors (see
+Figure 1 part b)):
+τPnew=τPa+τPb (7)
+This makes for efficient task adaptation as we
+perform no further training but only use vector
+addition in the next sections. Task prompt vector
+combinations can be also used for initializing a new
+task that is sufficiently similar to an already trained
+task. We investigate and discuss these possible use
+cases for task prompt vectors in upcoming sections.
+4 Experiments
+4.1 Experimental Setup and Implementation
+Details
+We investigate the properties of task prompt vectors
+using the representative foundation T5-base (Raf-
+fel et al., 2020) model. Our investigation covers
+3 types of classification problems and 12 corre-
+sponding datasets, namely natural language infer-
+ence (MNLI (Williams et al., 2018), QNLI (Wang
+et al., 2018), SciTail (Khot et al., 2018), SNLI (Bow-
+man et al., 2015) ),topic classification (DBPedia
+(Auer et al., 2007), TREC Coarse (Li and Roth,
+2002; Hovy et al., 2001), AG News, Yahoo Answers
+(Zhang et al., 2015) ), and sentiment classification
+(SST2 (Socher et al., 2013), Yelp Polarity, SST5,
+IMDB (Maas et al., 2011) ). Half of the datasets
+are used as source ones (to obtain pre-trained task
+prompt vectors), while the second half is purpose-
+fully left as target datasets, on which the pre-trainedvectors are applied to. In the scope of our work, we
+refer to a single dataset as a task.
+For all experiment results, we report F1 macro,
+if not specified otherwise. The cosine similarity be-
+tween vectors (task prompts or task prompt vectors)
+is measured using the flattened weights of each
+vector (which has a size of 100×768parameters,
+resulting in a 76800-dimensional vector). Since we
+are utilizing the T5-base for conditional generation,
+we are computing exact match instead of accuracy
+for classification. Because we are generating la-
+bels also for classification tasks, the exact match
+is equivalent to accuracy in the sequence classifi-
+cation task. We average our zero- and few-shot
+results across 3 different runs (i.e., different ran-
+dom initializations of soft-prompts) for ATTEMPT
+and multi-task SPoT baselines (mostly to save more
+computational resources) and across 10 different
+runs for all other experiments. To determine the
+statistical significance of our results we perform a
+two-sample Student’s t-test (Student, 1908) with
+Bonferroni correction (Dunn, 1959) between the
+best result and the second best result. If the popula-
+tion sizes differ (e.g. 10 and 3 runs) we use Welch’s
+t-test (Welch, 1947).
+We set soft-prompt length to 100 tokens, learn-
+ing rate to 0.3, and lower the weight decay of the
+AdamW optimizer (Loshchilov and Hutter, 2019)
+to1×10−5. We train all models on all data sets
+for 10 epochs, except for TREC, where we train for
+50 epochs due to the tendency of models to under-
+fit here. For the few-shot experiments (simulating
+limited labeled data scenarios), we randomly sub-
+sample from the data for the respective number of
+shots while keeping the class distribution. We train
+for 1000 update steps while keeping a batch size
+of 2 for 5, 10, 25 shots, 8 for 50, 100, 250 shots,
+and 16 for 500, 750, 1000 shots. In our work, we
+consider shot and sample to be equivalent (i.e., for
+a 5-shot setting we choose 5 samples overall, and
+not 5 samples per class). A more detailed descrip-
+
+consider shot and sample to be equivalent (i.e., for
+a 5-shot setting we choose 5 samples overall, and
+not 5 samples per class). A more detailed descrip-
+tion of our experimental setup and hyperparameters
+description can be found in Appendix A.
+4.2 Investigating Task Prompt Vectors
+Properties
+In this section, we aim to address the following
+research question (RQ):
+RQ1: How universally can we apply task
+prompt vectors to a) different prompt initial-
+ization and b) different tasks?
+
+dataset QNLI MNLI TREC Coarse DBpedia SST2 Yelp avg
+Prompt tuning 93.3085.40.1 95.51.7 99.10 93.80.397.2093.80.08
+Random init 93.20.1∗85.30.2 26.518.2∗990.1∗93.20.697.10.1∗82.43.2∗
+Table 1: Comparison of exact match results across 10 random soft-prompt initializations. The subscript represents
+the standard deviation from the average. The first row (Prompt tuning) represents the results of prompt tuning
+averaged across 10 random initializations. The second row (Random init) represents the results of applying a task
+prompt vector created from different random initializations to a specific random initialization for all 10 random
+initializations (covering all 100 random initialization combinations). The * in the superscript represents the results
+where two-sample Student’s t-test (Student, 1908) confirmed the statistical significance.
+There are two fundamental properties that are
+crucial for the effectiveness of task prompt vectors:
+1) If such vectors should be applied universally,
+their dependence on the random initialization of
+prompt tuning should be low, since soft-prompts
+are usually initialized randomly, unlike PLM for
+task prompts in Ilharco et al. (2022). 2) The simi-
+larity of task prompt vectors between similar tasks
+should be large, in order to be able to combine task
+prompt vectors of similar tasks.
+To evaluate these properties, we train a set of
+soft-prompts on specified source tasks for inference
+classification ( MNLI, QNLI ), topic classification
+(DBPedia, TREC Coarse ), and sentiment classifi-
+cation ( SST2, Yelp Polarity ), resulting in a set of
+six soft-prompts that were trained from a single
+random initialization. We sample 10 random ini-
+tializations from which we create the task prompt
+vectors as described in Section 3. We aggregate
+by averaging our results across random initializa-
+tions in Table 1 and Figures 2, 3. We start with the
+evaluation of whether the task prompt vectors are
+independent of the random initialization and con-
+tinue with the experiments to confirm whether the
+trained task prompts from prompt tuning end up
+in the same task sub-space of the PLM embedding
+space. This helps us determine whether the task
+prompt vectors point in the same space, similar to
+Figure 1 part c).
+The performance of task prompt vectors is in-
+dependent of the random initialization for the
+majority of observed tasks. We conduct experi-
+ments to evaluate the performance of applying task
+prompt vectors to different random initializations.
+For each task and each random initialization, we
+apply the task prompt vector (according to the equa-
+tion 3) to all of the other random initializations and
+evaluate performance for each task prompt vector-
+initialization pair on the test set of the particular
+dataset. Row 2 in Table 1 shows the aggregatedexact match results. The results differ only slightly
+in most observed tasks, compared to the results of
+prompt tuning. This indicates that task prompt vec-
+tors perform well irrespective of their initialization.
+The only exception is in the TREC task, where the
+performance decreases drastically. We suspect that
+this may be caused by the task being harder for the
+T5-base model to learn, which also confirms the
+higher standard deviation from the mean of prompt
+tuning performance.
+Task prompts and task prompt vectors main-
+tain good performance even if they do not point
+to the exact same location in the task subspace.
+To see whether the trained task prompts end up in
+the same task sub-space, we evaluate cosine sim-
+ilarity across multiple random initializations. We
+train multiple task prompts for 10 different ran-
+dom initializations and each source task (60 task
+prompts in total) and compute the cosine similarity
+from trained task prompts for each combination of
+random initializations and for each combination of
+tasks. We then average this cosine similarity for
+each task combination across all random initializa-
+tion combinations. If task prompts initialized from
+
+tasks. We then average this cosine similarity for
+each task combination across all random initializa-
+tion combinations. If task prompts initialized from
+different random initializations are pointing to dif-
+ferent points in the task sub-space, we should also
+witness this phenomenon with their correspond-
+ing task prompt vectors. Therefore, we repeat this
+process for task prompt vectors.
+Figures 2 and 3 show the comparison of cosine
+similarities between task prompts and task prompt
+vectors from different tasks averaged over all ran-
+dom initialization combinations. We can see from
+the low cosine similarities in both tables, that the
+task prompts and task prompt vectors do not end up
+in the same space/direction when initialized from
+different points in the embedding space. The high-
+est cosine similarities on the diagonal represent
+the highest cosine similarity that we can get by
+comparing vectors of the same task only across
+
+MNLI QNLI DBPedia TREC SST2 YelpMNLI QNLI DBPedia TREC SST2 Yelp
+0.090.04 0.070.03 0.01 0.100.02 0.03 0.03 0.050.03 0.03 0.01 0.02 0.060.03 0.01 0.04 0.02 0.03 0.08
+0.020.040.060.080.10Figure 2: Comparison of average cosine similarities of
+task prompts fine-tuned on different tasks. The aver-
+age is calculated across all combinations of 10 random
+initializations (i.e., row QNLI column MNLI was cal-
+culated as the average of all cosine similarities between
+MNLI and QNLI task prompts for all random initial-
+ization combinations omitting the combinations where
+cosine similarity is equal to 1). The diagonal represents
+the cosine similarities across different random initializa-
+tions of the same tasks and it represents the maximum
+value of cosine similarity if we keep the tasks frozen and
+compare only across different random initializations.
+the different random initializations, which serves
+as a baseline for comparison with the cross-task
+cosine similarities. We can see in Table 1 row 1,
+that the downstream performance of prompt tun-
+ing on the source tasks across 10 different random
+initializations has a low standard deviation from
+the average. This means that the task prompts after
+prompt tunings end up in a subspace with sufficient
+task performance, without necessarily pointing to
+the same spot in the task subspace. Cosine simi-
+larities that we have used to create the aggregated
+figures can be seen in the Appendix B in Figures 6
+and 7.
+Task prompt vectors from similar problems are
+more similar. Additionally, we evaluate the sim-
+ilarity of different task prompt vectors across dif-
+ferent tasks. Figure 3 shows the cosine similarity
+between task prompt vectors for different tasks. We
+can see that certain pairs of tasks are more similar
+than others, what can be shared properties of these
+tasks, such as the same number of classes, same
+labels, or solving the same problem. Problem simi-
+larity can be seen in DBPedia–TREC and MNLI–
+QNLI task prompt vectors, and the similarity in the
+number of classes can be seen in the MNLI task
+MNLI QNLI DBPedia TREC SST2 YelpMNLI QNLI DBPedia TREC SST2 Yelp
+0.090.04 0.090.03 0.01 0.090.02 0.03 0.03 0.060.03 0.03 0.01 0.02 0.100.03 0.01 0.04 0.02 0.03 0.08
+0.020.040.060.080.10Figure 3: Comparison of average cosine similarities of
+task prompt vectors . The averages are calculated sim-
+ilarly to Figure 2 but with task prompt vectors created
+from different task prompts. The diagonal represents
+the cosine similarities across different random initializa-
+tions of the same tasks and it represents the maximum
+value of cosine similarity if we keep the tasks frozen and
+compare only across different random initializations.
+prompt vector which tends to have higher cosine
+similarity with task prompt vectors for tasks with
+more classes (e.g., DBPedia, TREC Coarse).
+4.3 Combination of Task Prompt Vectors via
+Arithmetic Addition for Multi-Task
+Transfer
+This section addresses the following research ques-
+tion: RQ2: Can we combine multiple task
+prompt vectors and maintain multi-task perfor-
+mance on the source tasks?
+To answer this research question, we investigate
+the method of combination via addition on 15 task
+pair combinations from the set of NLU datasets
+(MNLI, QNLI, DBPedia, TREC Coarse, SST2, Yelp
+Polarity ). We also evaluate combinations of task
+prompt vectors in a simulated limited data envi-
+ronment by providing 0 to 100 training examples
+before evaluation on the test set.
+Combinations of task prompt vector pairs main-
+tain single-task performance on specific ob-
+served tasks. To evaluate how the combinations
+of task prompt vectors maintain their single-task
+performance, we conduct experiments of creating
+pair combinations from all of the source tasks (ac-
+cording to equation 4). After we create the task
+prompt vector combinations, we evaluate their per-
+formance on the individual source tasks that formed
+the task combination and find the best rescaling fac-
+
+SciTail (NLI) AG News (Topic) IMDB (Sentiment)
+Source tasksF1Source tasksF1Source tasksF1
+0 shots 100 shots 0 shots 100 shots 0 shots 100 shots
+Random 54.96.6 75.60.5 Random 00 50.411.2Random 77.29.6 89.40.4
+MNLI (SPoT) 70.40.4 87.80.9 DBPedia (SPoT) 00 83.40.6∗SST2 (SPoT) 880.6 90.20.3
+QNLI (SPoT) 57.713.1 77.71.3 TREC (SPoT) 00 65.75.6 Yelp (SPoT) 900.3 90.30.2
+QNLI + MNLI (SPoT) 70.41.2 87.70.6 DBPedia + TREC (SPoT) 00 82.10.9 SST2 + Yelp (SPoT) 90.80.290.80.2
+QNLI + MNLI (ATTEMPT) 63.84.2 83.63 DBPedia + TREC (ATTEMPT) 11.51.720.72.8 SST2 + Yelp (ATTEMPT) 79.26 89.40.8
+QNLI + MNLI (ours) 71.50.8∗88.10.9 DBPedia + TREC (ours) 00 830.9 SST2 + Yelp (ours) 90.10.5 90.40.2
+Table 2: Test results of training T5-base model with random, single- and multi-task soft-prompt transfer (SPoT),
+multi-task ATTEMPT, and our task prompt vectors on 0-shot and 100-shots of data. We show the initialization with
+different combinations for natural language inference classification, topic classification, and sentiment classification.
+The subscript represents the standard deviation from the average. The best results are bold, while the second-best
+results are underlined. The * in the superscript represents that the results are statistically significant from the others,
+by two-sample Student’s t-test (Student, 1908) or Welch’s t-test (Welch, 1947).
+DBPedia
+MNLIDBPedia
+QNLIMNLI
+QNLIMNLI
+YelpQNLI
+SST2QNLI
+YelpSST2
+Yelp0.600.650.700.750.800.850.900.951.00
+T ask Type
+First T ask
+Second T ask
+Figure 4: Comparison of relative exact match perfor-
+mance of combinations of task prompt vectors across
+averaged across 10 different random initializations. The
+results are relative to the original single-task perfor-
+mance (1 is the performance of single-task prompt tun-
+ing).
+torλvia held-out validation sets. We aggregate the
+best-performing combinations in Figure 4. The full
+results from the experiment can be found in Ap-
+pendix C in Figure 8. We can see from the results
+that most of the binary classification tasks retain
+their single-task performance on both of the tasks,
+which implies that task prompt vectors can be used
+for solving multi-task problems. In some cases, the
+single-task performance was kept only for a single
+source task, which leads us to the conclusion that
+certain combinations of task prompt vectors may
+be more suitable than others.
+Now that we know how the combinations of
+task prompt vectors affect the performance across
+source tasks, we evaluate the combinations of task
+prompt vectors on a set of out-of-distribution tar-
+get tasks from the same problem area. We chose
+two target tasks for inference classification ( SciTail,
+SNLI ), topic classification ( AG News, Yahoo An-
+swers ), and sentiment classification ( SST5, IMDB )Method ModularityMulti-task
+performanceSource prompt
+independence
+SPoT ✗ ✓ ✓
+ATTEMPT ✓ ✓ ✗
+Task Prompt Vectors ✓ ✓ ✓
+Table 3: Comparison of multi-task properties for com-
+pared methods. Task Prompt Vectors maintain high
+task modularity, multi-task performance, and are inde-
+pendent of the quality or number of pre-trained source
+soft-prompts.
+and we keep the same set of source tasks. Results
+for SciTail, AG News, and IMDB are in Table 2;
+the full table with extended experiments is in Ap-
+pendix D in Table 4.
+Task prompt vector combinations can be used
+as an initialization for zero-shot and few-shot
+learning. We conduct 0-shot and 100-shot eval-
+uations of different initialization of prompt tuning
+on the set of target tasks. We compare initialization
+with randomly initialized soft-prompt, soft-prompt
+trained on single and multiple source tasks (this is
+an equivalent of soft-prompt transfer presented in
+Vu et al. (2022)), the multi-task ATTEMPT (Asai
+et al., 2022) method, and a combination of task
+prompt vectors of both of the source tasks. From
+the results in Table 2 we can see that our combi-
+nation of task prompt vectors can outperform the
+initialization with a single-task source soft-prompt
+
+the results in Table 2 we can see that our combi-
+nation of task prompt vectors can outperform the
+initialization with a single-task source soft-prompt
+on SciTail and IMDB datasets and the multi-task
+source soft-prompt only in the case of SciTail task.
+In some cases, the combination of task prompt vec-
+tors matched the SPoT baseline like in the case of
+AG News. This may be because the combination of
+DBPedia and TREC does not retain much informa-
+tion about TREC which could benefit the overall
+result.
+
+We can also see that the ATTEMPT method is
+significantly underperforming when using a smaller
+set of pre-trained source soft-prompts. Another
+observation is that ATTEMPT performs better on
+the AG News task. This may be caused by using
+the original implementation of ATTEMPT, where
+authors instead of using textual labels (i.e., "en-
+tailment", "not entailment") used textual numbers
+as labels (i.e., "0", "1"), which made the model to
+predict numbers instead of specific words (unlike
+in the other methods).
+While matching the results of full multi-task soft-
+prompt transfer (SPoT) training initialization of
+prompt tuning using Task Prompt Vectors combi-
+nations also retains high task modularity, which
+means that we can add new tasks without the ne-
+cessity of training. Only in the case of the IMDB
+task, the SPoT baseline fine-tuned on both datasets
+performs better, however, it requires the training
+process to be fully repeated for each new task, re-
+sulting in higher computational costs. Table 3 com-
+pares attributes beneficial for multi-task training
+for SPoT, ATTEMPT, and Task Prompt Vectors
+methods. We can see that the SPoT method has
+low multi-task modularity because we need to re-
+train the source soft-prompt every time we change
+the set of source tasks. ATTEMPT, while having
+sufficient task modularity, depends heavily on the
+quality and number of source soft-prompts. Task
+Prompt Vectors have both of these attributes and
+also retain sufficient multi-task performance.
+4.4 Additional Results: Few-Shot Comparison
+In this section, we study how the increasing number
+of data affects the performance of prompt tuning
+on a target task initialized by a combination of task
+prompt vectors of similar source tasks. We keep the
+same experiment setup as in the previous section
+and further evaluate the soft-prompt initialization
+on 5,10,25,100,250,500 shots. We evaluate the
+topic classification tasks also for 500 shots since
+we are starting from 10 shots due to our sampling
+method. The results from this set of experiments
+can be seen in the few-shot plots in Figure 5.
+From the results, we can see that the perfor-
+mance of the combination of task prompt vectors
+for SciTail and IMDB target tasks outperforms us-
+ing a single-task initialization for multiple shots.
+We can also see that our method also outperforms
+the multi-task initialization for the SciTail dataset
+across all shots of data. The most significant differ-ence in performance is in 10 shots for SciTail and in
+5 shots for IMDB. This also means that the choice
+of the source tasks for transfer learning plays an
+important role in the initialization with task prompt
+vector combinations. Comparing the results from
+Figure 4 and Figure 5, if we choose a combina-
+tion of tasks that maintains a significant amount
+of the source task performance (MNLI + QNLI
+and SST2 + Yelp), the few-shot performance of the
+task prompt vector combination tend to be higher
+than single-task transfer. The full results across
+more shots and more target tasks can be found in
+Appendix D in Figure 9.
+5 Discussion
+In Section 4.2, we study the properties of task
+prompt vectors. We first show that the task prompts
+and their corresponding task prompt vectors are
+close to orthogonal, by comparing their cosine sim-
+ilarities across multiple initializations in Figures
+2 and 3. This may mean that the task prompts
+are in different places in the embedding space
+of the model and also that the task prompt vec-
+tors have different directions. Despite their near-
+orthogonality, task prompt vectors created from
+one initialization and applied to a different one
+maintain their performance for the majority of
+the observed tasks, as we can see from Table 1. The
+implication of this finding may mean that it is pos-
+sible to combine are reuse different task prompt
+vectors from different initializations , therefore
+we can re-use pre-trained task prompt vectors for
+different tasks and use them in downstream scenar-
+
+vectors from different initializations , therefore
+we can re-use pre-trained task prompt vectors for
+different tasks and use them in downstream scenar-
+ios like for initialization for further fine-tuning.
+In Section 4.3, we focus mainly on the combi-
+nation of task prompts via arithmetic addition. We
+show that combinations of certain task prompts
+maintain their source single-task performance (in
+Figure 4) and that the combinations of task prompt
+vectors can be used for initialization of prompt tun-
+ing (in Table 2) in simulated low resource setting
+on the set of target tasks. The combinations that re-
+tain most of their single-task performance on both
+source tasks also tend to have higher performance
+on 0 and 100 shots compared to the single-task
+soft-prompt transfer. The implication of findings
+from this set of experiments may be that we can
+use different combinations of task prompt vectors
+to gain even zero-shot multi-task behavior if we
+correctly choose the source tasks. We can com-
+bine multiple task prompt vectors and maintain
+
+5 10 25 50 100 250
+N shots747678808284868890Macro F1
+SciT ail
+random
+MNLI (SPoT)
+QNLI (SPoT)MNLI + QNLI (SPoT)
+MNLI + QNLI (ATTEMPT)
+MNLI + QNLI (Ours)10 25 50 100 250 500
+N shots1020304050607080Macro F1
+AG News
+random
+DBPedia (SPoT)
+TREC Coarse (SPoT)DBPedia + TREC Coarse (SPoT)
+DBPedia + TREC Coarse (ATTEMPT)
+DBPedia + TREC Coarse (Ours)5 10 25 50 100 250
+N shots89.089.590.090.591.0Macro F1
+IMDB
+random
+SST2 (SPoT)
+Yelp (SPoT)SST2 + Yelp (SPoT)
+SST2 + Yelp (ATTEMPT)
+SST2 + Yelp (Ours)Figure 5: Test results of training T5-base model with random, single and multi-task soft-prompt transfer (SPoT),
+multi-task ATTEMPT, and our task prompt vectors combination on increasing numbers of shots of data. We can see
+that for SciTail and IMDB tasks combination of task prompt vectors outperforms single task transfer.
+multi-task performance on the source tasks, but
+the right task combinations need to be found
+(e.g., by evaluating on held-out validation sets).
+In our last section of experiments (4.4) we extend
+our few-shot experiments to more samples of data,
+showing the development of performance across
+different initializations and different amounts of
+data. From the results in Figure 5, we can see
+that for the SciTail and IMDB datasets our task
+prompt vector initialization maintains its higher per-
+formance compared to the single-task soft-prompt
+transfer even with higher number of samples.
+6 Conclusion
+In our work, we introduce and investigate task
+prompt vectors as a method of multi-task trans-
+fer from prompt tuning. We show that the task
+prompt vectors are not dependent on random ini-
+tialization and that the performance across different
+random initializations does not change significantly
+in the majority of observed source tasks. Addition-
+ally, we show that in some tasks the combination
+via arithmetic addition maintains the single-task
+performance. Finally, we show that certain com-
+binations of task prompt vectors can be a better
+option for initialization in a simulated limited data
+environment for certain tasks while maintaining
+higher multi-task modularity than other methods.
+In the future, we would like to extend our work
+by evaluating the cross-model performance of task
+prompt vectors. Moreover, task prompt arithmetic
+has the highest potential for improving the unlearn-
+ing in PLMs by subtracting (negating) the task
+prompt vectors for the tasks that we want to un-
+learn. Such an option is enabled by introducingtask prompt vectors, which it would not be possible
+with the existing state-of-the-art methods.
+Acknowledgements
+This work was partially supported by the projects
+funded by the European Union: DisAI , GA No.
+101079164, TAILOR , GA No. 952215; Central
+European Digital Media Observatory 2.0 (CEDMO
+2.0), Contract No. 101158609; and by the project
+funded by the Slovak Research and Development
+Agency: MODERMED , GA No. APVV-22-0414.
+This work was supported by the Ministry of Ed-
+ucation, Youth and Sports of the Czech Republic
+through the e-INFRA CZ (ID:90254).
+Limitations
+The experiments in our work utilize only datasets in
+the English language with various characteristics
+(problem type, dataset size, number of classes),
+mostly because of the large amount of publicly
+available data covering a variety of NLU problems.
+At the same time, to direct our focus primarily on
+the evaluation of task prompt vectors, we utilize
+only monolingual models in the scope of our work.
+Even though there are many other PLMs capa-
+ble of conditional generation that beat T5 mod-
+els in performance on various benchmarks, we fo-
+cus our experiments on the T5-base model as it is
+commonly used as a representative model in many
+PEFT methods.
+Finally, we focus on 3 common NLU problems
+(natural language inference, topic classification,
+and sentiment classification) that are commonly in-
+corporated in NLU benchmarks and do not consider
+other NLU problems (e.g., question answering, slot
+
+tagging, acceptability classification). However, we
+find that our set of 3 common NLU problems each
+covering 4 different tasks, is enough to evaluate the
+properties of task prompt vectors.
+Ethical Considerations and Impact
+Statement
+The experiments in this paper were conducted with
+publicly available datasets MNLI, QNLI, SciTail,
+SNLI, DBPedia, TREC Coarse, AG News, Yahoo
+Answers, SST2, Yelp Polarity, SST5, and IMDB,
+citing the original authors. MNLI, QNLI, and SST2
+are part of the GLUE benchmark. As we were not
+able to determine the license for all used datasets,
+we have opted to use them as in a limited form as
+possible, adhering to the terms of use of the GLUE
+benchmark for all of the mentioned datasets. As
+the datasets are commonly used in other related
+works, and were published in scientific works that
+went through an established review process, we do
+not check for the presence of any offensive con-
+tent as it was already removed by the authors of
+these publicly available datasets. In addition, we
+do not utilize any personally identifiable informa-
+tion or offensive content and we do not perform
+crowdsourcing in any form for data annotation. To
+our knowledge, we are not aware of any potential
+ethical harms or negative societal impacts of our
+work, apart from the ones related to the field of
+Machine Learning (i.e., use of computational re-
+sources that are consuming energy and producing
+heat with indirect CO2 emission production). We
+follow the license terms for the T5-base model we
+use – all models and datasets allow their use as part
+of the research. As we perform conditional gen-
+eration transform into the classification problem
+(generating only labels), we minimize the problem
+of generating offensive or biased content.
+Impact Statement: CO2 Emissions Related to
+Experiments The experiments in this paper re-
+quire a significant amount of GPU computing re-
+sources as we train and evaluate 1 model over mul-
+tiple random initializations (10) for different meth-
+ods (4) and datasets (12). Overall the experiments
+including evaluations (which did not require train-
+ing, but still used GPU resources for inference) and
+preliminary experiments (which are not reported
+in the scope of our work) were conducted using
+a private infrastructure, which has a carbon effi-
+ciency of 0.432 kgCO 2eq/kWh. Approximately,
+1000 hours of computation performed on hardwareof type A100 PCIe 40GB (TDP of 250W). Total
+emissions are estimated to be 95.09 kgCO 2eq of
+which 0 percent were directly offset. These es-
+timations were conducted using the CodeCarbon
+(Courty et al., 2024) python module. Whenever
+possible we tried to reduce the computational costs.
+Because our method is built upon the prompt tuning
+PEFT method, we always trained only a small part
+of the model parameters (76800 parameters, which
+is around 0.2% of the T5-base model parameters),
+and training the model fully will probably require
+more GPU hours and create more CO2 emissions.
+References
+Akari Asai, Mohammadreza Salehi, Matthew Pe-
+ters, and Hannaneh Hajishirzi. 2022. ATTEMPT:
+Parameter-efficient multi-task tuning via attentional
+mixtures of soft prompts. In Proceedings of the
+2022 Conference on Empirical Methods in Natu-
+ral Language Processing , pages 6655–6672, Abu
+Dhabi, United Arab Emirates. Association for Com-
+putational Linguistics.
+Sören Auer, Christian Bizer, Georgi Kobilarov, Jens
+Lehmann, Richard Cyganiak, and Zachary Ives. 2007.
+Dbpedia: A nucleus for a web of open data. In The
+Semantic Web , pages 722–735, Berlin, Heidelberg.
+Springer Berlin Heidelberg.
+Samuel R. Bowman, Gabor Angeli, Christopher Potts,
+and Christopher D. Manning. 2015. A large anno-
+tated corpus for learning natural language inference.
+InProceedings of the 2015 Conference on Empirical
+Methods in Natural Language Processing (EMNLP) .
+Association for Computational Linguistics.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind
+
+Methods in Natural Language Processing (EMNLP) .
+Association for Computational Linguistics.
+Tom Brown, Benjamin Mann, Nick Ryder, Melanie
+Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind
+Neelakantan, Pranav Shyam, Girish Sastry, Amanda
+Askell, et al. 2020. Language models are few-shot
+learners. Advances in neural information processing
+systems , 33:1877–1901.
+Alexandra Chronopoulou, Jonas Pfeiffer, Joshua
+Maynez, Xinyi Wang, Sebastian Ruder, and Priyanka
+Agrawal. 2023. Language and task arithmetic with
+parameter-efficient layers for zero-shot summariza-
+tion. arXiv preprint arXiv:2311.09344 .
+Benoit Courty, Victor Schmidt, Sasha Luccioni, Goyal-
+Kamal, MarionCoutarel, Boris Feld, Jérémy Lecourt,
+LiamConnell, Amine Saboni, Inimaz, supatomic,
+Mathilde Léval, Luis Blanche, Alexis Cruveiller,
+ouminasara, Franklin Zhao, Aditya Joshi, Alexis
+Bogroff, Hugues de Lavoreille, Niko Laskaris,
+Edoardo Abati, Douglas Blank, Ziyao Wang, Armin
+Catovic, Marc Alencon, Michał St˛ echły, Christian
+Bauer, Lucas-Otavio, JPW, and MinervaBooks. 2024.
+mlco2/codecarbon: v2.4.1.
+
+MohammadReza Davari and Eugene Belilovsky. 2023.
+Model Breadcrumbs: Scaling Multi-Task Model
+Merging with Sparse Masks. ArXiv:2312.06795 [cs].
+Olive Jean Dunn. 1959. Confidence intervals for
+the means of dependent, normally distributed vari-
+ables. Journal of the American Statistical Associa-
+tion, 54(287):613–621.
+Jonathan Frankle, Gintare Karolina Dziugaite, Daniel
+Roy, and Michael Carbin. 2020. Linear mode con-
+nectivity and the lottery ticket hypothesis. In Inter-
+national Conference on Machine Learning , pages
+3259–3269. PMLR.
+Yuxian Gu, Xu Han, Zhiyuan Liu, and Minlie Huang.
+2022. PPT: Pre-trained prompt tuning for few-shot
+learning. In Proceedings of the 60th Annual Meet-
+ing of the Association for Computational Linguistics
+(Volume 1: Long Papers) , pages 8410–8423, Dublin,
+Ireland. Association for Computational Linguistics.
+Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski,
+Bruna Morrone, Quentin De Laroussilhe, Andrea
+Gesmundo, Mona Attariyan, and Sylvain Gelly. 2019.
+Parameter-efficient transfer learning for nlp. In In-
+ternational conference on machine learning , pages
+2790–2799. PMLR.
+Eduard Hovy, Laurie Gerber, Ulf Hermjakob, Chin-
+Yew Lin, and Deepak Ravichandran. 2001. Toward
+semantics-based answer pinpointing. In Proceedings
+of the First International Conference on Human Lan-
+guage Technology Research .
+Edward J Hu, yelong shen, Phillip Wallis, Zeyuan Allen-
+Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu
+Chen. 2022. LoRA: Low-rank adaptation of large
+language models. In International Conference on
+Learning Representations .
+Gabriel Ilharco, Marco Tulio Ribeiro, Mitchell Worts-
+man, Ludwig Schmidt, Hannaneh Hajishirzi, and Ali
+Farhadi. 2022. Editing models with task arithmetic.
+InThe Eleventh International Conference on Learn-
+ing Representations .
+Tushar Khot, Ashish Sabharwal, and Peter Clark. 2018.
+Scitail: A textual entailment dataset from science
+question answering. In AAAI Conference on Artificial
+Intelligence .
+Mateusz Klimaszewski, Piotr Andruszkiewicz, and
+Alexandra Birch. 2024. No train but gain: Lan-
+guage arithmetic for training-free language adapters
+enhancement. arXiv preprint arXiv:2404.15737 .
+Haeju Lee, Minchan Jeong, Se-Young Yun, and Kee-
+Eung Kim. 2023. Bayesian multi-task transfer learn-
+ing for soft prompt tuning. In Findings of the As-
+sociation for Computational Linguistics: EMNLP
+2023 , pages 4942–4958, Singapore. Association for
+Computational Linguistics.Brian Lester, Rami Al-Rfou, and Noah Constant. 2021.
+The power of scale for parameter-efficient prompt
+tuning. In Proceedings of the 2021 Conference on
+Empirical Methods in Natural Language Processing ,
+pages 3045–3059, Online and Punta Cana, Domini-
+can Republic. Association for Computational Lin-
+guistics.
+Quentin Lhoest, Albert Villanova del Moral, Yacine
+Jernite, Abhishek Thakur, Patrick von Platen, Suraj
+Patil, Julien Chaumond, Mariama Drame, Julien Plu,
+Lewis Tunstall, Joe Davison, Mario Šaško, Gun-
+jan Chhablani, Bhavitvya Malik, Simon Brandeis,
+Teven Le Scao, Victor Sanh, Canwen Xu, Nicolas
+Patry, Angelina McMillan-Major, Philipp Schmid,
+Sylvain Gugger, Clément Delangue, Théo Matus-
+sière, Lysandre Debut, Stas Bekman, Pierric Cis-
+tac, Thibault Goehringer, Victor Mustar, François
+Lagunas, Alexander Rush, and Thomas Wolf. 2021.
+Datasets: A community library for natural language
+processing. In Proceedings of the 2021 Conference
+on Empirical Methods in Natural Language Process-
+ing: System Demonstrations , pages 175–184, Online
+and Punta Cana, Dominican Republic. Association
+for Computational Linguistics.
+Margaret Li, Suchin Gururangan, Tim Dettmers, Mike
+Lewis, Tim Althoff, Noah A. Smith, and Luke
+Zettlemoyer. 2022. Branch-Train-Merge: Embarrass-
+ingly Parallel Training of Expert Language Models.
+ArXiv:2208.03306 [cs].
+Xiang Lisa Li and Percy Liang. 2021. Prefix-tuning:
+Optimizing continuous prompts for generation. In
+Proceedings of the 59th Annual Meeting of the Asso-
+ciation for Computational Linguistics and the 11th
+
+Optimizing continuous prompts for generation. In
+Proceedings of the 59th Annual Meeting of the Asso-
+ciation for Computational Linguistics and the 11th
+International Joint Conference on Natural Language
+Processing (Volume 1: Long Papers) , pages 4582–
+4597, Online. Association for Computational Lin-
+guistics.
+Xin Li and Dan Roth. 2002. Learning question clas-
+sifiers. In COLING 2002: The 19th International
+Conference on Computational Linguistics .
+Xiao Liu, Yanan Zheng, Zhengxiao Du, Ming Ding,
+Yujie Qian, Zhilin Yang, and Jie Tang. 2023. Gpt
+understands, too. AI Open .
+Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Man-
+dar Joshi, Danqi Chen, Omer Levy, Mike Lewis,
+Luke Zettlemoyer, and Veselin Stoyanov. 2019.
+Roberta: A robustly optimized bert pretraining ap-
+proach. arXiv preprint arXiv:1907.11692 .
+Ilya Loshchilov and Frank Hutter. 2019. Decoupled
+weight decay regularization. In International Confer-
+ence on Learning Representations .
+Andrew L. Maas, Raymond E. Daly, Peter T. Pham,
+Dan Huang, Andrew Y . Ng, and Christopher Potts.
+2011. Learning word vectors for sentiment analysis.
+InProceedings of the 49th Annual Meeting of the
+Association for Computational Linguistics: Human
+Language Technologies , pages 142–150, Portland,
+
+Oregon, USA. Association for Computational Lin-
+guistics.
+Sourab Mangrulkar, Sylvain Gugger, Lysandre De-
+but, Younes Belkada, Sayak Paul, and Benjamin
+Bossan. 2022. Peft: State-of-the-art parameter-
+efficient fine-tuning methods. https://github.
+com/huggingface/peft .
+Michael Matena and Colin Raffel. 2022. Merg-
+ing Models with Fisher-Weighted Averaging.
+ArXiv:2111.09832 [cs].
+Guillermo Ortiz-Jimenez, Alessandro Favero, and Pas-
+cal Frossard. 2024. Task arithmetic in the tangent
+space: Improved editing of pre-trained models. Ad-
+vances in Neural Information Processing Systems ,
+36.
+Adam Paszke, Sam Gross, Francisco Massa, Adam
+Lerer, James Bradbury, Gregory Chanan, Trevor
+Killeen, Zeming Lin, Natalia Gimelshein, Luca
+Antiga, et al. 2019. Pytorch: An imperative style,
+high-performance deep learning library. Advances in
+neural information processing systems , 32.
+Jonas Pfeiffer, Aishwarya Kamath, Andreas Rücklé,
+Kyunghyun Cho, and Iryna Gurevych. 2021.
+AdapterFusion: Non-destructive task composition
+for transfer learning. In Proceedings of the 16th Con-
+ference of the European Chapter of the Association
+for Computational Linguistics: Main Volume , pages
+487–503, Online. Association for Computational Lin-
+guistics.
+Yujia Qin, Xiaozhi Wang, Yusheng Su, Yankai Lin,
+Ning Ding, Jing Yi, Weize Chen, Zhiyuan Liu, Juanzi
+Li, Lei Hou, et al. 2021. Exploring universal intrin-
+sic task subspace via prompt tuning. arXiv preprint
+arXiv:2110.07867 .
+Colin Raffel, Noam Shazeer, Adam Roberts, Katherine
+Lee, Sharan Narang, Michael Matena, Yanqi Zhou,
+Wei Li, and Peter J Liu. 2020. Exploring the lim-
+its of transfer learning with a unified text-to-text
+transformer. Journal of machine learning research ,
+21(140):1–67.
+Alexandre Ramé, Kartik Ahuja, Jianyu Zhang, Matthieu
+Cord, Léon Bottou, and David Lopez-Paz. 2023.
+Model ratatouille: Recycling diverse models for out-
+of-distribution generalization. In International Con-
+ference on Machine Learning , pages 28656–28679.
+PMLR.
+Zhengxiang Shi and Aldo Lipani. 2024. DePT: De-
+composed prompt tuning for parameter-efficient fine-
+tuning. In The Twelfth International Conference on
+Learning Representations .
+Richard Socher, Alex Perelygin, Jean Wu, Jason
+Chuang, Christopher D Manning, Andrew Y Ng, and
+Christopher Potts. 2013. Recursive deep models for
+semantic compositionality over a sentiment treebank.
+InProceedings of the 2013 conference on empiri-
+cal methods in natural language processing , pages
+1631–1642.George Stoica, Daniel Bolya, Jakob Bjorner, Pratik
+Ramesh, Taylor Hearn, and Judy Hoffman. 2024.
+ZipIt! Merging Models from Different Tasks without
+Training. ArXiv:2305.03053 [cs].
+Student. 1908. The probable error of a mean.
+Biometrika , pages 1–25.
+Yusheng Su, Xiaozhi Wang, Yujia Qin, Chi-Min Chan,
+Yankai Lin, Huadong Wang, Kaiyue Wen, Zhiyuan
+Liu, Peng Li, Juanzi Li, Lei Hou, Maosong Sun, and
+Jie Zhou. 2022. On transferability of prompt tuning
+for natural language processing. In Proceedings of
+the 2022 Conference of the North American Chap-
+ter of the Association for Computational Linguistics:
+Human Language Technologies , pages 3949–3969,
+Seattle, United States. Association for Computational
+Linguistics.
+Tu Vu, Brian Lester, Noah Constant, Rami Al-Rfou’,
+and Daniel Cer. 2022. SPoT: Better frozen model
+adaptation through soft prompt transfer. In Proceed-
+ings of the 60th Annual Meeting of the Association
+for Computational Linguistics (Volume 1: Long Pa-
+pers) , pages 5039–5059, Dublin, Ireland. Association
+for Computational Linguistics.
+Alex Wang, Amanpreet Singh, Julian Michael, Felix
+Hill, Omer Levy, and Samuel Bowman. 2018. GLUE:
+A multi-task benchmark and analysis platform for nat-
+ural language understanding. In Proceedings of the
+2018 EMNLP Workshop BlackboxNLP: Analyzing
+and Interpreting Neural Networks for NLP , pages
+353–355, Brussels, Belgium. Association for Com-
+putational Linguistics.
+Zhen Wang, Rameswar Panda, Leonid Karlinsky, Roge-
+
+and Interpreting Neural Networks for NLP , pages
+353–355, Brussels, Belgium. Association for Com-
+putational Linguistics.
+Zhen Wang, Rameswar Panda, Leonid Karlinsky, Roge-
+rio Feris, Huan Sun, and Yoon Kim. 2023. Multitask
+prompt tuning enables parameter-efficient transfer
+learning. In The Eleventh International Conference
+on Learning Representations .
+Bernard L Welch. 1947. The generalization of ‘stu-
+dent’s’problem when several different population var-
+lances are involved. Biometrika , 34(1-2):28–35.
+Adina Williams, Nikita Nangia, and Samuel Bowman.
+2018. A broad-coverage challenge corpus for sen-
+tence understanding through inference. In Proceed-
+ings of the 2018 Conference of the North American
+Chapter of the Association for Computational Lin-
+guistics: Human Language Technologies, Volume
+1 (Long Papers) , pages 1112–1122, New Orleans,
+Louisiana. Association for Computational Linguis-
+tics.
+Thomas Wolf, Lysandre Debut, Victor Sanh, Julien
+Chaumond, Clement Delangue, Anthony Moi, Pier-
+ric Cistac, Tim Rault, Rémi Louf, Morgan Funtowicz,
+Joe Davison, Sam Shleifer, Patrick von Platen, Clara
+Ma, Yacine Jernite, Julien Plu, Canwen Xu, Teven Le
+Scao, Sylvain Gugger, Mariama Drame, Quentin
+Lhoest, and Alexander M. Rush. 2020. Transform-
+ers: State-of-the-art natural language processing. In
+Proceedings of the 2020 Conference on Empirical
+
+Methods in Natural Language Processing: System
+Demonstrations , pages 38–45, Online. Association
+for Computational Linguistics.
+Mitchell Wortsman, Gabriel Ilharco, Jong Wook
+Kim, Mike Li, Simon Kornblith, Rebecca Roelofs,
+Raphael Gontijo Lopes, Hannaneh Hajishirzi, Ali
+Farhadi, Hongseok Namkoong, et al. 2022. Robust
+fine-tuning of zero-shot models. In Proceedings of
+the IEEE/CVF conference on computer vision and
+pattern recognition , pages 7959–7971.
+Lingling Xu, Haoran Xie, Si-Zhao Joe Qin, Xiaohui
+Tao, and Fu Lee Wang. 2023. Parameter-efficient
+fine-tuning methods for pretrained language models:
+A critical review and assessment. arXiv preprint
+arXiv:2312.12148 .
+Jinghan Zhang, Junteng Liu, Junxian He, et al. 2023.
+Composing parameter-efficient modules with arith-
+metic operation. Advances in Neural Information
+Processing Systems , 36:12589–12610.
+Xiang Zhang, Junbo Zhao, and Yann LeCun. 2015.
+Character-level convolutional networks for text classi-
+fication. Advances in neural information processing
+systems , 28.
+A Experimental setup: Further Details
+Implementation details. For implementing all
+of our experiments, we utilize Python 3.11.8 with
+thePyTorch (Paszke et al., 2019) framework and
+Huggingface modules ( transformers (Wolf et al.,
+2020) for model loading and training, peft(Man-
+grulkar et al., 2022) for PEFT methods initializa-
+tion, datasets (Lhoest et al., 2021) for data loading,
+andevaluate for evaluation). We create a single
+data structure for task prompt vectors, that is capa-
+ble of the arithmetic operations with soft-prompts.
+Data splits. We take 1000 samples from the train
+set and use it as a validation set and make the test
+set from the original validation set for datasets that
+contain over 10000 samples. For datasets with less
+or equal to 10000 samples we do not modify the
+training set, and split the validation set in 2 halves
+for validation and test sets. We keep the same
+random seed for subsampling and splitting for all
+of our experiments.
+Hyperparamters setings. We provide all of our
+configurations in the config directory of our reposi-
+tory. We set different hyperparameters for prompt
+tuning and the hyperparameters for zero- or few-
+shot evaluation do not differ much from the hyper-
+parameters for prompt tuning. In general, we chose
+the maximum token length for labels by searching
+the dataset for the maximum token length (in ourconfigs, we set default max_target_lenght to 128 if
+the dataset requires to generate sentences), for the
+inputs we pad the token sequences to 256 tokens
+with the max_target_lenght parameter. We use a
+learning rate of 0.3 for the AdamW optimizer, with
+weight decay of 1×10−5and 500 warmup steps for
+10 epochs (with an exception for the TREC Coarse
+dataset) with the batch size of 32. We evaluate,
+log and save after each 100 training steps and keep
+only the best model at the end of the training. In
+our configs, we set a number of tokens to 50, but
+in reality, Hugging Face peftlibrary doubles the
+number for encoder-decoder models like T5.
+For the training of multi-task ATTEMPT, we
+have used hyperparameters and a training environ-
+ment based on the original implementation. Full
+hyperparameter settings can be found in the reposi-
+tory2of our replication study of ATTEMPT in the
+configs directory (files attempt_tvp*.toml ).
+B Additional results: Task Prompt
+Vectors and Task Prompt Cosine
+Similarities
+In this section, we provide more detailed and de-
+aggregated results from Section 4.2. Figure 6
+shows the comparison of cosine similarities across
+different random initializations of task prompts
+from prompt tuning. We can see that for all task
+combinations, the highest cosine similarity is for
+the equal random initializations. Additionally,
+when comparing different tasks and different ran-
+dom initializations the cosine similarities are the
+lowest, which only confirms our finding from Sec-
+tion 4.2.
+We repeat the same process of comparing cosine
+
+dom initializations the cosine similarities are the
+lowest, which only confirms our finding from Sec-
+tion 4.2.
+We repeat the same process of comparing cosine
+similarities across different random initializations
+for task prompt vectors in Figure 7. Similarly to
+task prompts, the highest cosine similarity is for
+the equal random initializations. We can see that
+for task prompt vectors the cosine similarities be-
+tween different random initializations are higher
+than compared to task prompts in Figure 6. Simi-
+larly to our findings in 4.2, we can that certain task
+combinations have higher cosine similarities than
+others. For both of these figures, we can see that
+task prompts and task prompt vectors from differ-
+ent initializations usually end up at different points
+in the task sub-space.
+2https://github.com/DisAI-Replication-
+Challenge/ATTEMPT
+
+0 1 2 3 4 5 6 7 8
+DBPedia1 2 3 4 5 6 7 8 9DBPedia
+0.100.09 0.120.11 0.10 0.100.12 0.14 0.11 0.090.10 0.10 0.10 0.10 0.100.11 0.10 0.11 0.09 0.09 0.090.08 0.10 0.14 0.08 0.11 0.09 0.110.08 0.09 0.09 0.11 0.10 0.08 0.07 0.080.09 0.08 0.11 0.10 0.11 0.09 0.11 0.11 0.11
+0 1 2 3 4 5 6 7 8 9
+MNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.12 0.03 0.02 0.03 0.03 0.02 0.03 0.03 0.04 0.030.04 0.09 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.030.04 0.04 0.13 0.02 0.04 0.04 0.03 0.04 0.03 0.050.04 0.03 0.03 0.11 0.03 0.03 0.02 0.03 0.03 0.030.03 0.02 0.03 0.03 0.10 0.02 0.03 0.03 0.04 0.030.03 0.03 0.03 0.03 0.03 0.10 0.02 0.03 0.03 0.030.04 0.03 0.02 0.03 0.02 0.02 0.10 0.03 0.03 0.040.02 0.03 0.03 0.03 0.03 0.03 0.03 0.11 0.03 0.040.03 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.11 0.030.05 0.03 0.03 0.03 0.03 0.02 0.03 0.04 0.04 0.11
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.17 0.02 0.02 0.03 0.03 0.03 0.02 0.02 0.02 0.030.03 0.17 0.02 0.02 0.04 0.03 0.02 0.02 0.02 0.010.03 0.03 0.19 0.02 0.03 0.03 0.02 0.02 0.02 0.030.03 0.02 0.03 0.18 0.03 0.04 0.02 0.02 0.03 0.020.02 0.03 0.02 0.02 0.18 0.03 0.03 0.02 0.02 0.020.02 0.02 0.03 0.02 0.03 0.18 0.03 0.02 0.02 0.020.02 0.02 0.02 0.02 0.03 0.03 0.18 0.02 0.02 0.020.02 0.03 0.03 0.01 0.02 0.03 0.02 0.18 0.01 0.020.03 0.02 0.03 0.03 0.02 0.02 0.02 0.03 0.17 0.020.03 0.03 0.03 0.03 0.02 0.03 0.03 0.02 0.02 0.18
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9DBPedia
+0.18 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.01 0.020.02 0.17 0.02 0.02 0.03 0.02 0.02 0.02 0.02 0.020.03 0.02 0.19 0.01 0.02 0.02 0.03 0.02 0.03 0.020.03 0.02 0.03 0.18 0.02 0.03 0.02 0.03 0.02 0.020.03 0.02 0.02 0.02 0.19 0.02 0.02 0.02 0.02 0.020.03 0.02 0.03 0.02 0.03 0.18 0.02 0.03 0.02 0.030.02 0.02 0.03 0.02 0.02 0.02 0.18 0.02 0.02 0.020.02 0.02 0.03 0.02 0.03 0.02 0.03 0.19 0.02 0.030.02 0.02 0.03 0.02 0.02 0.02 0.03 0.02 0.18 0.020.02 0.02 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.19
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9DBPedia
+0.22 0.02 0.02 0.04 0.03 0.03 0.03 0.03 0.02 0.030.04 0.20 0.02 0.03 0.04 0.02 0.03 0.03 0.03 0.020.03 0.04 0.21 0.03 0.04 0.03 0.03 0.04 0.04 0.040.03 0.04 0.03 0.23 0.04 0.03 0.02 0.03 0.04 0.030.04 0.04 0.03 0.03 0.23 0.03 0.03 0.03 0.04 0.020.03 0.03 0.03 0.03 0.03 0.21 0.03 0.03 0.03 0.040.03 0.03 0.03 0.04 0.03 0.04 0.22 0.03 0.03 0.030.03 0.02 0.04 0.02 0.03 0.04 0.03 0.23 0.03 0.040.02 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.22 0.030.03 0.03 0.04 0.03 0.03 0.03 0.03 0.03 0.04 0.22
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9DBPedia
+0.10 0.04 0.03 0.04 0.03 0.04 0.04 0.04 0.03 0.050.03 0.10 0.03 0.05 0.05 0.05 0.04 0.04 0.03 0.050.05 0.03 0.09 0.04 0.05 0.04 0.05 0.03 0.03 0.040.03 0.04 0.03 0.10 0.04 0.04 0.04 0.03 0.04 0.050.04 0.04 0.04 0.04 0.10 0.04 0.04 0.05 0.04 0.050.04 0.04 0.04 0.04 0.04 0.09 0.04 0.04 0.04 0.040.04 0.04 0.04 0.04 0.05 0.03 0.09 0.04 0.05 0.040.04 0.04 0.04 0.05 0.04 0.05 0.04 0.10 0.04 0.050.04 0.04 0.03 0.05 0.04 0.03 0.03 0.04 0.09 0.050.05 0.04 0.04 0.03 0.04 0.03 0.05 0.04 0.05 0.08
+0 1 2 3 4 5 6 7 8
+MNLI1 2 3 4 5 6 7 8 9MNLI
+0.100.07 0.060.10 0.10 0.080.08 0.07 0.08 0.090.11 0.09 0.07 0.11 0.110.09 0.08 0.10 0.09 0.08 0.080.09 0.09 0.09 0.11 0.11 0.09 0.100.10 0.09 0.07 0.10 0.07 0.10 0.10 0.080.07 0.06 0.08 0.09 0.10 0.05 0.09 0.11 0.08
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9MNLI
+0.23 0.03 0.04 0.03 0.04 0.03 0.03 0.03 0.05 0.030.04 0.23 0.04 0.04 0.03 0.04 0.05 0.04 0.04 0.040.05 0.05 0.33 0.05 0.05 0.04 0.03 0.04 0.04 0.050.05 0.04 0.04 0.26 0.04 0.04 0.04 0.04 0.04 0.040.05 0.05 0.04 0.05 0.26 0.05 0.03 0.04 0.05 0.040.04 0.04 0.04 0.05 0.04 0.25 0.03 0.03 0.04 0.030.03 0.03 0.04 0.04 0.04 0.03 0.26 0.05 0.04 0.030.05 0.04 0.05 0.04 0.04 0.03 0.04 0.23 0.02 0.040.04 0.04 0.03 0.04 0.03 0.03 0.04 0.03 0.26 0.040.05 0.05 0.04 0.04 0.05 0.03 0.04 0.03 0.03 0.23
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+0.24 0.03 0.03 0.03 0.03 0.03 0.04 0.04 0.04 0.040.03 0.22 0.03 0.04 0.03 0.03 0.03 0.03 0.04 0.040.04 0.02 0.34 0.02 0.03 0.03 0.02 0.02 0.03 0.030.04 0.03 0.04 0.24 0.03 0.03 0.04 0.03 0.03 0.030.04 0.03 0.03 0.03 0.26 0.03 0.03 0.03 0.03 0.030.04 0.03 0.03 0.03 0.04 0.25 0.03 0.03 0.03 0.030.04 0.03 0.03 0.03 0.03 0.03 0.24 0.03 0.03 0.030.04 0.04 0.03 0.03 0.03 0.04 0.03 0.24 0.02 0.040.04 0.04 0.03 0.04 0.02 0.03 0.03 0.03 0.24 0.040.03 0.04 0.03 0.03 0.04 0.03 0.04 0.03 0.03 0.24
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9MNLI
+0.24 0.02 0.02 0.03 0.03 0.03 0.03 0.03 0.03 0.030.03 0.23 0.02 0.03 0.02 0.02 0.03 0.03 0.02 0.020.02 0.03 0.34 0.02 0.02 0.03 0.02 0.03 0.03 0.030.03 0.03 0.02 0.25 0.02 0.03 0.03 0.02 0.03 0.030.03 0.03 0.03 0.03 0.25 0.03 0.01 0.04 0.02 0.030.03 0.02 0.03 0.03 0.03 0.26 0.03 0.03 0.02 0.020.02 0.01 0.02 0.03 0.02 0.02 0.26 0.02 0.03 0.020.03 0.03 0.03 0.02 0.02 0.04 0.02 0.23 0.02 0.030.03 0.02 0.02 0.03 0.02 0.03 0.02 0.03 0.27 0.030.02 0.02 0.03 0.03 0.03 0.03 0.03 0.04 0.03 0.26
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9MNLI
+0.10 0.03 0.04 0.04 0.02 0.03 0.03 0.03 0.03 0.030.03 0.10 0.04 0.03 0.04 0.03 0.02 0.03 0.03 0.020.02 0.02 0.13 0.03 0.03 0.02 0.01 0.02 0.02 0.030.03 0.04 0.03 0.10 0.02 0.03 0.03 0.03 0.03 0.040.03 0.04 0.03 0.03 0.10 0.03 0.02 0.03 0.03 0.030.03 0.03 0.03 0.03 0.03 0.10 0.02 0.03 0.03 0.030.03 0.03 0.04 0.03 0.04 0.02 0.09 0.02 0.03 0.020.03 0.03 0.04 0.03 0.03 0.03 0.03 0.09 0.03 0.020.03 0.04 0.03 0.04 0.03 0.02 0.03 0.03 0.10 0.030.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.02 0.09
+0 1 2 3 4 5 6 7 8
+QNLI1 2 3 4 5 6 7 8 9QNLI
+0.060.08 0.070.07 0.08 0.080.07 0.08 0.08 0.080.07 0.06 0.07 0.07 0.070.06 0.08 0.07 0.08 0.07 0.060.07 0.07 0.07 0.07 0.07 0.06 0.070.07 0.07 0.07 0.07 0.08 0.06 0.07 0.070.08 0.07 0.08 0.07 0.07 0.07 0.07 0.07 0.07
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9QNLI
+0.52 0.04 0.04 0.03 0.04 0.04 0.03 0.04 0.04 0.040.03 0.55 0.04 0.03 0.04 0.03 0.03 0.03 0.03 0.040.04 0.03 0.56 0.03 0.03 0.04 0.04 0.04 0.03 0.040.04 0.04 0.04 0.54 0.04 0.03 0.04 0.03 0.03 0.040.04 0.03 0.04 0.03 0.54 0.04 0.03 0.04 0.04 0.040.04 0.03 0.04 0.03 0.03 0.59 0.04 0.04 0.03 0.040.03 0.03 0.03 0.04 0.04 0.04 0.55 0.03 0.03 0.040.04 0.04 0.03 0.03 0.04 0.04 0.04 0.58 0.04 0.040.04 0.04 0.03 0.03 0.03 0.03 0.03 0.03 0.51 0.040.04 0.04 0.03 0.03 0.04 0.03 0.04 0.03 0.04 0.53
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9QNLI
+0.52 0.03 0.03 0.02 0.04 0.04 0.03 0.04 0.03 0.040.03 0.55 0.03 0.03 0.03 0.03 0.02 0.04 0.03 0.040.03 0.03 0.54 0.03 0.03 0.04 0.04 0.04 0.03 0.040.03 0.03 0.03 0.54 0.04 0.03 0.03 0.03 0.03 0.030.03 0.03 0.04 0.03 0.52 0.03 0.03 0.04 0.03 0.030.04 0.04 0.04 0.03 0.03 0.58 0.04 0.04 0.03 0.030.03 0.03 0.03 0.04 0.03 0.04 0.59 0.03 0.04 0.030.03 0.02 0.03 0.03 0.03 0.03 0.03 0.53 0.03 0.030.04 0.03 0.03 0.03 0.03 0.03 0.04 0.03 0.55 0.040.04 0.03 0.04 0.03 0.03 0.03 0.02 0.03 0.04 0.54
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9QNLI
+0.17 0.02 0.02 0.01 0.02 0.02 0.01 0.02 0.02 0.020.01 0.18 0.02 0.02 0.02 0.01 0.02 0.02 0.02 0.010.02 0.02 0.18 0.02 0.02 0.02 0.02 0.02 0.02 0.020.01 0.02 0.02 0.18 0.02 0.02 0.02 0.02 0.01 0.020.02 0.02 0.01 0.02 0.17 0.02 0.02 0.03 0.01 0.020.02 0.02 0.01 0.01 0.02 0.19 0.02 0.02 0.02 0.020.02 0.02 0.02 0.02 0.01 0.02 0.18 0.02 0.02 0.020.03 0.02 0.02 0.03 0.02 0.02 0.02 0.19 0.02 0.030.01 0.03 0.02 0.01 0.03 0.02 0.02 0.02 0.16 0.020.01 0.02 0.02 0.02 0.02 0.01 0.01 0.03 0.01 0.16
+0 1 2 3 4 5 6 7 8
+SST21 2 3 4 5 6 7 8 9SST2
+0.070.07 0.090.06 0.06 0.050.06 0.06 0.06 0.060.07 0.06 0.06 0.05 0.060.07 0.06 0.06 0.06 0.06 0.070.07 0.06 0.06 0.08 0.06 0.07 0.070.06 0.06 0.06 0.06 0.07 0.06 0.06 0.060.06 0.05 0.06 0.07 0.06 0.06 0.07 0.07 0.11
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+0.60 0.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.040.03 0.56 0.02 0.03 0.02 0.02 0.02 0.03 0.03 0.040.03 0.03 0.61 0.03 0.03 0.03 0.03 0.03 0.03 0.030.02 0.02 0.03 0.59 0.03 0.02 0.03 0.03 0.03 0.030.03 0.03 0.03 0.03 0.59 0.03 0.03 0.03 0.02 0.030.03 0.03 0.03 0.02 0.03 0.59 0.04 0.03 0.03 0.020.03 0.02 0.04 0.03 0.03 0.04 0.58 0.03 0.03 0.030.03 0.03 0.02 0.03 0.02 0.04 0.03 0.57 0.02 0.030.03 0.03 0.03 0.02 0.03 0.02 0.03 0.03 0.57 0.040.04 0.03 0.03 0.03 0.03 0.03 0.03 0.03 0.04 0.58
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9SST2
+0.22 0.02 0.04 0.03 0.03 0.04 0.02 0.03 0.03 0.030.03 0.21 0.03 0.03 0.03 0.03 0.03 0.03 0.03 0.030.03 0.02 0.22 0.03 0.02 0.03 0.02 0.03 0.03 0.020.03 0.03 0.03 0.21 0.03 0.03 0.02 0.03 0.03 0.030.03 0.04 0.03 0.02 0.20 0.02 0.03 0.03 0.03 0.020.02 0.02 0.03 0.03 0.02 0.23 0.04 0.03 0.03 0.030.04 0.04 0.04 0.03 0.03 0.04 0.21 0.03 0.04 0.030.04 0.03 0.03 0.03 0.02 0.03 0.03 0.22 0.03 0.030.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.20 0.030.03 0.03 0.03 0.02 0.03 0.02 0.02 0.03 0.04 0.19
+0 1 2 3 4 5 6 7 8
+TREC1 2 3 4 5 6 7 8 9TREC
+0.050.05 0.050.05 0.05 0.050.06 0.07 0.06 0.040.05 0.05 0.06 0.03 0.050.04 0.05 0.05 0.06 0.06 0.060.05 0.05 0.05 0.07 0.06 0.06 0.050.04 0.05 0.05 0.05 0.06 0.06 0.05 0.050.07 0.05 0.05 0.05 0.06 0.05 0.05 0.05 0.06
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9TREC
+0.21 0.02 0.02 0.03 0.02 0.02 0.02 0.01 0.02 0.030.02 0.19 0.02 0.03 0.02 0.02 0.02 0.02 0.02 0.030.03 0.02 0.20 0.02 0.03 0.02 0.02 0.02 0.02 0.020.02 0.02 0.02 0.19 0.03 0.02 0.02 0.02 0.02 0.030.02 0.02 0.01 0.02 0.18 0.02 0.02 0.03 0.02 0.020.02 0.02 0.03 0.02 0.02 0.20 0.02 0.03 0.02 0.030.02 0.02 0.03 0.03 0.02 0.02 0.20 0.02 0.02 0.030.03 0.03 0.03 0.02 0.02 0.03 0.02 0.19 0.01 0.020.01 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.20 0.030.02 0.02 0.02 0.02 0.02 0.01 0.01 0.03 0.03 0.18
+0 1 2 3 4 5 6 7 8
+Yelp1 2 3 4 5 6 7 8 9Yelp
+0.090.07 0.080.07 0.07 0.090.07 0.08 0.08 0.080.09 0.08 0.08 0.07 0.120.08 0.08 0.09 0.10 0.12 0.070.07 0.09 0.09 0.09 0.08 0.09 0.070.08 0.10 0.09 0.07 0.09 0.10 0.08 0.090.11 0.08 0.10 0.08 0.10 0.09 0.10 0.06 0.06
+0.070.080.090.100.110.120.130.14
+0.020.040.060.080.100.12
+0.020.040.060.080.100.120.140.160.18
+0.020.040.060.080.100.120.140.160.18
+0.0250.0500.0750.1000.1250.1500.1750.2000.225
+0.030.040.050.060.070.080.090.10
+0.060.070.080.090.10
+0.050.100.150.200.250.30
+0.050.100.150.200.250.30
+0.050.100.150.200.250.30
+0.020.040.060.080.100.12
+0.0600.0650.0700.0750.080
+0.10.20.30.40.5
+0.10.20.30.40.5
+0.0250.0500.0750.1000.1250.1500.175
+0.050.060.070.080.090.100.11
+0.10.20.30.40.50.6
+0.0250.0500.0750.1000.1250.1500.1750.2000.225
+0.0350.0400.0450.0500.0550.0600.065
+0.0250.0500.0750.1000.1250.1500.1750.200
+0.070.080.090.100.11Figure 6: Comparisons of cosine similarities of task prompts fine-tuned on different tasks. Each heatmap represents
+a different task combination. We calculate the cosine similarities for all combinations of 10 random initializations
+omitting the combinations of random initializations where cosine similarity is equal to 1 (single-task comparisons).
+Each heatmap is represented as a single field in Figure 2 by averaging all values. The x and y axes represent the
+number of random initializations.
+
+0 1 2 3 4 5 6 7 8
+DBPedia1 2 3 4 5 6 7 8 9DBPedia
+0.100.09 0.120.11 0.10 0.100.12 0.14 0.11 0.090.10 0.10 0.10 0.10 0.100.11 0.10 0.11 0.09 0.09 0.090.08 0.10 0.14 0.08 0.11 0.09 0.110.08 0.09 0.09 0.11 0.10 0.08 0.07 0.080.09 0.08 0.11 0.10 0.11 0.09 0.11 0.11 0.11
+0 1 2 3 4 5 6 7 8 9
+MNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.12 0.03 0.02 0.03 0.03 0.02 0.03 0.03 0.04 0.030.04 0.09 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.030.04 0.04 0.13 0.02 0.04 0.04 0.03 0.04 0.03 0.050.04 0.03 0.03 0.11 0.03 0.03 0.02 0.03 0.03 0.030.03 0.02 0.03 0.03 0.10 0.02 0.03 0.03 0.04 0.030.03 0.03 0.03 0.03 0.03 0.10 0.02 0.03 0.03 0.030.04 0.03 0.02 0.03 0.02 0.02 0.10 0.03 0.03 0.040.02 0.03 0.03 0.03 0.03 0.03 0.03 0.11 0.03 0.040.03 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.11 0.030.05 0.03 0.03 0.03 0.03 0.02 0.03 0.04 0.04 0.11
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.17 0.02 0.02 0.03 0.03 0.03 0.02 0.02 0.02 0.030.03 0.17 0.02 0.02 0.04 0.03 0.02 0.02 0.02 0.010.03 0.03 0.19 0.02 0.03 0.03 0.02 0.02 0.02 0.030.03 0.02 0.03 0.18 0.03 0.04 0.02 0.02 0.03 0.020.02 0.03 0.02 0.02 0.18 0.03 0.03 0.02 0.02 0.020.02 0.02 0.03 0.02 0.03 0.18 0.03 0.02 0.02 0.020.02 0.02 0.02 0.02 0.03 0.03 0.18 0.02 0.02 0.020.02 0.03 0.03 0.01 0.02 0.03 0.02 0.18 0.01 0.020.03 0.02 0.03 0.03 0.02 0.02 0.02 0.03 0.17 0.020.03 0.03 0.03 0.03 0.02 0.03 0.03 0.02 0.02 0.18
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9DBPedia
+0.18 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.01 0.020.02 0.17 0.02 0.02 0.03 0.02 0.02 0.02 0.02 0.020.03 0.02 0.19 0.01 0.02 0.02 0.03 0.02 0.03 0.020.03 0.02 0.03 0.18 0.02 0.03 0.02 0.03 0.02 0.020.03 0.02 0.02 0.02 0.19 0.02 0.02 0.02 0.02 0.020.03 0.02 0.03 0.02 0.03 0.18 0.02 0.03 0.02 0.030.02 0.02 0.03 0.02 0.02 0.02 0.18 0.02 0.02 0.020.02 0.02 0.03 0.02 0.03 0.02 0.03 0.19 0.02 0.030.02 0.02 0.03 0.02 0.02 0.02 0.03 0.02 0.18 0.020.02 0.02 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.19
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9DBPedia
+0.22 0.02 0.02 0.04 0.03 0.03 0.03 0.03 0.02 0.030.04 0.20 0.02 0.03 0.04 0.02 0.03 0.03 0.03 0.020.03 0.04 0.21 0.03 0.04 0.03 0.03 0.04 0.04 0.040.03 0.04 0.03 0.23 0.04 0.03 0.02 0.03 0.04 0.030.04 0.04 0.03 0.03 0.23 0.03 0.03 0.03 0.04 0.020.03 0.03 0.03 0.03 0.03 0.21 0.03 0.03 0.03 0.040.03 0.03 0.03 0.04 0.03 0.04 0.22 0.03 0.03 0.030.03 0.02 0.04 0.02 0.03 0.04 0.03 0.23 0.03 0.040.02 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.22 0.030.03 0.03 0.04 0.03 0.03 0.03 0.03 0.03 0.04 0.22
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9DBPedia
+0.10 0.04 0.03 0.04 0.03 0.04 0.04 0.04 0.03 0.050.03 0.10 0.03 0.05 0.05 0.05 0.04 0.04 0.03 0.050.05 0.03 0.09 0.04 0.05 0.04 0.05 0.03 0.03 0.040.03 0.04 0.03 0.10 0.04 0.04 0.04 0.03 0.04 0.050.04 0.04 0.04 0.04 0.10 0.04 0.04 0.05 0.04 0.050.04 0.04 0.04 0.04 0.04 0.09 0.04 0.04 0.04 0.040.04 0.04 0.04 0.04 0.05 0.03 0.09 0.04 0.05 0.040.04 0.04 0.04 0.05 0.04 0.05 0.04 0.10 0.04 0.050.04 0.04 0.03 0.05 0.04 0.03 0.03 0.04 0.09 0.050.05 0.04 0.04 0.03 0.04 0.03 0.05 0.04 0.05 0.08
+0 1 2 3 4 5 6 7 8
+MNLI1 2 3 4 5 6 7 8 9MNLI
+0.100.07 0.060.10 0.10 0.080.08 0.07 0.08 0.090.11 0.09 0.07 0.11 0.110.09 0.08 0.10 0.09 0.08 0.080.09 0.09 0.09 0.11 0.11 0.09 0.100.10 0.09 0.07 0.10 0.07 0.10 0.10 0.080.07 0.06 0.08 0.09 0.10 0.05 0.09 0.11 0.08
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9MNLI
+0.23 0.03 0.04 0.03 0.04 0.03 0.03 0.03 0.05 0.030.04 0.23 0.04 0.04 0.03 0.04 0.05 0.04 0.04 0.040.05 0.05 0.33 0.05 0.05 0.04 0.03 0.04 0.04 0.050.05 0.04 0.04 0.26 0.04 0.04 0.04 0.04 0.04 0.040.05 0.05 0.04 0.05 0.26 0.05 0.03 0.04 0.05 0.040.04 0.04 0.04 0.05 0.04 0.25 0.03 0.03 0.04 0.030.03 0.03 0.04 0.04 0.04 0.03 0.26 0.05 0.04 0.030.05 0.04 0.05 0.04 0.04 0.03 0.04 0.23 0.02 0.040.04 0.04 0.03 0.04 0.03 0.03 0.04 0.03 0.26 0.040.05 0.05 0.04 0.04 0.05 0.03 0.04 0.03 0.03 0.23
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+0.24 0.03 0.03 0.03 0.03 0.03 0.04 0.04 0.04 0.040.03 0.22 0.03 0.04 0.03 0.03 0.03 0.03 0.04 0.040.04 0.02 0.34 0.02 0.03 0.03 0.02 0.02 0.03 0.030.04 0.03 0.04 0.24 0.03 0.03 0.04 0.03 0.03 0.030.04 0.03 0.03 0.03 0.26 0.03 0.03 0.03 0.03 0.030.04 0.03 0.03 0.03 0.04 0.25 0.03 0.03 0.03 0.030.04 0.03 0.03 0.03 0.03 0.03 0.24 0.03 0.03 0.030.04 0.04 0.03 0.03 0.03 0.04 0.03 0.24 0.02 0.040.04 0.04 0.03 0.04 0.02 0.03 0.03 0.03 0.24 0.040.03 0.04 0.03 0.03 0.04 0.03 0.04 0.03 0.03 0.24
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9MNLI
+0.24 0.02 0.02 0.03 0.03 0.03 0.03 0.03 0.03 0.030.03 0.23 0.02 0.03 0.02 0.02 0.03 0.03 0.02 0.020.02 0.03 0.34 0.02 0.02 0.03 0.02 0.03 0.03 0.030.03 0.03 0.02 0.25 0.02 0.03 0.03 0.02 0.03 0.030.03 0.03 0.03 0.03 0.25 0.03 0.01 0.04 0.02 0.030.03 0.02 0.03 0.03 0.03 0.26 0.03 0.03 0.02 0.020.02 0.01 0.02 0.03 0.02 0.02 0.26 0.02 0.03 0.020.03 0.03 0.03 0.02 0.02 0.04 0.02 0.23 0.02 0.030.03 0.02 0.02 0.03 0.02 0.03 0.02 0.03 0.27 0.030.02 0.02 0.03 0.03 0.03 0.03 0.03 0.04 0.03 0.26
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9MNLI
+0.10 0.03 0.04 0.04 0.02 0.03 0.03 0.03 0.03 0.030.03 0.10 0.04 0.03 0.04 0.03 0.02 0.03 0.03 0.020.02 0.02 0.13 0.03 0.03 0.02 0.01 0.02 0.02 0.030.03 0.04 0.03 0.10 0.02 0.03 0.03 0.03 0.03 0.040.03 0.04 0.03 0.03 0.10 0.03 0.02 0.03 0.03 0.030.03 0.03 0.03 0.03 0.03 0.10 0.02 0.03 0.03 0.030.03 0.03 0.04 0.03 0.04 0.02 0.09 0.02 0.03 0.020.03 0.03 0.04 0.03 0.03 0.03 0.03 0.09 0.03 0.020.03 0.04 0.03 0.04 0.03 0.02 0.03 0.03 0.10 0.030.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.02 0.09
+0 1 2 3 4 5 6 7 8
+QNLI1 2 3 4 5 6 7 8 9QNLI
+0.060.08 0.070.07 0.08 0.080.07 0.08 0.08 0.080.07 0.06 0.07 0.07 0.070.06 0.08 0.07 0.08 0.07 0.060.07 0.07 0.07 0.07 0.07 0.06 0.070.07 0.07 0.07 0.07 0.08 0.06 0.07 0.070.08 0.07 0.08 0.07 0.07 0.07 0.07 0.07 0.07
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9QNLI
+0.52 0.04 0.04 0.03 0.04 0.04 0.03 0.04 0.04 0.040.03 0.55 0.04 0.03 0.04 0.03 0.03 0.03 0.03 0.040.04 0.03 0.56 0.03 0.03 0.04 0.04 0.04 0.03 0.040.04 0.04 0.04 0.54 0.04 0.03 0.04 0.03 0.03 0.040.04 0.03 0.04 0.03 0.54 0.04 0.03 0.04 0.04 0.040.04 0.03 0.04 0.03 0.03 0.59 0.04 0.04 0.03 0.040.03 0.03 0.03 0.04 0.04 0.04 0.55 0.03 0.03 0.040.04 0.04 0.03 0.03 0.04 0.04 0.04 0.58 0.04 0.040.04 0.04 0.03 0.03 0.03 0.03 0.03 0.03 0.51 0.040.04 0.04 0.03 0.03 0.04 0.03 0.04 0.03 0.04 0.53
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9QNLI
+0.52 0.03 0.03 0.02 0.04 0.04 0.03 0.04 0.03 0.040.03 0.55 0.03 0.03 0.03 0.03 0.02 0.04 0.03 0.040.03 0.03 0.54 0.03 0.03 0.04 0.04 0.04 0.03 0.040.03 0.03 0.03 0.54 0.04 0.03 0.03 0.03 0.03 0.030.03 0.03 0.04 0.03 0.52 0.03 0.03 0.04 0.03 0.030.04 0.04 0.04 0.03 0.03 0.58 0.04 0.04 0.03 0.030.03 0.03 0.03 0.04 0.03 0.04 0.59 0.03 0.04 0.030.03 0.02 0.03 0.03 0.03 0.03 0.03 0.53 0.03 0.030.04 0.03 0.03 0.03 0.03 0.03 0.04 0.03 0.55 0.040.04 0.03 0.04 0.03 0.03 0.03 0.02 0.03 0.04 0.54
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9QNLI
+0.17 0.02 0.02 0.01 0.02 0.02 0.01 0.02 0.02 0.020.01 0.18 0.02 0.02 0.02 0.01 0.02 0.02 0.02 0.010.02 0.02 0.18 0.02 0.02 0.02 0.02 0.02 0.02 0.020.01 0.02 0.02 0.18 0.02 0.02 0.02 0.02 0.01 0.020.02 0.02 0.01 0.02 0.17 0.02 0.02 0.03 0.01 0.020.02 0.02 0.01 0.01 0.02 0.19 0.02 0.02 0.02 0.020.02 0.02 0.02 0.02 0.01 0.02 0.18 0.02 0.02 0.020.03 0.02 0.02 0.03 0.02 0.02 0.02 0.19 0.02 0.030.01 0.03 0.02 0.01 0.03 0.02 0.02 0.02 0.16 0.020.01 0.02 0.02 0.02 0.02 0.01 0.01 0.03 0.01 0.16
+0 1 2 3 4 5 6 7 8
+SST21 2 3 4 5 6 7 8 9SST2
+0.070.07 0.090.06 0.06 0.050.06 0.06 0.06 0.060.07 0.06 0.06 0.05 0.060.07 0.06 0.06 0.06 0.06 0.070.07 0.06 0.06 0.08 0.06 0.07 0.070.06 0.06 0.06 0.06 0.07 0.06 0.06 0.060.06 0.05 0.06 0.07 0.06 0.06 0.07 0.07 0.11
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+0.60 0.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.040.03 0.56 0.02 0.03 0.02 0.02 0.02 0.03 0.03 0.040.03 0.03 0.61 0.03 0.03 0.03 0.03 0.03 0.03 0.030.02 0.02 0.03 0.59 0.03 0.02 0.03 0.03 0.03 0.030.03 0.03 0.03 0.03 0.59 0.03 0.03 0.03 0.02 0.030.03 0.03 0.03 0.02 0.03 0.59 0.04 0.03 0.03 0.020.03 0.02 0.04 0.03 0.03 0.04 0.58 0.03 0.03 0.030.03 0.03 0.02 0.03 0.02 0.04 0.03 0.57 0.02 0.030.03 0.03 0.03 0.02 0.03 0.02 0.03 0.03 0.57 0.040.04 0.03 0.03 0.03 0.03 0.03 0.03 0.03 0.04 0.58
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9SST2
+0.22 0.02 0.04 0.03 0.03 0.04 0.02 0.03 0.03 0.030.03 0.21 0.03 0.03 0.03 0.03 0.03 0.03 0.03 0.030.03 0.02 0.22 0.03 0.02 0.03 0.02 0.03 0.03 0.020.03 0.03 0.03 0.21 0.03 0.03 0.02 0.03 0.03 0.030.03 0.04 0.03 0.02 0.20 0.02 0.03 0.03 0.03 0.020.02 0.02 0.03 0.03 0.02 0.23 0.04 0.03 0.03 0.030.04 0.04 0.04 0.03 0.03 0.04 0.21 0.03 0.04 0.030.04 0.03 0.03 0.03 0.02 0.03 0.03 0.22 0.03 0.030.03 0.03 0.03 0.03 0.04 0.03 0.03 0.03 0.20 0.030.03 0.03 0.03 0.02 0.03 0.02 0.02 0.03 0.04 0.19
+0 1 2 3 4 5 6 7 8
+TREC1 2 3 4 5 6 7 8 9TREC
+0.050.05 0.050.05 0.05 0.050.06 0.07 0.06 0.040.05 0.05 0.06 0.03 0.050.04 0.05 0.05 0.06 0.06 0.060.05 0.05 0.05 0.07 0.06 0.06 0.050.04 0.05 0.05 0.05 0.06 0.06 0.05 0.050.07 0.05 0.05 0.05 0.06 0.05 0.05 0.05 0.06
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9TREC
+0.21 0.02 0.02 0.03 0.02 0.02 0.02 0.01 0.02 0.030.02 0.19 0.02 0.03 0.02 0.02 0.02 0.02 0.02 0.030.03 0.02 0.20 0.02 0.03 0.02 0.02 0.02 0.02 0.020.02 0.02 0.02 0.19 0.03 0.02 0.02 0.02 0.02 0.030.02 0.02 0.01 0.02 0.18 0.02 0.02 0.03 0.02 0.020.02 0.02 0.03 0.02 0.02 0.20 0.02 0.03 0.02 0.030.02 0.02 0.03 0.03 0.02 0.02 0.20 0.02 0.02 0.030.03 0.03 0.03 0.02 0.02 0.03 0.02 0.19 0.01 0.020.01 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.20 0.030.02 0.02 0.02 0.02 0.02 0.01 0.01 0.03 0.03 0.18
+0 1 2 3 4 5 6 7 8
+Yelp1 2 3 4 5 6 7 8 9Yelp
+0.090.07 0.080.07 0.07 0.090.07 0.08 0.08 0.080.09 0.08 0.08 0.07 0.120.08 0.08 0.09 0.10 0.12 0.070.07 0.09 0.09 0.09 0.08 0.09 0.070.08 0.10 0.09 0.07 0.09 0.10 0.08 0.090.11 0.08 0.10 0.08 0.10 0.09 0.10 0.06 0.06
+0.070.080.090.100.110.120.130.14
+0.020.040.060.080.100.12
+0.020.040.060.080.100.120.140.160.18
+0.020.040.060.080.100.120.140.160.18
+0.0250.0500.0750.1000.1250.1500.1750.2000.225
+0.030.040.050.060.070.080.090.10
+0.060.070.080.090.10
+0.050.100.150.200.250.30
+0.050.100.150.200.250.30
+0.050.100.150.200.250.30
+0.020.040.060.080.100.12
+0.0600.0650.0700.0750.080
+0.10.20.30.40.5
+0.10.20.30.40.5
+0.0250.0500.0750.1000.1250.1500.175
+0.050.060.070.080.090.100.11
+0.10.20.30.40.50.6
+0.0250.0500.0750.1000.1250.1500.1750.2000.225
+0.0350.0400.0450.0500.0550.0600.065
+0.0250.0500.0750.1000.1250.1500.1750.200
+0.070.080.090.100.11Figure 6 (cont.): Continuation of Figure 6 for additional tasks.
+C Additional results: Combinations of
+Task Prompt Vectors
+This section provides extended experiments to the
+results in Figure 4 in Section 4.3. Figure 8 shows
+the relative performance of all task combinations
+of task prompt vectors. Usually, tasks that solve
+the same NLU problem retain the most source task
+performance on both tasks except for the combi-
+nation of DBPedia and TREC Coarse task prompt
+vectors, where the TREC Coarse performance is
+lower. In general, the performance of combinations
+with the TREC Coarse usually ends up in favor of
+the other task from the task pair.
+D Additional results: Few-Shot
+Experiments
+Here we provide extended results of zero- and few-
+shot experiments on additional target tasks that
+extend the results from Section 4.3. Table 4 extends
+the comparison of 0- and 100-shot results with
+SNLI, Yahoo Answers, and SST5 tasks. We can see
+that combinations of source task prompt vectors do
+not outperform the SPoT baseline in these specific
+tasks, but rather almost match the results.Figure 9 extends the comparison in Figure 5 in
+Section 4.4 and shows how the performance on
+different initializations differs across all observed
+
+tasks, but rather almost match the results.Figure 9 extends the comparison in Figure 5 in
+Section 4.4 and shows how the performance on
+different initializations differs across all observed
+shots of data and on additional SNLI, Yahoo An-
+swers, and SST5 target tasks. We can see that in
+the case of the SST5 task, the SST2 initialization
+performs the best. We think that the reason for this
+may also be the similarity of SST5 and SST2 and
+that the combination of source tasks does not retain
+enough information to match the SST5 baseline.
+
+0 1 2 3 4 5 6 7 8
+DBPedia1 2 3 4 5 6 7 8 9DBPedia
+0.090.08 0.110.11 0.09 0.100.11 0.14 0.11 0.080.09 0.09 0.09 0.09 0.090.11 0.10 0.10 0.08 0.08 0.080.07 0.09 0.13 0.08 0.10 0.08 0.110.07 0.08 0.08 0.10 0.09 0.08 0.06 0.070.09 0.08 0.11 0.10 0.11 0.08 0.11 0.10 0.11
+0 1 2 3 4 5 6 7 8 9
+MNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.07 0.03 0.02 0.02 0.02 0.01 0.02 0.03 0.03 0.020.03 0.05 0.03 0.03 0.03 0.02 0.02 0.03 0.03 0.020.03 0.03 0.06 0.01 0.03 0.03 0.02 0.03 0.02 0.040.03 0.02 0.02 0.06 0.02 0.01 0.01 0.03 0.02 0.020.02 0.01 0.02 0.03 0.05 0.01 0.03 0.03 0.03 0.020.02 0.02 0.02 0.02 0.02 0.05 0.01 0.02 0.02 0.020.03 0.03 0.01 0.02 0.01 0.01 0.06 0.02 0.02 0.030.01 0.02 0.02 0.02 0.03 0.03 0.02 0.07 0.02 0.030.02 0.02 0.01 0.03 0.03 0.02 0.02 0.02 0.06 0.020.04 0.02 0.02 0.02 0.02 0.02 0.02 0.03 0.03 0.06
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.04 0.01 0.00 0.01 0.02 0.01 0.01 0.02 0.01 0.020.01 0.03 0.01 0.01 0.02 0.01 0.01 0.01 0.02 -0.000.02 0.01 0.05 0.01 0.01 0.01 0.00 0.00 0.01 0.010.02 0.01 0.02 0.04 0.01 0.03 0.01 0.01 0.02 0.010.01 0.01 0.01 0.01 0.04 0.01 0.01 0.01 0.01 0.010.01 0.01 0.01 0.01 0.01 0.05 0.02 0.00 0.01 0.000.01 0.01 0.01 0.01 0.02 0.01 0.05 0.01 0.00 0.010.01 0.02 0.01 0.00 0.01 0.02 0.01 0.04 0.00 0.010.03 0.00 0.02 0.02 0.00 0.02 0.00 0.02 0.04 0.010.02 0.01 0.01 0.01 0.00 0.02 0.01 0.01 0.01 0.05
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9DBPedia
+0.03 0.01 0.01 0.00 0.00 0.01 0.01 0.02 0.00 0.010.01 0.03 0.01 0.02 0.01 0.00 0.01 0.01 0.01 0.010.01 -0.00 0.03 -0.00 0.00 0.00 0.02 0.01 0.01 0.000.01 0.02 0.02 0.02 0.00 0.02 0.01 0.02 0.01 0.000.01 0.00 0.01 0.01 0.03 -0.00 0.00 0.01 0.01 0.010.01 0.01 0.02 0.00 0.01 0.02 0.01 0.01 0.01 0.020.01 0.01 0.01 0.01 0.01 0.00 0.04 0.01 0.01 0.000.02 0.01 0.01 0.01 0.02 0.00 0.01 0.03 0.01 0.010.01 0.00 0.01 0.01 0.00 0.01 0.02 0.01 0.03 0.000.01 0.01 0.01 0.00 -0.00 0.01 0.01 0.01 0.01 0.04
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9DBPedia
+0.10 0.01 0.01 0.02 0.01 0.02 0.02 0.03 0.00 0.010.02 0.09 0.02 0.03 0.03 0.01 0.03 0.02 0.03 0.000.01 0.02 0.08 0.02 0.03 0.02 0.02 0.02 0.03 0.020.02 0.03 0.01 0.11 0.02 0.02 0.01 0.03 0.03 0.020.03 0.03 0.02 0.02 0.11 0.02 0.02 0.02 0.03 0.010.02 0.02 0.02 0.02 0.02 0.10 0.02 0.01 0.02 0.030.02 0.02 0.02 0.03 0.01 0.02 0.11 0.03 0.01 0.010.02 0.01 0.03 0.01 0.03 0.03 0.02 0.11 0.02 0.030.01 0.02 0.02 0.01 0.03 0.02 0.02 0.01 0.10 0.020.02 0.02 0.02 0.01 0.02 0.02 0.01 0.02 0.03 0.09
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9DBPedia
+0.05 0.04 0.02 0.04 0.03 0.03 0.03 0.03 0.03 0.040.03 0.06 0.03 0.04 0.04 0.04 0.04 0.03 0.03 0.040.04 0.02 0.04 0.04 0.04 0.03 0.04 0.02 0.03 0.040.03 0.04 0.03 0.06 0.03 0.03 0.03 0.03 0.04 0.040.03 0.03 0.04 0.03 0.05 0.03 0.03 0.04 0.03 0.040.04 0.03 0.04 0.04 0.03 0.05 0.03 0.04 0.03 0.030.04 0.03 0.04 0.03 0.04 0.02 0.05 0.03 0.04 0.030.03 0.03 0.02 0.04 0.04 0.04 0.03 0.05 0.04 0.040.03 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.05 0.050.04 0.03 0.04 0.03 0.03 0.02 0.04 0.03 0.04 0.05
+0 1 2 3 4 5 6 7 8
+MNLI1 2 3 4 5 6 7 8 9MNLI
+0.090.06 0.060.09 0.10 0.090.08 0.07 0.08 0.090.10 0.09 0.07 0.10 0.110.09 0.07 0.10 0.08 0.08 0.080.09 0.08 0.09 0.11 0.11 0.09 0.100.09 0.09 0.07 0.09 0.07 0.10 0.09 0.080.07 0.06 0.08 0.08 0.09 0.05 0.09 0.10 0.07
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9MNLI
+0.07 0.03 0.03 0.03 0.04 0.02 0.03 0.03 0.04 0.010.03 0.08 0.04 0.04 0.03 0.03 0.05 0.04 0.04 0.030.04 0.05 0.10 0.06 0.04 0.03 0.04 0.04 0.04 0.050.05 0.04 0.04 0.09 0.04 0.05 0.04 0.04 0.05 0.030.04 0.05 0.04 0.05 0.09 0.04 0.03 0.04 0.05 0.030.03 0.05 0.04 0.05 0.03 0.08 0.03 0.04 0.04 0.040.03 0.03 0.03 0.03 0.03 0.02 0.10 0.05 0.03 0.030.05 0.04 0.05 0.04 0.03 0.02 0.04 0.08 0.02 0.040.03 0.04 0.03 0.03 0.03 0.02 0.05 0.03 0.10 0.030.05 0.04 0.04 0.04 0.04 0.02 0.04 0.02 0.02 0.07
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+0.05 0.03 0.03 0.04 0.03 0.02 0.04 0.04 0.02 0.030.03 0.06 0.04 0.04 0.03 0.03 0.03 0.04 0.04 0.040.03 0.02 0.06 0.02 0.02 0.03 0.02 0.02 0.02 0.020.04 0.03 0.04 0.04 0.03 0.03 0.04 0.02 0.03 0.020.03 0.04 0.03 0.03 0.05 0.03 0.03 0.02 0.03 0.020.04 0.03 0.03 0.03 0.03 0.05 0.03 0.03 0.02 0.030.04 0.03 0.02 0.03 0.02 0.02 0.06 0.02 0.03 0.030.03 0.04 0.03 0.03 0.03 0.03 0.03 0.06 0.02 0.030.03 0.04 0.03 0.03 0.03 0.02 0.02 0.03 0.04 0.030.04 0.03 0.04 0.02 0.03 0.03 0.04 0.02 0.02 0.05
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9MNLI
+0.07 0.01 0.02 0.03 0.01 0.02 0.02 0.03 0.01 0.020.02 0.08 0.01 0.02 0.01 0.02 0.02 0.02 0.01 0.010.00 0.02 0.09 0.01 0.01 0.02 0.02 0.02 0.02 0.010.02 0.02 0.01 0.07 0.02 0.02 0.02 0.02 0.02 0.020.02 0.03 0.02 0.02 0.07 0.02 0.00 0.04 0.01 0.020.02 0.02 0.02 0.02 0.01 0.09 0.02 0.03 0.01 0.020.01 0.01 0.00 0.02 0.01 0.01 0.10 0.02 0.01 0.010.02 0.03 0.02 0.02 0.01 0.03 0.01 0.09 0.02 0.020.02 0.01 0.02 0.02 0.02 0.01 0.02 0.03 0.10 0.010.02 0.01 0.02 0.02 0.01 0.02 0.03 0.03 0.02 0.09
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9MNLI
+0.04 0.02 0.03 0.03 0.02 0.03 0.02 0.02 0.02 0.020.02 0.05 0.03 0.02 0.03 0.03 0.02 0.02 0.02 0.010.01 0.02 0.04 0.03 0.02 0.02 0.01 0.02 0.01 0.020.03 0.04 0.02 0.04 0.01 0.03 0.02 0.02 0.03 0.030.03 0.03 0.03 0.02 0.04 0.03 0.02 0.02 0.03 0.020.03 0.02 0.03 0.02 0.03 0.04 0.01 0.03 0.03 0.020.02 0.02 0.03 0.02 0.03 0.02 0.03 0.02 0.02 0.010.02 0.02 0.03 0.02 0.03 0.02 0.03 0.04 0.02 0.020.03 0.04 0.03 0.03 0.02 0.02 0.03 0.02 0.04 0.030.03 0.02 0.03 0.03 0.03 0.03 0.03 0.02 0.02 0.04
+0 1 2 3 4 5 6 7 8
+QNLI1 2 3 4 5 6 7 8 9QNLI
+0.090.10 0.090.11 0.11 0.110.10 0.10 0.11 0.100.09 0.09 0.08 0.11 0.090.08 0.11 0.09 0.10 0.09 0.060.09 0.10 0.08 0.10 0.09 0.08 0.090.09 0.08 0.10 0.11 0.10 0.08 0.08 0.090.10 0.09 0.10 0.08 0.09 0.09 0.10 0.09 0.09
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9QNLI
+0.05 0.03 0.03 0.03 0.04 0.03 0.03 0.04 0.03 0.030.02 0.05 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.020.03 0.03 0.05 0.03 0.03 0.03 0.02 0.03 0.02 0.030.04 0.04 0.04 0.05 0.03 0.03 0.03 0.03 0.03 0.030.04 0.03 0.02 0.03 0.05 0.03 0.02 0.04 0.04 0.020.02 0.03 0.02 0.02 0.02 0.04 0.02 0.02 0.02 0.020.03 0.02 0.02 0.03 0.04 0.02 0.05 0.03 0.02 0.020.03 0.04 0.03 0.03 0.04 0.03 0.03 0.06 0.04 0.030.03 0.03 0.02 0.01 0.03 0.02 0.02 0.02 0.04 0.020.03 0.03 0.03 0.03 0.03 0.02 0.03 0.02 0.02 0.05
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9QNLI
+0.08 0.02 0.02 0.01 0.02 0.02 0.01 0.03 0.01 0.020.02 0.07 0.01 0.02 0.01 0.01 0.01 0.02 0.01 0.010.02 0.01 0.09 0.02 0.02 0.03 0.02 0.03 0.01 0.030.01 0.02 0.02 0.08 0.02 0.03 0.02 0.02 0.02 0.010.02 0.02 0.02 0.01 0.09 0.01 -0.00 0.03 0.01 0.010.02 0.04 0.03 0.02 0.01 0.12 0.02 0.03 0.02 0.020.02 0.02 0.01 0.03 0.02 0.02 0.12 0.02 0.02 0.02-0.00 0.00 0.02 0.02 0.02 0.02 0.02 0.08 0.02 0.010.03 0.01 0.02 0.02 0.02 0.03 0.02 0.02 0.11 0.020.02 0.02 0.03 0.01 0.01 0.02 0.00 0.02 0.01 0.08
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9QNLI
+0.02 0.02 0.01 0.01 0.01 0.02 -0.00 0.01 0.01 0.000.01 0.02 0.01 0.00 0.01 0.00 0.01 0.01 0.00 -0.000.02 0.02 0.02 0.02 0.02 0.02 0.02 0.01 0.01 0.010.01 0.01 0.01 0.02 0.01 0.01 0.01 0.02 0.01 0.010.02 0.00 0.00 0.01 0.02 0.01 0.01 0.02 0.00 0.020.01 0.01 0.00 0.00 0.00 0.03 0.00 0.01 0.01 0.000.01 0.01 0.01 0.01 0.00 0.01 0.01 0.01 0.00 0.010.02 0.02 0.00 0.03 0.01 0.01 0.01 0.03 0.02 0.020.00 0.02 0.01 0.01 0.02 0.01 0.01 0.01 0.02 0.02-0.00 0.02 0.01 0.02 0.01 0.01 0.01 0.02 -0.00 0.02
+0 1 2 3 4 5 6 7 8
+SST21 2 3 4 5 6 7 8 9SST2
+0.120.12 0.170.09 0.08 0.080.09 0.08 0.09 0.080.11 0.09 0.11 0.08 0.100.11 0.10 0.09 0.09 0.10 0.100.12 0.10 0.10 0.16 0.10 0.10 0.110.07 0.08 0.09 0.10 0.12 0.08 0.10 0.100.07 0.07 0.09 0.11 0.09 0.08 0.10 0.12 0.19
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+0.06 0.01 0.01 0.01 0.00 0.02 0.02 0.02 0.01 0.010.02 0.06 0.01 0.01 0.00 0.01 0.01 0.01 0.01 0.010.01 0.02 0.05 0.01 0.00 0.01 0.01 0.02 -0.00 0.010.01 0.01 0.01 0.04 0.01 0.01 0.01 0.02 0.01 0.010.00 0.01 0.01 0.02 0.07 0.01 0.02 0.01 -0.00 0.020.02 0.02 0.02 0.02 0.01 0.06 0.01 0.01 0.01 0.010.01 0.01 0.02 0.02 0.02 0.02 0.05 0.02 0.01 0.020.00 0.02 0.01 0.01 -0.00 0.02 0.02 0.06 0.01 0.010.01 0.01 0.01 0.00 0.02 0.01 0.01 0.01 0.05 0.020.02 0.01 0.02 0.01 0.01 0.02 0.00 0.02 0.01 0.05
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9SST2
+0.07 0.02 0.04 0.04 0.02 0.04 0.02 0.03 0.03 0.020.04 0.06 0.03 0.03 0.03 0.02 0.03 0.02 0.02 0.030.02 0.03 0.05 0.03 0.02 0.03 0.03 0.02 0.03 0.020.03 0.02 0.02 0.05 0.03 0.03 0.02 0.03 0.03 0.030.03 0.03 0.03 0.02 0.04 0.01 0.03 0.02 0.03 0.010.02 0.02 0.04 0.02 0.02 0.07 0.04 0.03 0.04 0.020.04 0.03 0.03 0.03 0.03 0.04 0.05 0.03 0.04 0.030.04 0.02 0.02 0.04 0.02 0.03 0.03 0.05 0.04 0.030.03 0.03 0.03 0.03 0.04 0.02 0.03 0.03 0.05 0.030.02 0.02 0.03 0.02 0.02 0.02 0.03 0.02 0.04 0.03
+0 1 2 3 4 5 6 7 8
+TREC1 2 3 4 5 6 7 8 9TREC
+0.070.05 0.050.05 0.05 0.060.05 0.08 0.06 0.040.06 0.07 0.07 0.04 0.060.04 0.07 0.05 0.08 0.07 0.050.06 0.05 0.05 0.10 0.07 0.05 0.070.03 0.05 0.06 0.05 0.07 0.07 0.05 0.050.07 0.04 0.04 0.06 0.06 0.06 0.05 0.06 0.05
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9TREC
+0.05 0.02 0.02 0.02 0.01 0.01 0.01 0.00 0.02 0.010.02 0.04 0.02 0.02 0.01 0.02 0.02 0.01 0.01 0.020.02 0.02 0.04 0.01 0.03 0.02 0.02 0.02 0.01 0.020.02 0.01 0.01 0.03 0.02 0.01 0.01 0.01 0.02 0.010.01 0.01 0.01 0.01 0.03 0.01 0.01 0.02 0.01 0.010.02 0.01 0.03 0.01 0.02 0.04 0.01 0.02 0.02 0.020.01 0.01 0.02 0.02 0.02 0.01 0.03 0.02 0.01 0.020.02 0.02 0.02 0.02 0.02 0.02 0.02 0.05 0.01 0.010.00 0.02 0.02 0.02 0.01 0.02 0.01 0.00 0.04 0.020.01 0.01 0.02 0.02 0.01 0.00 0.01 0.02 0.02 0.03
+0 1 2 3 4 5 6 7 8
+Yelp1 2 3 4 5 6 7 8 9Yelp
+0.090.07 0.080.07 0.07 0.080.07 0.07 0.08 0.070.09 0.07 0.08 0.07 0.110.08 0.07 0.09 0.10 0.12 0.070.07 0.09 0.08 0.09 0.08 0.09 0.070.07 0.09 0.09 0.07 0.09 0.10 0.08 0.090.11 0.07 0.10 0.08 0.10 0.08 0.10 0.06 0.06
+0.060.070.080.090.100.110.120.13
+0.010.020.030.040.050.060.07
+0.000.010.020.030.040.05
+0.0000.0050.0100.0150.0200.0250.0300.035
+0.020.040.060.080.10
+0.020.030.040.050.06
+0.050.060.070.080.090.10
+0.020.030.040.050.060.070.080.090.10
+0.020.030.040.050.06
+0.020.040.060.080.10
+0.0150.0200.0250.0300.0350.0400.0450.050
+0.060.070.080.090.100.11
+0.0150.0200.0250.0300.0350.0400.0450.0500.055
+0.000.020.040.060.080.10
+0.0000.0050.0100.0150.0200.0250.030
+0.080.100.120.140.160.18
+0.000.010.020.030.040.050.06
+0.020.030.040.050.06
+0.030.040.050.060.070.080.09
+0.010.020.030.04
+0.060.070.080.090.100.11Figure 7: Comparisons of average cosine similarities of task prompt vectors . The averages are calculated similarly
+to Figure 6 but with task prompt vectors created from different task prompts. Each heatmap represents a different
+task combination. We calculate the cosine similarities for all combinations of 10 random initializations omitting
+the combinations of random initializations where cosine similarity is equal to 1 (single-task comparisons). Each
+heatmap is represented as a single field in Figure 3 by averaging all values. The x and y axes represent the number
+of random initializations.
+
+0 1 2 3 4 5 6 7 8
+DBPedia1 2 3 4 5 6 7 8 9DBPedia
+0.090.08 0.110.11 0.09 0.100.11 0.14 0.11 0.080.09 0.09 0.09 0.09 0.090.11 0.10 0.10 0.08 0.08 0.080.07 0.09 0.13 0.08 0.10 0.08 0.110.07 0.08 0.08 0.10 0.09 0.08 0.06 0.070.09 0.08 0.11 0.10 0.11 0.08 0.11 0.10 0.11
+0 1 2 3 4 5 6 7 8 9
+MNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.07 0.03 0.02 0.02 0.02 0.01 0.02 0.03 0.03 0.020.03 0.05 0.03 0.03 0.03 0.02 0.02 0.03 0.03 0.020.03 0.03 0.06 0.01 0.03 0.03 0.02 0.03 0.02 0.040.03 0.02 0.02 0.06 0.02 0.01 0.01 0.03 0.02 0.020.02 0.01 0.02 0.03 0.05 0.01 0.03 0.03 0.03 0.020.02 0.02 0.02 0.02 0.02 0.05 0.01 0.02 0.02 0.020.03 0.03 0.01 0.02 0.01 0.01 0.06 0.02 0.02 0.030.01 0.02 0.02 0.02 0.03 0.03 0.02 0.07 0.02 0.030.02 0.02 0.01 0.03 0.03 0.02 0.02 0.02 0.06 0.020.04 0.02 0.02 0.02 0.02 0.02 0.02 0.03 0.03 0.06
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9DBPedia
+0.04 0.01 0.00 0.01 0.02 0.01 0.01 0.02 0.01 0.020.01 0.03 0.01 0.01 0.02 0.01 0.01 0.01 0.02 -0.000.02 0.01 0.05 0.01 0.01 0.01 0.00 0.00 0.01 0.010.02 0.01 0.02 0.04 0.01 0.03 0.01 0.01 0.02 0.010.01 0.01 0.01 0.01 0.04 0.01 0.01 0.01 0.01 0.010.01 0.01 0.01 0.01 0.01 0.05 0.02 0.00 0.01 0.000.01 0.01 0.01 0.01 0.02 0.01 0.05 0.01 0.00 0.010.01 0.02 0.01 0.00 0.01 0.02 0.01 0.04 0.00 0.010.03 0.00 0.02 0.02 0.00 0.02 0.00 0.02 0.04 0.010.02 0.01 0.01 0.01 0.00 0.02 0.01 0.01 0.01 0.05
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9DBPedia
+0.03 0.01 0.01 0.00 0.00 0.01 0.01 0.02 0.00 0.010.01 0.03 0.01 0.02 0.01 0.00 0.01 0.01 0.01 0.010.01 -0.00 0.03 -0.00 0.00 0.00 0.02 0.01 0.01 0.000.01 0.02 0.02 0.02 0.00 0.02 0.01 0.02 0.01 0.000.01 0.00 0.01 0.01 0.03 -0.00 0.00 0.01 0.01 0.010.01 0.01 0.02 0.00 0.01 0.02 0.01 0.01 0.01 0.020.01 0.01 0.01 0.01 0.01 0.00 0.04 0.01 0.01 0.000.02 0.01 0.01 0.01 0.02 0.00 0.01 0.03 0.01 0.010.01 0.00 0.01 0.01 0.00 0.01 0.02 0.01 0.03 0.000.01 0.01 0.01 0.00 -0.00 0.01 0.01 0.01 0.01 0.04
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9DBPedia
+0.10 0.01 0.01 0.02 0.01 0.02 0.02 0.03 0.00 0.010.02 0.09 0.02 0.03 0.03 0.01 0.03 0.02 0.03 0.000.01 0.02 0.08 0.02 0.03 0.02 0.02 0.02 0.03 0.020.02 0.03 0.01 0.11 0.02 0.02 0.01 0.03 0.03 0.020.03 0.03 0.02 0.02 0.11 0.02 0.02 0.02 0.03 0.010.02 0.02 0.02 0.02 0.02 0.10 0.02 0.01 0.02 0.030.02 0.02 0.02 0.03 0.01 0.02 0.11 0.03 0.01 0.010.02 0.01 0.03 0.01 0.03 0.03 0.02 0.11 0.02 0.030.01 0.02 0.02 0.01 0.03 0.02 0.02 0.01 0.10 0.020.02 0.02 0.02 0.01 0.02 0.02 0.01 0.02 0.03 0.09
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9DBPedia
+0.05 0.04 0.02 0.04 0.03 0.03 0.03 0.03 0.03 0.040.03 0.06 0.03 0.04 0.04 0.04 0.04 0.03 0.03 0.040.04 0.02 0.04 0.04 0.04 0.03 0.04 0.02 0.03 0.040.03 0.04 0.03 0.06 0.03 0.03 0.03 0.03 0.04 0.040.03 0.03 0.04 0.03 0.05 0.03 0.03 0.04 0.03 0.040.04 0.03 0.04 0.04 0.03 0.05 0.03 0.04 0.03 0.030.04 0.03 0.04 0.03 0.04 0.02 0.05 0.03 0.04 0.030.03 0.03 0.02 0.04 0.04 0.04 0.03 0.05 0.04 0.040.03 0.03 0.03 0.04 0.03 0.03 0.03 0.03 0.05 0.050.04 0.03 0.04 0.03 0.03 0.02 0.04 0.03 0.04 0.05
+0 1 2 3 4 5 6 7 8
+MNLI1 2 3 4 5 6 7 8 9MNLI
+0.090.06 0.060.09 0.10 0.090.08 0.07 0.08 0.090.10 0.09 0.07 0.10 0.110.09 0.07 0.10 0.08 0.08 0.080.09 0.08 0.09 0.11 0.11 0.09 0.100.09 0.09 0.07 0.09 0.07 0.10 0.09 0.080.07 0.06 0.08 0.08 0.09 0.05 0.09 0.10 0.07
+0 1 2 3 4 5 6 7 8 9
+QNLI0 1 2 3 4 5 6 7 8 9MNLI
+0.07 0.03 0.03 0.03 0.04 0.02 0.03 0.03 0.04 0.010.03 0.08 0.04 0.04 0.03 0.03 0.05 0.04 0.04 0.030.04 0.05 0.10 0.06 0.04 0.03 0.04 0.04 0.04 0.050.05 0.04 0.04 0.09 0.04 0.05 0.04 0.04 0.05 0.030.04 0.05 0.04 0.05 0.09 0.04 0.03 0.04 0.05 0.030.03 0.05 0.04 0.05 0.03 0.08 0.03 0.04 0.04 0.040.03 0.03 0.03 0.03 0.03 0.02 0.10 0.05 0.03 0.030.05 0.04 0.05 0.04 0.03 0.02 0.04 0.08 0.02 0.040.03 0.04 0.03 0.03 0.03 0.02 0.05 0.03 0.10 0.030.05 0.04 0.04 0.04 0.04 0.02 0.04 0.02 0.02 0.07
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9MNLI
+0.05 0.03 0.03 0.04 0.03 0.02 0.04 0.04 0.02 0.030.03 0.06 0.04 0.04 0.03 0.03 0.03 0.04 0.04 0.040.03 0.02 0.06 0.02 0.02 0.03 0.02 0.02 0.02 0.020.04 0.03 0.04 0.04 0.03 0.03 0.04 0.02 0.03 0.020.03 0.04 0.03 0.03 0.05 0.03 0.03 0.02 0.03 0.020.04 0.03 0.03 0.03 0.03 0.05 0.03 0.03 0.02 0.030.04 0.03 0.02 0.03 0.02 0.02 0.06 0.02 0.03 0.030.03 0.04 0.03 0.03 0.03 0.03 0.03 0.06 0.02 0.030.03 0.04 0.03 0.03 0.03 0.02 0.02 0.03 0.04 0.030.04 0.03 0.04 0.02 0.03 0.03 0.04 0.02 0.02 0.05
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9MNLI
+0.07 0.01 0.02 0.03 0.01 0.02 0.02 0.03 0.01 0.020.02 0.08 0.01 0.02 0.01 0.02 0.02 0.02 0.01 0.010.00 0.02 0.09 0.01 0.01 0.02 0.02 0.02 0.02 0.010.02 0.02 0.01 0.07 0.02 0.02 0.02 0.02 0.02 0.020.02 0.03 0.02 0.02 0.07 0.02 0.00 0.04 0.01 0.020.02 0.02 0.02 0.02 0.01 0.09 0.02 0.03 0.01 0.020.01 0.01 0.00 0.02 0.01 0.01 0.10 0.02 0.01 0.010.02 0.03 0.02 0.02 0.01 0.03 0.01 0.09 0.02 0.020.02 0.01 0.02 0.02 0.02 0.01 0.02 0.03 0.10 0.010.02 0.01 0.02 0.02 0.01 0.02 0.03 0.03 0.02 0.09
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9MNLI
+0.04 0.02 0.03 0.03 0.02 0.03 0.02 0.02 0.02 0.020.02 0.05 0.03 0.02 0.03 0.03 0.02 0.02 0.02 0.010.01 0.02 0.04 0.03 0.02 0.02 0.01 0.02 0.01 0.020.03 0.04 0.02 0.04 0.01 0.03 0.02 0.02 0.03 0.030.03 0.03 0.03 0.02 0.04 0.03 0.02 0.02 0.03 0.020.03 0.02 0.03 0.02 0.03 0.04 0.01 0.03 0.03 0.020.02 0.02 0.03 0.02 0.03 0.02 0.03 0.02 0.02 0.010.02 0.02 0.03 0.02 0.03 0.02 0.03 0.04 0.02 0.020.03 0.04 0.03 0.03 0.02 0.02 0.03 0.02 0.04 0.030.03 0.02 0.03 0.03 0.03 0.03 0.03 0.02 0.02 0.04
+0 1 2 3 4 5 6 7 8
+QNLI1 2 3 4 5 6 7 8 9QNLI
+0.090.10 0.090.11 0.11 0.110.10 0.10 0.11 0.100.09 0.09 0.08 0.11 0.090.08 0.11 0.09 0.10 0.09 0.060.09 0.10 0.08 0.10 0.09 0.08 0.090.09 0.08 0.10 0.11 0.10 0.08 0.08 0.090.10 0.09 0.10 0.08 0.09 0.09 0.10 0.09 0.09
+0 1 2 3 4 5 6 7 8 9
+SST20 1 2 3 4 5 6 7 8 9QNLI
+0.05 0.03 0.03 0.03 0.04 0.03 0.03 0.04 0.03 0.030.02 0.05 0.03 0.02 0.02 0.02 0.02 0.02 0.02 0.020.03 0.03 0.05 0.03 0.03 0.03 0.02 0.03 0.02 0.030.04 0.04 0.04 0.05 0.03 0.03 0.03 0.03 0.03 0.030.04 0.03 0.02 0.03 0.05 0.03 0.02 0.04 0.04 0.020.02 0.03 0.02 0.02 0.02 0.04 0.02 0.02 0.02 0.020.03 0.02 0.02 0.03 0.04 0.02 0.05 0.03 0.02 0.020.03 0.04 0.03 0.03 0.04 0.03 0.03 0.06 0.04 0.030.03 0.03 0.02 0.01 0.03 0.02 0.02 0.02 0.04 0.020.03 0.03 0.03 0.03 0.03 0.02 0.03 0.02 0.02 0.05
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9QNLI
+0.08 0.02 0.02 0.01 0.02 0.02 0.01 0.03 0.01 0.020.02 0.07 0.01 0.02 0.01 0.01 0.01 0.02 0.01 0.010.02 0.01 0.09 0.02 0.02 0.03 0.02 0.03 0.01 0.030.01 0.02 0.02 0.08 0.02 0.03 0.02 0.02 0.02 0.010.02 0.02 0.02 0.01 0.09 0.01 -0.00 0.03 0.01 0.010.02 0.04 0.03 0.02 0.01 0.12 0.02 0.03 0.02 0.020.02 0.02 0.01 0.03 0.02 0.02 0.12 0.02 0.02 0.02-0.00 0.00 0.02 0.02 0.02 0.02 0.02 0.08 0.02 0.010.03 0.01 0.02 0.02 0.02 0.03 0.02 0.02 0.11 0.020.02 0.02 0.03 0.01 0.01 0.02 0.00 0.02 0.01 0.08
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9QNLI
+0.02 0.02 0.01 0.01 0.01 0.02 -0.00 0.01 0.01 0.000.01 0.02 0.01 0.00 0.01 0.00 0.01 0.01 0.00 -0.000.02 0.02 0.02 0.02 0.02 0.02 0.02 0.01 0.01 0.010.01 0.01 0.01 0.02 0.01 0.01 0.01 0.02 0.01 0.010.02 0.00 0.00 0.01 0.02 0.01 0.01 0.02 0.00 0.020.01 0.01 0.00 0.00 0.00 0.03 0.00 0.01 0.01 0.000.01 0.01 0.01 0.01 0.00 0.01 0.01 0.01 0.00 0.010.02 0.02 0.00 0.03 0.01 0.01 0.01 0.03 0.02 0.020.00 0.02 0.01 0.01 0.02 0.01 0.01 0.01 0.02 0.02-0.00 0.02 0.01 0.02 0.01 0.01 0.01 0.02 -0.00 0.02
+0 1 2 3 4 5 6 7 8
+SST21 2 3 4 5 6 7 8 9SST2
+0.120.12 0.170.09 0.08 0.080.09 0.08 0.09 0.080.11 0.09 0.11 0.08 0.100.11 0.10 0.09 0.09 0.10 0.100.12 0.10 0.10 0.16 0.10 0.10 0.110.07 0.08 0.09 0.10 0.12 0.08 0.10 0.100.07 0.07 0.09 0.11 0.09 0.08 0.10 0.12 0.19
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+
+0 1 2 3 4 5 6 7 8 9
+TREC0 1 2 3 4 5 6 7 8 9SST2
+0.06 0.01 0.01 0.01 0.00 0.02 0.02 0.02 0.01 0.010.02 0.06 0.01 0.01 0.00 0.01 0.01 0.01 0.01 0.010.01 0.02 0.05 0.01 0.00 0.01 0.01 0.02 -0.00 0.010.01 0.01 0.01 0.04 0.01 0.01 0.01 0.02 0.01 0.010.00 0.01 0.01 0.02 0.07 0.01 0.02 0.01 -0.00 0.020.02 0.02 0.02 0.02 0.01 0.06 0.01 0.01 0.01 0.010.01 0.01 0.02 0.02 0.02 0.02 0.05 0.02 0.01 0.020.00 0.02 0.01 0.01 -0.00 0.02 0.02 0.06 0.01 0.010.01 0.01 0.01 0.00 0.02 0.01 0.01 0.01 0.05 0.020.02 0.01 0.02 0.01 0.01 0.02 0.00 0.02 0.01 0.05
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9SST2
+0.07 0.02 0.04 0.04 0.02 0.04 0.02 0.03 0.03 0.020.04 0.06 0.03 0.03 0.03 0.02 0.03 0.02 0.02 0.030.02 0.03 0.05 0.03 0.02 0.03 0.03 0.02 0.03 0.020.03 0.02 0.02 0.05 0.03 0.03 0.02 0.03 0.03 0.030.03 0.03 0.03 0.02 0.04 0.01 0.03 0.02 0.03 0.010.02 0.02 0.04 0.02 0.02 0.07 0.04 0.03 0.04 0.020.04 0.03 0.03 0.03 0.03 0.04 0.05 0.03 0.04 0.030.04 0.02 0.02 0.04 0.02 0.03 0.03 0.05 0.04 0.030.03 0.03 0.03 0.03 0.04 0.02 0.03 0.03 0.05 0.030.02 0.02 0.03 0.02 0.02 0.02 0.03 0.02 0.04 0.03
+0 1 2 3 4 5 6 7 8
+TREC1 2 3 4 5 6 7 8 9TREC
+0.070.05 0.050.05 0.05 0.060.05 0.08 0.06 0.040.06 0.07 0.07 0.04 0.060.04 0.07 0.05 0.08 0.07 0.050.06 0.05 0.05 0.10 0.07 0.05 0.070.03 0.05 0.06 0.05 0.07 0.07 0.05 0.050.07 0.04 0.04 0.06 0.06 0.06 0.05 0.06 0.05
+0 1 2 3 4 5 6 7 8 9
+Yelp0 1 2 3 4 5 6 7 8 9TREC
+0.05 0.02 0.02 0.02 0.01 0.01 0.01 0.00 0.02 0.010.02 0.04 0.02 0.02 0.01 0.02 0.02 0.01 0.01 0.020.02 0.02 0.04 0.01 0.03 0.02 0.02 0.02 0.01 0.020.02 0.01 0.01 0.03 0.02 0.01 0.01 0.01 0.02 0.010.01 0.01 0.01 0.01 0.03 0.01 0.01 0.02 0.01 0.010.02 0.01 0.03 0.01 0.02 0.04 0.01 0.02 0.02 0.020.01 0.01 0.02 0.02 0.02 0.01 0.03 0.02 0.01 0.020.02 0.02 0.02 0.02 0.02 0.02 0.02 0.05 0.01 0.010.00 0.02 0.02 0.02 0.01 0.02 0.01 0.00 0.04 0.020.01 0.01 0.02 0.02 0.01 0.00 0.01 0.02 0.02 0.03
+0 1 2 3 4 5 6 7 8
+Yelp1 2 3 4 5 6 7 8 9Yelp
+0.090.07 0.080.07 0.07 0.080.07 0.07 0.08 0.070.09 0.07 0.08 0.07 0.110.08 0.07 0.09 0.10 0.12 0.070.07 0.09 0.08 0.09 0.08 0.09 0.070.07 0.09 0.09 0.07 0.09 0.10 0.08 0.090.11 0.07 0.10 0.08 0.10 0.08 0.10 0.06 0.06
+0.060.070.080.090.100.110.120.13
+0.010.020.030.040.050.060.07
+0.000.010.020.030.040.05
+0.0000.0050.0100.0150.0200.0250.0300.035
+0.020.040.060.080.10
+0.020.030.040.050.06
+0.050.060.070.080.090.10
+0.020.030.040.050.060.070.080.090.10
+0.020.030.040.050.06
+0.020.040.060.080.10
+0.0150.0200.0250.0300.0350.0400.0450.050
+0.060.070.080.090.100.11
+0.0150.0200.0250.0300.0350.0400.0450.0500.055
+0.000.020.040.060.080.10
+0.0000.0050.0100.0150.0200.0250.030
+0.080.100.120.140.160.18
+0.000.010.020.030.040.050.06
+0.020.030.040.050.06
+0.030.040.050.060.070.080.09
+0.010.020.030.04
+0.060.070.080.090.100.11Figure 7 (cont.): Continuation of Figure 7 for additional tasks.
+DBPedia
+MNLIDBPedia
+QNLIDBPedia
+SST2DBPedia
+TRECDBPedia
+YelpMNLI
+QNLIMNLI
+SST2MNLI
+TRECMNLI
+YelpQNLI
+SST2QNLI
+TRECQNLI
+YelpSST2
+TRECSST2
+YelpTREC
+Yelp0.00.20.40.60.81.0
+T ask Type
+First T ask
+Second T ask
+Figure 8: Comparison of relative exact match performance of combinations of task prompt vectors across averaged
+across 10 different random initializations and all task combinations. The results are relative to the original single-task
+performance (1 is the performance of single-task prompt tuning). The task combinations in bold are the combinations
+that achieved over 50% of single-task performance on both of the tasks.
+
+SciTail (NLI) AG News (Classification) IMDB (Sentiment)
+Source tasksF1Source tasksF1Source tasksF1
+0 shots 100 shots 0 shots 100 shots 0 shots 100 shots
+Random 54.96.6 75.60.5 Random 00 50.411.2Random 77.29.6 89.40.4
+MNLI (SPoT) 70.40.4 87.80.9 DBPedia (SPoT) 00 83.40.6∗SST2 (SPoT) 880.6 90.20.3
+QNLI (SPoT) 57.713.1 77.71.3 TREC (SPoT) 00 65.75.6 Yelp (SPoT) 900.3 90.30.2
+QNLI + MNLI (SPoT) 70.41.2 87.70.6 DBPedia + TREC (SPoT) 00 2.10.9 SST2 + Yelp (SPoT) 90.80.290.80.2
+QNLI + MNLI (ATTEMPT) 63.84.2 83.63 DBPedia + TREC (ATTEMPT) 11.51.720.72.8 SST2 + Yelp (ATTEMPT) 79.26 89.40.8
+QNLI + MNLI (ours) 71.50.8∗88.10.9 DBPedia + TREC (ours) 00 830.9 SST2 + Yelp (ours) 90.10.5 90.40.2
+SNLI (NLI) Yahoo Answers (Classification) SST5 (Sentiment)
+Source tasksF1Source tasksF1Source tasksF1
+0 shots 100 shots 0 shots 100 shots 0 shots 100 shots
+Random 46.51.5 47.61.9 Random 00 27.610.6Random 00 83.25.8
+MNLI (SPoT) 79.50.3 80.80.4 DBPedia (SPoT) 00 61.31.1∗SST2 (SPoT) 940.3∗93.90.3∗
+QNLI (SPoT) 47.10.3 49.10.9 TREC (SPoT) 00 36.58.7 Yelp (SPoT) 88.60.8 90.60.5
+QNLI + MNLI (SPoT) 79.60.2∗810.4∗DBPedia + TREC (SPoT) 00 60.72 SST2 + Yelp (SPoT) 93.70.5 93.80.5
+QNLI + MNLI (ATTEMPT) 78.50.5 79.61.6 DBPedia + TREC (ATTEMPT) 0.10 8.15.6 SST2 + Yelp (ATTEMPT) 16.44.5 37.87
+QNLI + MNLI (ours) 79.21.4 80.30.3 DBPedia + TREC (ours) 00 61.10.9 SST2 + Yelp (ours) 89.90.8 91.50.5
+Table 4: Test results of training T5-base model with random, single- and multi-task soft-prompt transfer (SPoT),
+multi-task ATTEMPT, and our task prompt vectors on 0-shot and 100-shots of data for all of our observed source
+and target tasks. We show the initialization with different combinations for natural language inference classification,
+topic classification, and sentiment classification. The subscript represents the standard deviation from the average.
+The best results are bold, while the second-best results are underlined. The * in the superscript represents that the
+results are statistically significant from the second-best result, by two-sample Student’s t-test (Student, 1908) or
+Welch’s t-test (Welch, 1947).
+5 10 25 50 100 250 500 7501000
+N shots75808590Macro F1
+SciT ail
+random
+MNLI (SPoT)
+QNLI (SPoT)MNLI + QNLI (SPoT)
+MNLI + QNLI (ATTEMPT)
+MNLI + QNLI (Ours)5 10 25 50 100 250 500 7501000
+N shots4050607080Macro F1
+SNLI
+10 25 50 100 250 500 7501000
+N shots20406080Macro F1
+AG News
+random
+DBPedia (SPoT)
+TREC Coarse (SPoT)DBPedia + TREC Coarse (SPoT)
+DBPedia + TREC Coarse (ATTEMPT)
+DBPedia + TREC Coarse (Ours)10 25 50 100 250 500 7501000
+N shots0102030405060Macro F1
+Yahoo
+5 10 25 50 100 250 500 7501000
+N shots89.089.590.090.591.091.5Macro F1
+IMDB
+random
+SST2 (SPoT)
+Yelp (SPoT)SST2 + Yelp (SPoT)
+SST2 + Yelp (ATTEMPT)
+SST2 + Yelp (Ours)5 10 25 50 100 250 500 7501000
+N shots406080Macro F1
+SST5
+Figure 9: Test results of training T5-base model with random, single- and multi-task soft-prompt transfer (SPoT),
+multi-task ATTEMPT, and our task prompt vectors combination on increasing numbers of shots of data averaged
+over 10 different random initializations for all source and target tasks.
+

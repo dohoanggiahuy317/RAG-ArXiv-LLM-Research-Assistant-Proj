@@ -1,0 +1,1346 @@
+RAGEval: Scenario Specific RAG Evaluation Dataset Generation
+Framework
+Kunlun Zhu1∗, Yifan Luo1∗, Dingling Xu2*, Ruobing Wang3, Shi Yu1, Shuo Wang1
+Yukun Yan1†Zhenghao Liu4,Xu Han1,Zhiyuan Liu1†,Maosong Sun1
+1Tsinghua University,2Beijing Normal University,
+3University of Chinese Academy of Sciences4Northeastern University
+yanyk.thu@gmail.com ,liuzy@tsinghua.edu.cn
+Abstract
+Retrieval-Augmented Generation (RAG) sys-
+tems have demonstrated their advantages in al-
+leviating the hallucination of Large Language
+Models (LLMs). Existing RAG benchmarks
+mainly focus on evaluating whether LLMs can
+correctly answer the general knowledge. How-
+ever, they are unable to evaluate the effective-
+ness of the RAG system in dealing with the
+data from different vertical domains. This pa-
+per introduces RAGEval , a framework for au-
+tomatically generating evaluation datasets to
+evaluate the knowledge usage ability of differ-
+ent LLMs in different scenarios. Specifically,
+RAGEval summarizes a schema from seed doc-
+uments, applies the configurations to generate
+diverse documents, and constructs question-
+answering pairs according to both articles and
+configurations. We propose three novel metrics,
+Completeness, Hallucination, and Irrelevance,
+to carefully evaluate the responses generated
+by LLMs. By benchmarking RAG models in
+vertical domains, RAGEval has the ability to
+better evaluate the knowledge usage ability of
+LLMs, which avoids the confusion regarding
+the source of knowledge in answering question
+in existing QA datasets–whether it comes from
+parameterized memory or retrieval.
+1 Introduction
+Large language models (LLMs) have achieved im-
+pressive advancements in natural language pro-
+cessing (NLP) tasks. However, LLMs still suf-
+fer from the hallucination problem (Zhang et al.,
+2023), which leads to generating factual errors in
+their responses. To alleviate the problem, lots of re-
+searchers (Gao et al., 2023b; Asai et al., 2024) have
+advocated for employing Retrieval-Augmented
+Generation (RAG) models to help LLMs produce
+more accurate responses. However, benchmarking
+*Equal contribution; in random order; each reserves the
+right to be listed first.
+†Corresponding authors.
+Scenario Seed DocumentSchemaOrg：Place:            Date:              Events: [ ][ ][ ]{ }
+Conﬁg1Org：Place:            Date:              Events: Banana Tec.Beijing20240604{E1，E2……}Conﬁg2Org：Place:            Date:              Events: Culture Innovators Ltd.New York20100301{E1，E2……}Doc1Doc2Banana Tec. is a publicly-traded company on Beijing that was established on 6/4/2024, and is primarily engaged in the manufacturing a……Culture Innovators Ltd., established on March 1, 2010, is a publicly listed company based in New York, United States, specializing in providing creative solutions and immersive experiences ……"question": "When was Green Fields Agriculture Ltd. established?""golden_answers": ["April 1, 2005"]"question": "Which company did Green Fields Agriculture Ltd. acquire in June 2021?", "golden_answers": ["FreshPro"]……Figure 1: RAGEval Framework.
+the effectiveness of RAG models is still challeng-
+ing (Chen et al., 2024).
+Existing RAG benchmarks mainly focus on
+the question-answering tasks (Joshi et al., 2017;
+Nguyen et al., 2017; Kwiatkowski et al., 2019),
+which evaluates the factual correctness in answer-
+ing questions in general domains. Nevertheless,
+these benchmarks usually face challenges in assess-
+ing the reliability of RAG models, especially for
+vertical domains, such as finance, healthcare, and
+legal (Bruckhaus, 2024). Building the RAG bench-
+marks for different domains is the most straightfor-
+ward way to deal with the problem. However, due
+to the privacy of user data, it is challenging to cu-
+rate high-quality and diverse datasets for evaluating
+the effectiveness of RAG models across different
+domains.
+This paper introduces RAGEval , a universal
+framework designed to automatically generate
+scenario-specific RAG evaluation cases in various
+
+the effectiveness of RAG models across different
+domains.
+This paper introduces RAGEval , a universal
+framework designed to automatically generate
+scenario-specific RAG evaluation cases in various
+vertical domains. Specifically, RAGEval begins by
+collecting a small set of domain-specific documents
+to summarize a schema, which is created by analyz-
+ing the factual information, thus encapsulating the
+essential domain-specific knowledge. Then within
+1arXiv:2408.01262v1  [cs.CL]  2 Aug 2024
+
+the constraints of certain rules, RAGEval generates
+different configurations according to this schema.
+These configurations are further leveraged to gen-
+erate diverse documents. Finally, both generated
+documents and configurations are used to generate
+questions. The triples of question, reference, and
+answer are then used to evaluate the RAG effective-
+ness.
+To completely evaluate the RAG effectiveness
+on the generated data, our work focuses on eval-
+uating the quality of model responses from three
+dimensions, Completeness, Hallucination, and Ir-
+relevance, regardless of the String EM metric (Yu
+et al., 2023). For each question-answer pair, the
+framework identifies and summarizes the essential
+factual points, referred to as key points, based on
+which we propose novel evaluation metrics that
+focus more on factual accuracy.
+2 Related Work
+The landscape of question-answering (QA) and
+RAG evaluation has evolved significantly in re-
+cent years. Traditional open-domain QA bench-
+marks such as HotpotQA (Yang et al., 2018), Triv-
+iaQA (Joshi et al., 2017), MS Marco (Nguyen
+et al., 2017), Natural Questions (Kwiatkowski et al.,
+2019), 2WikiMultiHopQA (Ho et al., 2020), and
+KILT (Petroni et al., 2021) have long served as
+foundational datasets. However, these benchmarks
+face limitations in evaluating modern RAG systems,
+including potential data leakage and inadequate as-
+sessment of nuanced outputs.
+Addressing these shortcomings, a new gener-
+ation of RAG-specific benchmarks has emerged.
+RGB (Chen et al., 2024) assesses LLMs’ ability to
+leverage retrieved information, focusing on noise
+robustness and information integration. CRUD-
+RAG (Lyu et al., 2024) expands the scope by cate-
+gorizing RAG applications into Create, Read, Up-
+date, and Delete operations. CRAG (Yang et al.,
+2024) increases domain coverage and introduces
+mock APIs to simulate real-world retrieval sce-
+narios. MultiHop-RAG (Tang and Yang, 2024)
+focuses on complex queries requiring multi-hop
+reasoning across multiple documents.
+While these benchmarks offer valuable insights,
+they are still confined to predefined domains. Our
+approach aims to address this limitation by pro-
+viding a framework that offers higher contextual
+agility, allowing for the design of domain-specific
+factual queries. This facilitates the fine-tuning ofthe entire RAG system, ensuring better alignment
+with the unique demands of each application sce-
+nario.
+Traditional RAG evaluation relied on established
+NLP metrics like F1, BLEU, ROUGE-L, and EM
+for answer generation while using Hit Rate, MRR,
+and NDCG for retrieval assessment (Liu, 2023;
+Nguyen, 2023). However, these metrics lack the
+nuance needed for evaluating RAG’s generative
+capabilities.
+More recent approaches incorporate LLMs in
+the evaluation process. RAGAS (Es et al., 2024)
+and ARES (Saad-Falcon et al., 2023) use LLM-
+generated data to evaluate contextual relevance,
+faithfulness, and informativeness, without relying
+on ground truth references. RGB (Chen et al.,
+2024) introduces task-oriented metrics focusing on
+noise robustness, negative rejection, information
+integration, and counterfactual robustness.
+Contemporary frameworks employ a combina-
+tion of metrics to assess both retrieval and genera-
+tion capabilities (Gao et al., 2023a). These methods
+often use general quality scores to evaluate RAG
+performance across information retrieval and gen-
+eration stages, with some introducing automated
+LLM-based evaluation to reduce human evaluation
+costs (Liu et al., 2023).
+Our work builds on these advancements by in-
+troducing three keypoint-based evaluation metrics
+and two adapted retrieval metrics, aiming to pro-
+vide a more comprehensive assessment of the RAG
+pipeline.
+3 Method
+Building a close-domain Retrieval-Augmented
+Generation (RAG) evaluation dataset poses two
+significant challenges. First, collecting and anno-
+tating vertical documents is prohibitively expensive
+due to the sensitive nature of these documents and
+
+significant challenges. First, collecting and anno-
+tating vertical documents is prohibitively expensive
+due to the sensitive nature of these documents and
+the specialized knowledge required for their analy-
+sis. Second, unlike open-domain QA tasks, which
+typically require models to generate relatively short
+answers, vertical-domain answers tend to be much
+more comprehensive and detailed, complicating
+their evaluation.
+To address these challenges, RAGEval employs
+a “schema-configuration-document-QAR-keypoint”
+pipeline, thereby emphasizing the utilization of
+factual information and enhancing the robustness
+of answer estimation to improve the accuracy and
+reliability of the evaluation process. We describe
+2
+
+123
+4ScenarioSeed DocumentsLLMSchemaOrg：Place:            Date:              Events: [ ][ ][ ]{ }Conﬁg1LLM
+SchemaConﬁg2Org：Place:            Date:              Events: Banana Tec.Beijing20240604{E1，E2……}Org：Place:            Date:              Events: Pie Tec.New York19850908{E1，E2……}Scenario Guidance*Conﬁg1
+LLMConﬁg2Doc1Doc2
+ConﬁgDocLLMRefQuestionAnsLLMOptimizeDocAnsAns1Ans2Ans3Keypoints of Ans1Keypoints of Ans2Keypoints of Ans3LLMFigure 2: RAGEval Progress.
+the components of this pipeline in detail in the
+following sub-sections.
+3.1 Stage 1: Schema Summary
+In domain-specific scenarios, texts typically adhere
+to a common knowledge framework, regardless
+of their stylistic variations. This framework, rep-
+resented by a schema S, encapsulates the overall
+coverage of factual information in documents. The
+schema includes key elements such as organiza-
+tion, type, events, date, and place, summarizing
+the characteristic information of the scenario. To
+derive this schema, we employ LLMs to perform
+inductive reasoning based on a small set of seed
+texts. Although these seed texts may share the
+same type, they can vary greatly in style and spe-
+cific factual content. For instance, financial reports
+might cover diverse industries from internet tech-
+nology to food processing. This approach ensures
+the validity and comprehensiveness of the derived
+schema, enhancing the controllability of text gen-
+eration and enabling the production of coherent,
+domain-appropriate content that aligns with the
+structural patterns of specific document types.
+3.2 Stage 2: Document Generation
+Generating virtual texts with rich factual informa-
+tion, logical coherence, and internal consistency
+is crucial for creating effective evaluation datasets.
+To achieve this, we first generate configurations C
+derived from the schema Sestablished in Stage 1,
+rather than immediately producing the text. These
+configurations directly correspond to the types and
+content of factual information, serving as a refer-ence and constraint for text generation. This ap-
+proach ensures that information across different
+parts of the document remains more consistent with
+the configuration.
+To generate these configurations, we employ a
+hybrid approach combining rule-based and LLM-
+based methods to assign values to the schema ele-
+ments. Rule-based value generation employs pro-
+grammatic algorithms to create or select values,
+ensuring high accuracy, factual consistency, and ef-
+ficiency, particularly for structured data like dates
+or categorical information. This approach is espe-
+cially useful for schema elements with limited op-
+tions or those requiring strict formatting. Comple-
+menting this, we leverage LLMs to generate more
+complex or diverse content. LLMs excel at creat-
+ing varied and nuanced information, particularly
+for elements that require natural language under-
+standing or creativity, such as detailed descriptions
+or complex relational information. This method
+allows us to produce a wide range of high-quality,
+diverse configurations. For instance, in the domain
+of financial reports, our configurations cover nu-
+merous sectors, including “agriculture,” “aviation,”
+and “construction.” In total, we have 20 different
+business domains in our documents.
+Using the following strategy, we cast the factual
+information in a configuration Cinto a document D:
+we integrate configuration details into a structured
+narrative format appropriate to the domain, incorpo-
+rating domain-specific prior knowledge to ensure
+accuracy and contextual relevance. For medical
+records, this involves guidance on the structure and
+content, including categories of diseases, ensuring
+3
+
+the inclusion of necessary fields such as “patient
+information, medical history, examination results,
+diagnosis, treatment plan, and follow-up”. To mit-
+igate hallucination issues in legal documents, the
+model only generates references to legal articles by
+their number, ensuring correct citations are added
+later. In financial reports, we provide a summary
+of the company to the model to ensure continuity.
+Financial documents often contain multiple chap-
+ters; thus, we use three sections: “Financial Report,
+Corporate Governance, Environmental and Social
+Responsibility” to cover various aspects. Given the
+complexity of financial events, we manually divide
+the configuration into the above three sections. We
+then provide these sections to GPT-4o to generate
+the relevant parts of the document. This prevents
+repeated overall summaries and maintains content
+flow. Finally, the three sections are concatenated to
+form a complete financial report.
+3.3 Stage 3: QRA Generation
+In this subsection, we describe the process of gen-
+erating Question-Reference-Answer (QRA) triples
+using the given documents Dand configurations
+C. The motivation behind this stage is to create a
+comprehensive evaluation framework that tests var-
+ious aspects of information retrieval and reasoning
+capabilities.
+In this subsection, we describe the process
+of generating Question-Reference-Answer (QRA)
+triples using the given documents Dand configu-
+rations C. The motivation behind this stage is to
+create a comprehensive evaluation framework that
+tests various aspects of information retrieval and
+reasoning capabilities.
+Utilizing Configurations for Questions and
+Initial Answers Generation. We leverage the con-
+figurations Cto guide the generation of questions
+and initial answers. The configurations are em-
+bedded within the prompts to ensure that the gen-
+erated questions are specific and the answers are
+precise. As shown in Table 6, we address seven
+types of questions: factual questions, multi-hop rea-
+soning questions, summarization questions, multi-
+document questions, and others. This diverse set
+of question types is designed to evaluate different
+facets of language understanding and information
+processing. The input to the GPT-4o model in-
+cludes detailed instructions and a few examples for
+each question type, which are tailored according to
+the configurations. This results in questions Qand
+initial answers Athat are more targeted and accu-rate. Specific prompts and examples are detailed in
+the appendices.
+Extracting References. Our goal is to capture
+all pertinent references to support the answers com-
+prehensively. Using the constructed questions Q
+and initial answers A, we extract relevant informa-
+tion fragments (references) Rfrom the articles by
+utilizing an extracting prompt. In the prompt, we
+emphasize the importance of grounding answers in
+the source material to ensure reliability and trace-
+ability. This step enhances the comprehensiveness
+and accuracy of the answers by ensuring they are
+well-supported by the source documents. The con-
+straints and rules applied during this extraction
+phase ensure that the references are relevant and di-
+rectly support the answers, leading to more precise
+and comprehensive QRA triples.
+Optimizing Answers and References. Opti-
+mizing answers is crucial to ensure accuracy and
+alignment with the provided references R, thereby
+minimizing misinformation and enhancing the re-
+liability of the generated content. The refinement
+process follows these principles: If the references
+Rcontain content not present in the initial answers
+A, we supplement the answers accordingly. Con-
+versely, if the initial answers Acontain content not
+found in the references R, we first check the article
+for any overlooked references. If such references
+are found, we add them to the reference set and
+keep the answer unchanged. If no corresponding
+references are found, we remove the irrelevant con-
+tent from the answer. This approach addresses the
+
+are found, we add them to the reference set and
+keep the answer unchanged. If no corresponding
+references are found, we remove the irrelevant con-
+tent from the answer. This approach addresses the
+issue of hallucinations that may arise during the
+answer generation process, ensuring that the final
+answers are both accurate and well-supported by
+the references R.
+Generating Keypoints. In our evaluation frame-
+work, assessing answers is not merely about cor-
+rectness or keyword matching but about identifying
+the critical information contained in the responses.
+To facilitate this, we generate keypoints from the
+standard answers Afor each question Q.
+To generate these keypoints, we employ a prede-
+fined prompt for the GPT-4o model, which supports
+both Chinese and English. The prompt is designed
+using in-context learning, providing examples of
+keypoint extraction across different domains and
+question types. This includes cases where the an-
+swer is unanswerable, and the keypoints reflect that
+appropriately. Typically, responses are distilled
+into 3-5 keypoints, encompassing indispensable
+factual information, relevant inferences, and final
+4
+
+conclusions necessary to answer the question.
+By extracting these keypoints, we ensure that
+our evaluation is grounded in clearly defined and
+relevant information, enhancing the precision and
+reliability of the subsequent metrics calculation.
+3.4 DRAGONBall Dataset
+Leveraging the aforementioned generation method,
+we construct the DRAGONBall dataset, which
+stands for Diverse RAG O mni-Benchmark for All
+domains. This dataset encompasses a wide array of
+texts and related RAG questions across three criti-
+cal domains: finance, law, and medical. Moreover,
+the dataset includes both Chinese and English texts,
+providing a comprehensive resource for multilin-
+gual and domain-specific research.
+For document generation, the dataset includes
+texts from 20 different corporate domains in fi-
+nance, with one randomly selected text per domain;
+10 different legal domains, with two randomly se-
+lected texts per domain; and 19 major medical
+categories, each with two subcategories and one
+randomly selected text per major category. This
+ensures a balanced number of human-evaluated
+documents across finance, law, and medical do-
+mains.
+In Table 1, we present a detailed breakdown of
+the DRAGONBall dataset. The first section of the
+table shows the distribution of documents across
+the three domains (finance, legal, and medical) in
+both Chinese (CN) and English (EN), with an equal
+number of documents for each language. The sec-
+ond section categorizes the types of questions in-
+cluded in the dataset, providing percentages for
+each type. The third section details the distribu-
+tion of the number of reference documents used in
+answering the questions, reflecting the complexity
+and variability of the dataset. In total, the dataset
+comprises 6711 questions.
+To ensure the high quality of the QRA triples,
+we first consider the balance and diversity among
+the different question types, and then we remove
+homogeneous and meaningless questions. For ex-
+ample, if the number of unanswerable questions
+is insufficient, we supplement them according to
+the article. Second, we eliminate redundant ref-
+erences and answer statements and correct logical
+reasoning errors in the answers to ensure the dataset
+quality.Domain Language Document Count
+Finance CN & EN 40 & 40
+Legal CN & EN 30 & 30
+Medical CN & EN 38 & 38
+Question Type Percentage
+Information Integration 22.34%
+Factual 19.49%
+Multi-hop Reasoning 16.15%
+Summary 17.40%
+Numerical Comparison 10.51%
+Time-series 7.15%
+Irrelevant/Unanswerable 6.96%
+Reference Document Count Percentage
+0 Documents 6.35%
+1 Document 20.82%
+2 Documents 46.64%
+3 Documents 7.09%
+4 Documents 4.56%
+More than 4 14.54%
+Table 1: Distribution of Documents and Question Types
+in the DRAGONBALL Dataset, in total, we have 6711
+questions.
+3.5 Evaluation Metrics for RAG Systems
+In this work, we propose a comprehensive evalua-
+tion framework for RAG systems, considering both
+retrieval and generation components.
+We define multiple metrics to evaluate the
+model’s effectiveness and efficiency in the retrieval
+phase. These metrics are specifically designed for
+RAG systems, taking into account the need for gen-
+eration in the presence of incomplete and noisy
+information.
+3.5.1 Retrieval Metrics
+Recall. We introduce the RAG Retrieval Recall
+metric to evaluate the effectiveness of the retrieval
+process in matching ground truth references. The
+Recall is formally defined as
+Recall =1
+nnX
+i=1I(M(Gi,R)), (1)
+where nis the total number of ground truth refer-
+ences, Gidenotes the i-th ground truth reference,
+5
+
+R={R1, R2, . . . , R k}represents the set of re-
+trieved references, M(Gi,R)is a boolean function
+that returns true if all sentences in Giare found
+in at least one reference in R, and false otherwise,
+and I(·)is the indicator function, returning 1 if the
+condition is true and 0 otherwise.
+This metric assesses the alignment between re-
+trieved and ground truth references at the sentence
+level. A ground truth reference is considered suc-
+cessfully recalled if all its constituent sentences are
+present in at least one of the retrieved references.
+Effective Information Rate (EIR). This met-
+ric quantifies the proportion of relevant informa-
+tion within the retrieved passages, ensuring that the
+retrieval process is both accurate and efficient in
+terms of information content. It is calculated as
+EIR=Pm
+i=1|Gi∩Rt|Pk
+j=1|Rj|, (2)
+where Giis the i-th ground truth reference, Rtis
+the set of total retrieved passages, mis the number
+of ground truth references successfully matched,
+|Gi∩Rt|represents the number of words in the
+intersection of the i-th ground truth reference and
+the concatenated retrieved passages Rt, calculated
+only if Giis matched in Rt,|Rj|represents the
+total number of words in the j-th retrieved passage,
+andkis the total number of retrieved passages.
+To calculate |Gi∩Rt|at the sentence level, fol-
+low these steps: 1. Divide Giinto individual sen-
+tences. 2. For each sentence in Gi, check if it
+matches any sentence in Rt. 3. Calculate the num-
+ber of words in the matched sentences. 4. Sum the
+number of words from all matched sentences to get
+|Gi∩Rt|. This ensures that the overlap is calcu-
+lated based on sentence-level matches, providing
+a more granular and accurate measure of relevant
+information within the retrieved passages.
+3.5.2 Generation Metrics
+For the generation component, we introduce novel
+metrics tailored for RAG evaluation. These metrics
+provide a comprehensive evaluation of the quality
+and reliability of generated answers.
+Completeness. Completeness measures how
+well the generated answer captures the key informa-
+tion from the ground truth. We employ a large lan-
+guage model (LLM) to generate a set of key points
+K={k1, k2, . . . , k n}from the ground truth. The
+Completeness score is then calculated as the pro-
+portion of key points semantically covered by thegenerated answer A:
+Comp (A, K) =1
+|K|nX
+i=11[Acovers ki], (3)
+where 1[·]is an indicator function that evaluates
+to 1 if the generated answer Asemantically covers
+the key point ki, and 0 otherwise. Here, “covers”
+means that the generated answer contains informa-
+tion consistent with and correctly representing the
+key point. Specifically, for a key point to be consid-
+ered covered, the generated answer must not only
+include the relevant information but also present it
+accurately without contradictions or factual errors.
+Hallucination. Hallucination identifies instances
+where the content contradicts key points, highlight-
+ing potential inaccuracies. The Hallucination score
+is calculated as
+Hallu(A, K) =1
+|K|nX
+i=11[Acontradicts ki], (4)
+where 1[·]is an indicator function that evaluates
+to 1 if the generated answer Acontradicts the key
+pointki, and 0 otherwise.
+Irrelevancy. Irrelevancy assesses the proportion
+of key points from the ground truth that are neither
+covered nor contradicted by the generated answer.
+Irrelevancy quantifies the proportion of key points
+neither covered nor contradicted, indicating areas
+where the answer fails to engage with relevant in-
+formation. The Irrelevancy score is calculated as
+Irr(A, K) = 1−Comp (A, K)−Hallu(A, K).(5)
+These metrics—Completeness, Hallucination,
+and Irrelevancy—together pinpoint specific
+strengths and weaknesses of RAG models, ensur-
+ing generated answers are informative, accurate,
+and relevant, thereby enhancing their overall
+quality and trustworthiness.
+4 Quality Assessment
+In this section, we introduce the human verification
+process used to assess the quality of the generated
+
+quality and trustworthiness.
+4 Quality Assessment
+In this section, we introduce the human verification
+process used to assess the quality of the generated
+dataset and the evaluation. The assessment is di-
+vided into three main tasks: QAR and generated
+documents quality assessment, and the validation
+of automated evaluation.
+QAR Quality Assessment. We ask annotators
+to assess the quality of the QARs by scoring the
+correctness of the QARs generated under different
+6
+
+5: The response is completely correct and fluent.
+4: The response is correct but includes redundant
+information.
+3: Most of the response is correct.
+2: About half of the response is correct.
+1: A small part of the response is correct, or there are
+logical errors.
+0: The response is irrelevant or completely incorrect.
+Figure 3: QAR quality scoring criteria.
+configurations, according to the standards listed in
+Figure 3. We randomly select 10 samples per ques-
+tion type for every language and domain, resulting
+in 420 samples in total for annotation. When scor-
+ing, annotators are provided with the document,
+question, question type, generated response, and
+references. The results from Table 2 indicate that
+the QAR quality scores are consistently high across
+different domains, with slight variations between
+languages. Specifically, the combined proportion
+of scores 4 and 5 for all domains is approximately
+95% or higher. This suggests that our approach
+maintains a high standard of accuracy and fluency
+in QARs.
+Generated Document Quality Assessment. We
+evaluate the quality of the documents generated us-
+ingRAGEval by comparing them with documents
+generated using baseline methods, which include
+zero-shot prompting (to ask the LLM to generate
+the document given only a domain prompt) and
+one-shot prompting (to ask the LLM to generate
+the document given a domain prompt and a sample
+document). We randomly select 20, 20, and 19
+generated documents for finance, legal, and med-
+ical domain for both language, respectively, and
+pack each document with 2 baseline documents
+generated by zero- and one-shot prompting into
+one group for comparison. Annotators are asked to
+rank the documents in each group in terms of clar-
+ity, safety, richness, and conformity, as defined in
+Figure 4, with ties allowed. Results shown in Fig-
+ure 5 demonstrate that our method consistently out-
+performs zero-shot and one-shot methods across all
+criteria, particularly in safety, clarity, conformity,
+and richness. Specifically, for the Chinese and En-
+glish datasets across the three aspects of richness,
+clarity, and safety, our method ranks first in over
+85% of the cases. This demonstrates the effective-
+ness of our approach in generating high-quality
+articles with diverse and rich content without com-Safety : Avoidance of real-world sensitive informa-
+tion.
+Clarity : Clear and specific information.
+Conformity : Resemblance to real documents like
+financial reports or medical records.
+Richness : Depth and breadth of information.
+Figure 4: Document quality comparison criteria.
+Finance Law Medical
+CN 4.94 4.81 4.76
+EN 4.84 4.79 4.87
+Table 2: QAR quality human review scores by domain.
+promising safety and clarity.
+Validation of Automated Evaluation. To val-
+idate the consistency between LLM and human
+evaluations, we compare the completeness, hallu-
+cination, and irrelevance metrics reported by the
+LLM with those reported by humans. We use the
+same 420 examples from the QAR quality assess-
+ment and ask human annotators to judge the an-
+swers from Baichuan-2-7B-chat. We then calculate
+the metrics and compare them with LLM-annotated
+results. Results in Figure 6 show that the machine
+and human evaluations show a high degree of align-
+ment in all metrics, with absolute differences less
+than 0.015. This validates the reliability of our
+automated evaluation metrics and confirms their
+consistency with human judgment.
+In summary, the human evaluation results high-
+light the robustness and effectiveness of our method
+in generating accurate, safe, and rich content across
+various domains, as well as the reliability of our
+automated evaluation metrics in reflecting human
+judgment.
+5 Experiment
+5.1 Main Setting
+We conduct main experiments following a classic
+pipeline, which consists of text chunking, passage
+retrieving and generation to estimate different mod-
+ules in an RAG system.
+In our main experiments, we utilize a retrieval
+model with the following hyperparameters: the
+
+retrieving and generation to estimate different mod-
+ules in an RAG system.
+In our main experiments, we utilize a retrieval
+model with the following hyperparameters: the
+TopK retrieved documents is set to 5, the retrieval
+batch size is 256, and we enable the use of fp16
+precision for the retrieval model to optimize perfor-
+mance. The maximum length for the retrieval query
+7
+
+Safety
+CNSafety
+ENClarity
+CN
+Clarity
+EN
+Conformity
+CN
+Conformity
+EN
+Richness
+CNRichness
+EN0.00.20.40.60.81.0
+Zero-shot
+One-shot
+OursFigure 5: Document generation comparison by domain.
+Completeness-CN Completeness-EN Hallucination-CN Hallucination-EN Irrelevance-CN Irrelevance-EN0.00.10.20.30.40.5Score-0.35%-0.96%
+-2.61%
++7.18%+4.80%-2.82%Machine Evaluation
+Human Evaluation
+Figure 6: Automated metric validation results.
+is capped at 128 tokens. The default chunk size
+is set to 512 without overlaps; we also add meta-
+information about the basic information, such as
+the name of the company, patient, etc., to add the
+success rate of the retrieval process. For the genera-
+tion phase, the maximum input length for the query
+generator is set to 4096 tokens, and the generator
+processes batches of 5. The generation parameters
+include a maximum of 256 new tokens per output.
+We use the model’s default generation configu-
+rations, such as temperature, TopP, etc. When the
+model does not have default generation configura-
+tions, the hugging face’s default generation config-
+urations will be applied. ChatGPT series models’
+temperature and TopP were set to 0.2 and 1.0, gen-
+erating one response per query. More details can
+be found in the released code.
+5.2 RAG Performance Evaluation
+We conducted experiments from the following per-
+spective.
+Generation Performance Comparison . Theexperiment aims to compare the performance of
+9 popular open/close-sourced generation models
+with different parameter sizes, including MiniCPM-
+2B-sft (Hu et al., 2024), Phi3-mini (Abdin et al.,
+2024), Baichuan-2-7B (Yang et al., 2023), Llama3-
+8B-Instruct (AI@Meta, 2024), Qwen1.5-7B/14B-
+chat (Bai et al., 2023), Qwen2-7B-Instruct (Bai
+et al., 2023), GPT-3.5-Turbo, and GPT-4o.
+We use the same input prompt to compare the
+outputs of the different generation models. We
+chose the first 50 questions of all question types
+for each domain and language to be evaluated, for
+example, 350 questions in total for each domain.
+5.3 Generation Performance Comparison
+The overall experimental results of the different
+generation models are shown in Table 3.
+It can be observed that, based on the Rouge-L
+metric, Baichuan-2-7B-chat achieved the best per-
+formance with scores of 0.3262 (CN) and 0.3039
+(EN), while GPT-4o performed almost the worst
+with scores of 0.1527 (CN) and 0.2190 (EN). This
+contradicts our intuition—according to Chatbot
+Arena (Chiang et al., 2024) and OpenCompass
+(Contributors, 2023), GPT-4o is one of the best
+models in terms of overall performance. There-
+fore, we can infer that sparse metrics like Rouge-L,
+which are based on word frequency statistics, do
+not accurately reflect model capabilities and the ef-
+fectiveness of the RAG system in RAG scenarios.
+Compared to Rouge-L, GPT-4o performed bet-
+ter on the Completeness, Hallucination, and Irrele-
+vance metrics, proving that our proposed keypoints-
+based evaluation metrics can indeed better and
+more comprehensively reflect model performance
+in RAG scenarios. Specifically, GPT-4o achieved
+the highest Completeness scores of 0.5187 (CN)
+and 0.6845 (EN), and the lowest Irrelevance score
+in English at 0.1520.
+From our detailed analysis, several critical in-
+sights can be drawn:
+1. The 2B model MiniCPM-2B achieved re-
+markable results, particularly in Chinese, where it
+scored 0.4114 in Completeness. This score sur-
+passed even larger models like Baichuan-2-7B-
+chat and Qwen1.5-7B-chat, which scored 0.4009
+and 0.3983 respectively. In English, MiniCPM-
+2B’s performance was equally impressive, with
+a Completeness score of 0.5484, nearly match-
+ing Baichuan-2-7B-chat’s 0.5498. These results
+provide compelling evidence that 2B models have
+sufficient potential to exceed the performance of
+8
+
+Table 3: Overall Model Performance Results.(Without irrelevant result)
+ModelCompleteness ( ↑) Hallucination ( ↓) Irrelevance ( ↓) Rouge-L ( ↑)
+CN EN CN EN CN EN CN EN
+MiniCPM-2B-sft 0.4114 0.5484 0.4080 0.2115 0.1803 0.2401 0.2773 0.2505
+Baichuan-2-7B-chat 0.4009 0.5498 0.4181 0.2212 0.1809 0.2290 0.3262 0.3039
+Qwen1.5-7B-chat 0.3983 0.5704 0.4058 0.1953 0.1957 0.2340 0.2040 0.1862
+Qwen2-7B-Instruct 0.4564 0.6052 0.3829 0.1955 0.1596 0.1988 0.2035 0.2182
+Llama3-8B-Instruct 0.4427 0.6524 0.3888 0.1582 0.1679 0.1894 0.1982 0.2406
+Qwen1.5-14B-chat 0.4926 0.6053 0.3440 0.1795 0.1630 0.2152 0.2611 0.2330
+GPT3.5-Turbo 0.4774 0.6540 0.3601 0.1901 0.1626 0.1556 0.2309 0.2563
+GPT-4o 0.5187 0.6845 0.2797 0.1636 0.1972 0.1520 0.1527 0.2190
+Table 4: Retrieve Model Performance Results.
+ModelRetrieve Generation
+Recall ( ↑) EIR ( ↑) Completeness ( ↑) Hallucination ( ↓) Irrelevance ( ↓)
+CN EN CN EN CN EN CN EN CN EN
+BM25 0.7662 0.6717 0.0470 0.1162 0.6316 0.6649 0.2441 0.1264 0.1242 0.2087
+GTE-Large 0.5760 0.7542 0.0362 0.1372 0.5337 0.6921 0.2851 0.1042 0.1813 0.2037
+BGE-Large 0.6881 0.7321 0.0465 0.1362 0.5780 0.7077 0.2794 0.1129 0.1426 0.1795
+BGE-M3 0.8387 0.6928 0.0541 0.1243 0.6980 0.6556 0.2004 0.1254 0.1010 0.2190
+models with substantially more parameters in RAG
+tasks.
+2. Among the four models in the 7B-8B range,
+Llama3-8B-Instruct demonstrated significant ad-
+vantages. In the English evaluation, it led other
+models with the highest score of 0.6524. In the
+Chinese evaluation, although slightly lower than
+Qwen2-7B-Instruct’s 0.4564, Llama3-8B-Instruct
+still performed excellently with a close score of
+0.4427. These results strongly demonstrate the su-
+periority of the Llama3-8B-Instruct model across
+both languages.
+3. Model Size Impact: In comparing models
+of the same series with different parameter sizes,
+Qwen1.5-14B-chat clearly outperformed Qwen1.5-
+7B-chat. The 14B model recorded higher Com-
+pleteness scores of 0.4926 (CN) and 0.6053 (EN),
+demonstrating that larger parameter sizes normally
+perform better in RAG questions.
+4. Best Performing Open-Source Mod-
+els: Among all the tested open-source models,
+Qwen1.5-14B-chat exhibited the best performance
+in Chinese, with a Completeness score of 0.4926,
+while Llama3-8B-Instruct performed best in En-
+glish with a score of 0.6524.
+5. GPT-4o Performance: Although GPT-4o cur-
+rently shows the best performance overall, the gapwith the top-performing open-source models is not
+substantial. Specifically, in Chinese, GPT-4o’s
+Completeness score of 0.5187 in Chinese is only
+0.0261 higher than Qwen1.5-14B-chat’s score of
+0.4926. In English, GPT-4o’s Completeness score
+of 0.6845 is only 0.0321 higher than Llama3-8B-
+Instruct’s score of 0.6524. This suggests that open-
+source models have the potential to close the per-
+formance gap with further advancements.
+5.4 Retrieval Performance Comparison
+Our experiments were conducted using the Llama3-
+8B-Instruct model on the Dragonball finance
+dataset, with evaluations performed in both Chi-
+nese and English. The BGE-Large model was de-
+ployed with language-specific versions for Chinese
+and English. All other parameters were consistent
+with the previous experimental setup.
+Table 4 presents the performance results of var-
+ious retrieval models on both Chinese (CN) and
+English (EN) datasets. The primary metrics eval-
+uated include Recall, Expected Information Re-
+trieval (EIR), Signal-to-Noise Ratio (SNR), Com-
+pleteness, Hallucination, and Irrelevance.
+In the English setting, the GTE-Large model
+demonstrated superior performance across several
+key metrics. It achieved a Recall of 0.7542, and
+9
+
+Table 5: TopK & Chunk-TopK Performance Results.
+SettingsRetrieve Generation
+Recall ( ↑) EIR ( ↑) Completeness ( ↑) Hallucination ( ↓) Irrelevance ( ↓)
+CN EN CN EN CN EN CN EN CN EN
+TopK
+2 0.4667 0.5685 0.0764 0.2491 0.5004 0.5682 0.3226 0.1693 0.1770 0.2625
+4 0.6362 0.6976 0.0553 0.1591 0.5517 0.6503 0.3127 0.1303 0.1352 0.2194
+6 0.7259 0.7542 0.0408 0.1182 0.5835 0.7087 0.2974 0.1227 0.1191 0.1686
+Chunk-TopK
+128-8 0.5031 0.5472 0.0884 0.2222 0.4549 0.6683 0.2861 0.1168 0.2591 0.2148
+256-4 0.4393 0.6161 0.0824 0.2628 0.4855 0.6509 0.3196 0.1241 0.1944 0.2250
+512-2 0.4667 0.5685 0.0764 0.2491 0.4932 0.5609 0.3195 0.1635 0.1873 0.2756
+EIR of 0.1372, indicating its robustness in retriev-
+ing relevant information with minimal noise. How-
+ever, this model’s performance in the Chinese set-
+ting was suboptimal, with significantly lower Re-
+call of 0.5760.
+Conversely, in the Chinese setting, the BGE-M3
+model achieved the highest overall performance. It
+recorded the best Recall of 0.8387 and Complete-
+ness of 0.6980, along with a leading EIR of 0.0501.
+Additionally, BGE-M3 exhibited the lowest Hal-
+lucination rate of 0.2711 and Irrelevance rate of
+0.1085, suggesting a balanced and reliable retrieval
+capability in the Chinese context.
+These results highlight the importance of
+language-specific optimization in retrieval mod-
+els. The consistent performance patterns observed
+in both retrieval and generation metrics reinforce
+the validity of our evaluation framework. This in-
+dicates that the metrics designed for the retrieval
+phase are effective predictors of generation phase
+outcomes since higher Recall and EIR scores can
+usually result in better completeness and hallucina-
+tion scores.
+5.5 Hyperparameter Comparison
+Our experiments, conducted using the Llama3-8B-
+Instruct model on the Dragonball finance dataset,
+evaluated the impact of common RAG (Retrieval-
+Augmented Generation) settings, specifically TopK
+retrieval and chunk size, on model performance in
+both Chinese and English. The results, summarized
+in Table 5, highlight several key observations and
+insights:
+5.5.1 TopK Retrieval Observations
+1.Recall Improvement with Higher TopK : - As
+expected, Recall improved with higher TopK val-ues. Specifically, Recall increased from 0.4667 at
+TopK=2 to 0.7259 at TopK=6 in Chinese, and from
+0.5685 at TopK=2 to 0.7542 at TopK=6 in English.
+- These improvements suggest that higher TopK
+values enable the model to retrieve more relevant
+information, crucial for enhancing overall retrieval
+effectiveness.
+2.Generation Metrics Improve with In-
+creased Recall : The improvements in Recall due
+to increased TopK values are reflected in the gen-
+eration metrics, demonstrating a positive correla-
+tion between retrieval performance and generation
+quality. For Chinese, Completeness improved sig-
+nificantly from 0.5004 at TopK=2 to 0.5835 at
+TopK=6. Similarly, for English, Completeness
+rose from 0.5682 at TopK=2 to 0.7087 at TopK=6.
+These results indicate that retrieving more relevant
+documents (higher TopK) leads to more complete
+and accurate responses, with reduced hallucination,
+highlighting the direct impact of improved retrieval
+on generation quality.
+5.5.2 Chunk Size Impact
+1.Optimal Chunk Size Varies by Language :
+From Table 5, we observe that the optimal chunk
+size varies between Chinese and English. For Chi-
+nese, the 128-8 setting (128 tokens, 8 chunks) per-
+formed best in Recall (0.5031) and EIR (0.0884),
+while for English, the 256-4 setting achieved the
+highest Recall (0.6161) and EIR (0.2628). This
+suggests that the ideal chunk size may be language-
+dependent, with Chinese benefiting from smaller,
+more numerous chunks, and English from slightly
+larger chunks.
+2.Trade-offs in Generation Metrics : Inter-
+estingly, the best retrieval performance doesn’t al-
+ways translate to the best generation metrics. For
+10
+
+Chinese, the 512-2 setting achieved the highest
+Completeness (0.4932) despite lower Recall, while
+for English, the 128-8 setting led in Completeness
+(0.6683). Hallucination rates were lowest with
+the 128-8 setting for both languages (0.2861 for
+CN, 0.1168 for EN), indicating that more, smaller
+chunks may help reduce hallucination.
+3.Balancing Retrieval and Generation Per-
+formance : The results highlight the complex rela-
+tionship between chunk size, retrieval performance,
+and generation quality. While smaller chunks (128-
+8) generally led to better retrieval metrics and lower
+hallucination, larger chunks sometimes improved
+completeness. This suggests that the optimal chunk
+size should be chosen based on the specific require-
+ments of the task, balancing between retrieval ac-
+curacy, generation completeness, and hallucination
+reduction.
+The varying performance across different chunk
+sizes and languages underscores the importance
+of careful tuning in retrieval-augmented generation
+systems. It also highlights the need for a holistic ap-
+proach that considers both retrieval and generation
+metrics when optimizing such systems.
+6 Conclusion
+This paper introduces RAGEval , a novel framework
+for automatically generating and scenario-specific
+datasets to assess the capabilities of RAG systems.
+Our approach addresses the limitations of existing
+benchmarks by focusing on factual accuracy and
+scenario-specific knowledge, which are crucial in
+industries like finance, healthcare, and legal sec-
+tors. Our experimental results demonstrate that the
+new metrics we designed provide a more compre-
+hensive and accurate assessment of model perfor-
+mance in RAG scenarios compared to conventional
+metrics. Notably, while GPT-4o showed superior
+performance overall, the gap with top-performing
+open-source models was relatively small. This sug-
+gests significant potential for improvement in open-
+source models. Future work could focus on ex-
+tending the framework to more diverse domains
+and exploring ways to further minimize the perfor-
+mance gap between open-source and proprietary
+models in RAG scenarios.
+References
+Marah Abdin, Sam Ade Jacobs, Ammar Ahmad Awan,
+Jyoti Aneja, Ahmed Awadallah, Hany Awadalla,Nguyen Bach, Amit Bahree, Arash Bakhtiari, Harki-
+rat Behl, et al. 2024. Phi-3 technical report: A highly
+capable language model locally on your phone. arXiv
+preprint arXiv:2404.14219 .
+AI@Meta. 2024. Llama 3 model card.
+Akari Asai, Zexuan Zhong, Danqi Chen, Pang Wei
+Koh, Luke Zettlemoyer, Hannaneh Hajishirzi, and
+Wen-tau Yih. 2024. Reliable, adaptable, and at-
+tributable language models with retrieval. arXiv
+preprint arXiv:2403.03187 .
+Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai Dang,
+Xiaodong Deng, Yang Fan, Wenbin Ge, Yu Han, Fei
+Huang, Binyuan Hui, Luo Ji, Mei Li, Junyang Lin,
+Runji Lin, Dayiheng Liu, Gao Liu, Chengqiang Lu,
+Keming Lu, Jianxin Ma, Rui Men, Xingzhang Ren,
+Xuancheng Ren, Chuanqi Tan, Sinan Tan, Jianhong
+Tu, Peng Wang, Shijie Wang, Wei Wang, Sheng-
+guang Wu, Benfeng Xu, Jin Xu, An Yang, Hao Yang,
+Jian Yang, Shusheng Yang, Yang Yao, Bowen Yu,
+Hongyi Yuan, Zheng Yuan, Jianwei Zhang, Xingx-
+uan Zhang, Yichang Zhang, Zhenru Zhang, Chang
+Zhou, Jingren Zhou, Xiaohuan Zhou, and Tianhang
+Zhu. 2023. Qwen technical report. arXiv preprint
+arXiv:2309.16609 .
+Tilmann Bruckhaus. 2024. Rag does not work for enter-
+prises. Preprint , arXiv:2406.04369.
+Jiawei Chen, Hongyu Lin, Xianpei Han, and Le Sun.
+2024. Benchmarking large language models in
+retrieval-augmented generation. In Proceedings of
+the AAAI Conference on Artificial Intelligence , vol-
+ume 38, pages 17754–17762.
+Wei-Lin Chiang, Lianmin Zheng, Ying Sheng, Anasta-
+sios Nikolas Angelopoulos, Tianle Li, Dacheng Li,
+Hao Zhang, Banghua Zhu, Michael Jordan, Joseph E.
+Gonzalez, and Ion Stoica. 2024. Chatbot arena: An
+open platform for evaluating llms by human prefer-
+ence. Preprint , arXiv:2403.04132.
+OpenCompass Contributors. 2023. Opencompass:
+A universal evaluation platform for foundation
+
+open platform for evaluating llms by human prefer-
+ence. Preprint , arXiv:2403.04132.
+OpenCompass Contributors. 2023. Opencompass:
+A universal evaluation platform for foundation
+models. https://github.com/open-compass/
+opencompass .
+Shahul Es, Jithin James, Luis Espinosa Anke, and
+Steven Schockaert. 2024. RAGAs: Automated evalu-
+ation of retrieval augmented generation. In Proceed-
+ings of the 18th Conference of the European Chap-
+ter of the Association for Computational Linguistics:
+System Demonstrations , pages 150–158, St. Julians,
+Malta. Association for Computational Linguistics.
+Yunfan Gao, Yun Xiong, Xinyu Gao, Kangxiang Jia,
+Jinliu Pan, Yuxi Bi, Yi Dai, Jiawei Sun, Qianyu Guo,
+Meng Wang, and Haofen Wang. 2023a. Retrieval-
+augmented generation for large language models: A
+survey. CoRR , abs/2312.10997.
+Yunfan Gao, Yun Xiong, Xinyu Gao, Kangxiang Jia,
+Jinliu Pan, Yuxi Bi, Yi Dai, Jiawei Sun, and Haofen
+Wang. 2023b. Retrieval-augmented generation for
+11
+
+large language models: A survey. arXiv preprint
+arXiv:2312.10997 .
+Xanh Ho, Anh-Khoa Duong Nguyen, Saku Sugawara,
+and Akiko Aizawa. 2020. Constructing a multi-hop
+qa dataset for comprehensive evaluation of reasoning
+steps. In Proceedings of the 28th International Con-
+ference on Computational Linguistics , pages 6609–
+6625.
+Shengding Hu, Yuge Tu, Xu Han, Chaoqun He, Ganqu
+Cui, Xiang Long, Zhi Zheng, Yewei Fang, Yuxi-
+ang Huang, Weilin Zhao, et al. 2024. Minicpm:
+Unveiling the potential of small language models
+with scalable training strategies. arXiv preprint
+arXiv:2404.06395 .
+Mandar Joshi, Eunsol Choi, Daniel S Weld, and Luke
+Zettlemoyer. 2017. Triviaqa: A large scale distantly
+supervised challenge dataset for reading comprehen-
+sion. In Proceedings of the 55th Annual Meeting of
+the Association for Computational Linguistics (Vol-
+ume 1: Long Papers) , pages 1601–1611.
+Tom Kwiatkowski, Jennimaria Palomaki, Olivia Red-
+field, Michael Collins, Ankur Parikh, Chris Alberti,
+Danielle Epstein, Illia Polosukhin, Jacob Devlin, Ken-
+ton Lee, et al. 2019. Natural questions: a benchmark
+for question answering research. Transactions of the
+Association for Computational Linguistics , 7:453–
+466.
+Jerry Liu. 2023. Building production-ready rag applica-
+tions.
+Nelson F. Liu, Tianyi Zhang, and Percy Liang. 2023.
+Evaluating verifiability in generative search engines.
+InFindings of the Association for Computational Lin-
+guistics: EMNLP 2023, Singapore, December 6-10,
+2023 , pages 7001–7025. Association for Computa-
+tional Linguistics.
+Yuanjie Lyu, Zhiyu Li, Simin Niu, Feiyu Xiong,
+Bo Tang, Wenjin Wang, Hao Wu, Huanyong Liu,
+Tong Xu, and Enhong Chen. 2024. Crud-rag:
+A comprehensive chinese benchmark for retrieval-
+augmented generation of large language models.
+arXiv preprint arXiv:2401.17043 .
+Isabelle Nguyen. 2023. Evaluating rag part i: How to
+evaluate document retrieval.
+Tri Nguyen, Mir Rosenberg, Xia Song, Jianfeng Gao,
+Saurabh Tiwary, Rangan Majumder, and Li Deng.
+2017. MS MARCO: A human-generated MAchine
+reading COmprehension dataset.
+Fabio Petroni, Aleksandra Piktus, Angela Fan, Patrick
+Lewis, Majid Yazdani, Nicola De Cao, James Thorne,
+Yacine Jernite, Vladimir Karpukhin, Jean Maillard,
+Vassilis Plachouras, Tim Rocktäschel, and Sebastian
+Riedel. 2021. KILT: a benchmark for knowledge
+intensive language tasks. In Proceedings of the 2021
+Conference of the North American Chapter of the
+Association for Computational Linguistics: Human
+Language Technologies , pages 2523–2544, Online.
+Association for Computational Linguistics.Jon Saad-Falcon, Omar Khattab, Christopher Potts, and
+Matei Zaharia. 2023. Ares: An automated evalua-
+tion framework for retrieval-augmented generation
+systems. arXiv preprint arXiv:2311.09476 .
+Yixuan Tang and Yi Yang. 2024. Multihop-rag: Bench-
+marking retrieval-augmented generation for multi-
+hop queries.
+Aiyuan Yang, Bin Xiao, Bingning Wang, Borong Zhang,
+Ce Bian, Chao Yin, Chenxu Lv, Da Pan, Dian Wang,
+Dong Yan, et al. 2023. Baichuan 2: Open large-scale
+language models. arXiv preprint arXiv:2309.10305 .
+Xiao Yang, Kai Sun, Hao Xin, Yushi Sun, Nikita Bhalla,
+Xiangsen Chen, Sajal Choudhary, Rongze Daniel
+Gui, Ziran Will Jiang, Ziyu Jiang, et al. 2024.
+Crag–comprehensive rag benchmark. arXiv preprint
+arXiv:2406.04744 .
+Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Bengio,
+William Cohen, Ruslan Salakhutdinov, and Christo-
+pher D Manning. 2018. Hotpotqa: A dataset for
+diverse, explainable multi-hop question answering.
+InProceedings of the 2018 Conference on Empiri-
+cal Methods in Natural Language Processing , pages
+2369–2380.
+Zichun Yu, Chenyan Xiong, Shi Yu, and Zhiyuan Liu.
+2023. Augmentation-adapted retriever improves gen-
+eralization of language models as generic plug-in. In
+Proceedings of the 61st Annual Meeting of the As-
+sociation for Computational Linguistics (Volume 1:
+Long Papers) , pages 2421–2436.
+Yue Zhang, Yafu Li, Leyang Cui, Deng Cai, Lemao Liu,
+Tingchen Fu, Xinting Huang, Enbo Zhao, Yu Zhang,
+
+sociation for Computational Linguistics (Volume 1:
+Long Papers) , pages 2421–2436.
+Yue Zhang, Yafu Li, Leyang Cui, Deng Cai, Lemao Liu,
+Tingchen Fu, Xinting Huang, Enbo Zhao, Yu Zhang,
+Yulong Chen, et al. 2023. Siren’s song in the ai ocean:
+a survey on hallucination in large language models.
+arXiv preprint arXiv:2309.01219 .
+A Appendix
+12
+
+{
+" courtAndProcuratorate ": {
+" court ": "",
+" procuratorate ": ""
+},
+" chiefJudge ": "",
+" judge ": "",
+" clerk ": "",
+" defendant ": {
+" name ": "",
+" gender ": "",
+" birthdate ": "",
+" residence ": "",
+" ethnicity ": "",
+" occupation ": ""
+},
+" defenseLawyer ": {
+" name ": "",
+" lawFirm ": ""
+},
+" caseProcess ": [
+{
+" event ": " Case Filing and Investigation ",
+" date ": ""
+},
+{
+" event ": " Detention Measures Taken ",
+" date ": ""
+},
+{
+" event ": " Criminal Detention ",
+" date ": ""
+},
+{
+" event ": " Arrest ",
+" date ": ""
+}
+],
+" criminalFacts ": [
+{
+" crimeName ": "",
+" details ": [
+{
+" timePeriod ": "",
+" behavior ": "",
+" evidence ": ""
+}
+]
+}
+],
+" legalProcedure ": {
+" judgmentDate ": "",
+" judgmentResult ": [
+{
+" crimeName ": "",
+" sentence ": "",
+" sentencingConsiderations ": ""
+}
+]
+}
+}
+Figure 7: A schema example of Law domain.
+13
+
+{
+" courtAndProcuratorate ": {
+" court ": " Ashton , Clarksville , Court ",
+" procuratorate ": " Ashton , Clarksville , Procuratorate "
+},
+" chiefJudge ": "M. Gray ",
+" judge ": "H. Torres ",
+" clerk ": "A. Brown ",
+" defendant ": {
+" name ": "J. Gonzalez ",
+" gender ": " female ",
+" birthdate ": "15th , June , 1999 ",
+" residence ": "53, Bayside street , Clarksville ",
+" ethnicity ": " Hispanic ",
+" occupation ": " Senior Inspector , Clarksville Tax Department "
+},
+" defenseLawyer ": {
+" name ": "M. Smith ",
+" lawFirm ": " Clarksville Legal Associates "
+},
+" caseProcess ": [
+{
+" event ": " Case Filing and Investigation ",
+" date ": "1st March 2023 "
+},
+{
+" event ": " Detention Measures Taken ",
+" date ": "5th March 2023 "
+},
+{
+" event ": " Criminal Detention ",
+" date ": "10 th March 2023 "
+},
+{
+" event ": " Arrest ",
+" date ": "12 th March 2023 "
+}
+],
+" criminalFacts ": [
+{
+" crimeName ": " Crime of Bending the Law for Personal Gain ",
+" details ": [
+{
+" timePeriod ": " January 2022 - December 2022 ",
+" behavior ": "J. Gonzalez utilized her position as Senior Inspector in ... ",
+" evidence ": " Email correspondences between J. Gonzalez and ... "
+}
+...
+]
+}
+],
+" legalProcedure ": {
+" judgmentDate ": "15 th May 2023 ",
+" judgmentResult ": [
+{
+" crimeName ": " Crime of Bending the Law for Personal Gain ",
+" sentence ": "5 years of fixed - term imprisonment ",
+" sentencingConsiderations ": " The defendant ’s position of trust ... "
+}
+]
+}
+}
+Figure 8: A config example of Law domain.
+14
+
+{
+" qa_fact_based ": [
+{
+" Question Type ": " Factual Question ",
+" Question ": " According to the court judgment of Ashton , Clarksville , Court , what was the
+judgment date ?",
+" ref ": [
+" Date of Judgment : 15 th May 2023 "
+],
+" Answer ": "15 th May 2023. "
+}
+],
+" qa_multi_hop ": [
+{
+" Question Type ": "Multi - hop Reasoning Question ",
+" Question ": " According to the judgment of Ashton , Clarksville , Court , how many instances
+of bending the law for personal gain did J. Gonzalez commit ?",
+" ref ": [
+" The Crime of Bending the Law for Personal Gain by the defendant , J. Gonzalez ,
+occurred over a span of one year , from January 2022 to December 2022. ",
+" During this period , J. Gonzalez exploited her position as a Senior Inspector within
+the Clarksville Tax Department to manipulate tax audits , reports , and reduce penalty fees for
+several conspiring local businesses in exchange for substantial financial bribes .",
+"In March 2022 , J. Gonzalez revised the tax records for Sunrise Construction Inc .,
+drastically reducing their tax liability after receiving a bribe of $50 ,000. ",
+"In exchange for $30 ,000 , J. Gonzalez facilitated the undue reduction of penalty
+fees levied on Downtown Boutique Ltd . for late tax submissions .",
+" The most egregious of the offenses occurred in November 2022 , when J. Gonzalez
+disclosed sensitive and confidential information about ongoing tax investigations to executives
+at Riven Pharmaceuticals , securing a bribe of $45 ,000. "
+],
+" Answer ": " According to the judgment , J. Gonzalez committed four instances of bending
+the law for personal gain : manipulating tax audits and reports , altering tax records , reducing
+penalty fees , and providing confidential information ."
+}
+],
+" qa_summary ": [
+{
+" Question Type ": " Summary Question ",
+" Summary Content ": " Facts of the crime ",
+" Question ": " According to the judgment of Ashton , Clarksville , Court , summarize the
+facts of J. Gonzalez ’s crimes .",
+" ref ": [
+" The Crime of Bending the Law for Personal Gain by the defendant , J. Gonzalez ,
+occurred over a span of one year , from January 2022 to December 2022. ",
+" During this period , J. Gonzalez exploited her position as a Senior Inspector within
+the Clarksville Tax Department to manipulate tax audits , reports , and reduce penalty fees for
+several conspiring local businesses in exchange for substantial financial bribes .",
+"In March 2022 , J. Gonzalez revised the tax records for Sunrise Construction Inc .,
+drastically reducing their tax liability after receiving a bribe of $50 ,000. ",
+"In exchange for $30 ,000 , J. Gonzalez facilitated the undue reduction of penalty
+fees levied on Downtown Boutique Ltd . for late tax submissions .",
+" The most egregious of the offenses occurred in November 2022 , when J. Gonzalez
+disclosed sensitive and confidential information about ongoing tax investigations to executives
+at Riven Pharmaceuticals , securing a bribe of $45 ,000. "
+],
+" Answer ": "J. Gonzalez , a Senior Inspector at the Clarksville Tax Department , committed
+the crime of bending the law for personal gain . From January 2022 to December 2022 , she
+manipulated tax audits and reports in exchange for bribes from multiple local businesses . In
+March 2022 , she altered tax records to reduce the tax liability for Sunrise Construction Inc .
+after receiving $50 ,000. In August 2022 , she reduced penalty fees for late tax submission of
+Downtown Boutique Ltd . in exchange for $30 ,000. In November 2022 , she provided confidential
+information about ongoing tax investigations to Riven Pharmaceuticals in exchange for $45 ,000. "
+}
+]
+}
+Figure 9: A QAR example of Law domain.
+15
+
+Table 6: RAG Question Types and Their Definitions
+Question Type Definition
+Single-document QA
+Factual Questions targeting specific details within a reference (e.g., a company’s
+profit in a report, a verdict in a legal case, or symptoms in a medical
+record) to test RAG’s retrieval accuracy.
+Summarization Questions that require comprehensive answers, covering all relevant
+information, to mainly evaluate the recall rate of RAG retrieval.
+Multi-hop Reasoning Questions that involve logical relationships among events and details
+within a document, forming a reasoning chain, to assess RAG’s logical
+reasoning ability.
+Multi-document QA
+Information Integration Questions that need information from two documents combined, typically
+containing distinct information fragments, to test cross-document retrieval
+accuracy.
+Numerical Comparison Questions requiring RAG to find and compare data fragments to draw
+conclusions, focusing on the model’s summarizing ability.
+Temporal Sequence Questions requiring RAG to determine the chronological order of events
+from information fragments, testing the model’s temporal reasoning skills.
+Unanswerable Questions
+Unanswerable Questions arising from potential information loss during the schema-to-
+article generation, where no corresponding information fragment exists
+or the information is insufficient for an answer.
+16
+

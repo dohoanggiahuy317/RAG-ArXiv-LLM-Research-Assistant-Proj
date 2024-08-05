@@ -1,0 +1,1130 @@
+DERA: Dense Entity Retrieval for Entity Alignment in Knowledge Graphs
+Zhichun Wang andXuan Chen
+Beijing Normal University, Beijing, China
+zcwang@bnu.edu.cn
+Abstract
+Entity Alignment (EA) aims to match equiv-
+alent entities in different Knowledge Graphs
+(KGs), which is essential for knowledge fu-
+sion and integration. Recently, embedding-
+based EA has attracted significant atten-
+tion and many approaches have been pro-
+posed. Early approaches primarily focus on
+learning entity embeddings from the struc-
+tural features of KGs, defined by relation
+triples. Later methods incorporated entities’
+names and attributes as auxiliary informa-
+tion to enhance embeddings for EA. How-
+ever, these approaches often used different
+techniques to encode structural and attribute
+information, limiting their interaction and
+mutual enhancement. In this work, we
+propose a dense entity retrieval framework
+for EA, leveraging language models to uni-
+formly encode various features of entities
+and facilitate nearest entity search across
+KGs. Alignment candidates are first gen-
+erated through entity retrieval, which are
+subsequently reranked to determine the final
+alignments. We conduct comprehensive ex-
+periments on both cross-lingual and mono-
+lingual EA datasets, demonstrating that our
+approach achieves state-of-the-art perfor-
+mance compared to existing EA methods.
+1 Introduction
+Knowledge Graphs (KGs) represent structured in-
+formation of entities in various domains, which
+facilitates machines to handle domain knowledge.
+Most published KGs, such as YAGO(Rebele et al.,
+2016), DBpedia(Bizer et al., 2009), and Wiki-
+Data(Vrande ˇci´c and Krötzsch, 2014), are hetero-
+geneous because they are either built from differ-
+ent data sources or by different organizations us-
+ing varying terminologies. To integrate knowledge
+in separate KGs, it is essential to perform Entity
+Alignment (EA), which aims to discover equiva-
+lent entities in different KGs.The problem of EA has been studied for years
+and many approaches have been proposed. Early
+EA approaches rely on manually designed fea-
+tures to compute similarities of entities(Noy et al.,
+2017). Recently, embedding-based EA has at-
+tracted much attention, many approaches have
+been proposed and achieved promising perfor-
+mance. These approaches first embed enti-
+ties in low-dimensional vector spaces, and then
+discover entity alignments based on distances
+of entity embeddings. There are mainly two
+paradigms of KG embedding, translation-baed
+methods and Graph Neural Network(GNN)-based
+methods. Translation-based methods learn entity
+embeddings using TransE or its extended models,
+including MTransE(Chen et al., 2017), JAPE(Sun
+et al., 2017), and BootEA(Sun et al., 2018), etc.
+GNN-based methods learn neighborhood-aware
+representations of entities by aggregating features
+of their neighbors, such approaches include GCN-
+Align(Wang et al., 2018), MuGNN(Cao et al.,
+2019), and AliNet(Sun et al., 2020a), etc.
+Early embedding-based methods focus on struc-
+ture embedding of KGs, to further improve the
+EA results, some latter approaches explore en-
+tities’ names and attributes as side information
+to enhance the entity embeddings. Names and
+attribute values are encoded by using character
+or word embedding techniques, for example in
+MultiKE(Zhang et al., 2019), AttrGNN(Liu et al.,
+2020) and CEA(Zeng et al., 2020), etc. Most re-
+cently, pre-trained language models (PLMs) have
+also been used to encode the names and attribute
+values, such as in BERT-INT(Tang et al., 2020),
+SDEA(Zhong et al., 2022).
+Although continuous progress has been
+achieved in recently years, we find that there lacks
+a unified and effective way to encode all kinds
+of information of entities for EA. Most of the
+existing approaches encode structure information
+(relations) and attribute information (names,arXiv:2408.01154v1  [cs.CL]  2 Aug 2024
+
+attributes, and descriptions, etc.) separately. Two
+kinds of information are encoded in different
+spaces, which are integrated before matching
+entities. Such EA paradigm faces both structure
+heterogeneity and attribute heterogeneity prob-
+lems, which hinders their mutual enhancement.
+Recently, the emergence of pre-trained lan-
+guage models has significantly enhanced the qual-
+ity of text embeddings, proving highly effective
+in information retrieval, question answering and
+retrieval-augmented language modeling. Inspired
+by the recent development of embedding-based
+IR (dense retrieval), where relevant answers to a
+query are retrieved based on their embedding sim-
+ilarities, we formalize entity alignment in KGs as
+an entity retrieval problem. To find equivalent en-
+tities of two KGs, entities in one KG are used as
+queries to retrieval the most similar entities in the
+other KG. In this entity retrieval framework, dif-
+ferent kinds of entities’ information can be uni-
+formly represented in textual forms, and we can
+leverage the advance of language models in em-
+bedding and searching similar entities.
+More specifically, we make the following con-
+tributions in this work:
+• We formalize the EA problem as an en-
+tity retrieval task, and propose a language
+model based framework for this task. Within
+this framework, entities’ information are uni-
+formly transformed into textual descriptions,
+which are then encoded by language model
+based embedding model for nearest entity
+search between KGs.
+• We propose an entity verbalization model
+to generate homogenous textual descriptions
+of entities from their heterogeneous triples.
+We build a synthetic triple-to-text dataset by
+prompting GPT, which is used for effective
+training the verbalization model.
+• We design embedding models for entity re-
+trieval and alignment reranking. The embed-
+ding model for entity retrieval encodes enti-
+ties independently, which can efficiently find
+alignment candidates; the embedding model
+for alignment reranking encodes features of
+entity pairs, which captures the interactions
+of entities and guarantees the precision of
+alignments.
+• We conduct comprehensive experiments on
+five datasets, and compare our approach withthe existing EA approaches. The results show
+that our approach achieves state-of-the-art re-
+sults.
+The rest of this paper is organized as follows:
+Section 2 covers the preliminaries of our work,
+Section 3 details our proposed approach, Section
+4 presents the experiments, Section 5 discusses re-
+lated work, and Section 6 provides the conclusion.
+2 Preliminaries
+In this section, we introduce the problem of entity
+alignment in knowledge graphs, and formalize the
+task of dense entity retrieval for EA.
+2.1 KG and Entity Alignment
+Knowledge Graph (KG). KGs represent struc-
+tural information about entities as triples having
+the form of ⟨s, p, o⟩. A triple can be relational or
+attributional, a relational triple describes certain
+kind of relation between entities, and an attribu-
+tional triple describes an attribute of an entity. In
+this work, we consider both relational and attribu-
+tional triples in KGs. Formally, we represent a KG
+asG= (E, R, A, L, T ), where E,R,AandLare
+sets of entities, relations, attributes, and literals;
+T⊆(E×R×E)∪(E×A×L)is the sets of
+triples.
+Entity Alignment (EA). Given two KGs Gsand
+Gt, and a set of pre-aligned entity pairs S=
+{(u, v)|u∈Gs, v∈Gt, u≡v}(≡denotes
+equivalence), the task of entity alignment is to find
+new equivalent entity pairs between GsandGt.
+2.2 Dense Entity Retrieval
+In this work, we formalize EA as an entity re-
+trieval task. Given a source KG Gsand a target
+KGGt, entity retrieval aims to, for each entity
+s∈Gs, return a ranked list of k most similar en-
+tities [t1, t2, ..., t k]inGt. The top-ranked entity t1
+is considered as be equivalent to the source entity
+s, i.e.s≡t1.
+To achieve accurate entity retrieval, LM-based
+embedding models are leveraged in our approach
+
+is considered as be equivalent to the source entity
+s, i.e.s≡t1.
+To achieve accurate entity retrieval, LM-based
+embedding models are leveraged in our approach
+to encode entities into dense vectors, and the sim-
+ilarities of entities are computed using their vec-
+tors:
+f(s, t) = sim( ϕ(s), ψ(t)) (1)
+where ϕ(·)∈Rdandψ(·)∈Rdare encoders
+mapping the source and target entities into d-
+dimensional vector space, respectively. In this
+
+Figure 1: Framework of DERA.
+work, we will use the same encoder for source and
+target entities, and use dot-product for computing
+the similarity of entities.
+3 Method
+In this section, we present the proposed EA frame-
+work DERA (Dense Entity Retrieval for entity
+Alignment), which is shown in Figure 1. Given
+two KGs to be aligned, DERA works in three main
+stages. (1) Entity Verbalization (EV) : this stage
+converts heterogeneous triples of entities into ho-
+mogeneous natural language descriptions. Re-
+lations and attributes expressed in different lan-
+guages will also be converted into one language.
+(2) Entity Retrieval (ER) : entities’ textual de-
+scriptions are encoded in the same vector space.
+Entities are indexed using their embeddings, simi-
+lar entities are retrieved based on embedding sim-
+ilarity to obtain alignment candidates. (3) Align-
+ment Reranking (AR) : candidate alignments are
+further reranked by an reranking model to produce
+the final results.
+3.1 Entity Verbalization
+The purpose of entity verbalization is to convert
+relational and attribute triples of entities into tex-
+tual descriptions in one language, which can be
+well encoded by a language model based embed-
+ding model. Given an entity ein a KG, let Ne=
+{(ri, ei)}k
+i=1be the set of neighbors and associ-
+ated relations of entity e,Le={(aj, vj)}m
+j=1be
+the set of attributes and values of entity e; here ei
+is an entity and riis the relation connecting two
+entities, vjis the value of ajofe. Entity ver-balization can be formally defined as a mapping
+g(Ne,Le)→se, where seis the textual sequence
+ofe.
+To get high-qualified verbalization results, we
+train a generative language model which takes
+triples as input context and generate textual de-
+scriptions as outputs. More specifically, we take
+open Large Language Models (LLMs) as base
+models, and build triple-to-text dataset to fine-tune
+base models.
+Dataset Building. The triple-to-text dataset is
+built by instructing the GPT4 using a designed
+prompt template, which is shown in Figure 2.
+There are four parts in the prompt: (1) The first
+part is an instruction prefix to describe the task
+of generating triples of entities of specified type;
+we predefined 25 common entity types, includ-
+ing person, organization, movie, disease, etc. (2)
+The second part tells the model to generate a short
+and precise description of the generated triples;
+(3) The third part specifies the formates of gener-
+ated triples and textual descriptions; (4) The fourth
+parts gives an example to the model.
+Using the above prompt, we build a dataset con-
+tain triples and textual descriptions of 18,572 enti-
+ties.
+Model Training. Using the generated dataset, we
+fine-tune the LLMs with the next word predic-
+tion task, which is a universal approach to training
+LLMs. For an entity, given the sequence of triples
+x= (e, r1, e1, ..., r k, ek, a1, v1, ..., a m, vm)and
+its target textual description y= (y1, y2, . . . , y n),
+the training objective of EV model can be formu-
+
+Figure 2: Prompt for Building Training Dataset for En-
+tity Verbalization Model.
+lated as:
+LEV=−1
+nnX
+t=1logP(yt|x, y<t;θ) (2)
+where nis the length of y,yt(t= 1,2, ..., n )de-
+notes the textual tokens of the sequence y,θrep-
+resents the model parameters.
+In this work, we choose LLMs of 7B size as
+the base models of EV . More specifically, Mistral-
+7B-Instruct-v0.2(Jiang et al., 2023) and Qwen1.5-
+7B-Chat(Bai et al., 2023) are used because they
+have excellent performances in small-size LLMs.
+QWen is used for EA tasks involving Chinese lan-
+guage, because it has great ability of handling Chi-
+nese texts. In the other EA tasks, Mistral model is
+used in EV stage. EV models are trained inde-
+pendent of specific EA tasks, once two EV models
+have been trained, their parameters are frozen and
+will not be changed in the following two stages.
+3.2 Entity Retrieval
+In this stage, entity embedding model is trained
+to encode entity descriptions into vector space,
+where entities are close to their equivalent counter-
+parts. Using the entity embedding results, align-
+ment candidates are produced based on embed-
+ding similarities of entities. In this work, we use a
+text embedding model as the basis, and fine-tune
+it with pre-aligned entities to further improve the
+embedding quality. More specifically, BGE(Chenet al., 2024) embedding model is used here be-
+cause it achieves state-of-the-art performances on
+multilingual and cross-lingual retrieval tasks.
+Model Training. As defined in Section 2.2, the
+similarity of two entities sandtis computed as
+the doc product of their embeddings:
+f(u, v) =ϕ(u)·ϕ(v). (3)
+Here ϕ(·)∈Rddenotes the entity embedding
+model which maps the entity into d-dimensional
+vector space. Given a set of seed alignments
+S={(u, v)|u∈Gs, v∈Gt, u≡v}, the en-
+tity embedding model in our approach is trained
+by minimizing the following contrastive loss:
+LER=−X
+(u,v)∈Slogef(u,v)
+ef(u,v)+P
+v′∈Nuef(u,v′)(4)
+where Nuis a set of negative (inequivalent) enti-
+ties for u.
+Candidate Selection. After the entity embedding
+model is trained, all the entities in two KGs can be
+encoded as vectors in the same space. Then candi-
+date alignments are obtained by using each source
+entity to retrieval nearest target entities based on
+their embeddings. More specifically, for each
+source entity u∈Gs, a set of top-k nearest target
+entities in Gtare retrieved, which are candidate
+alignments u, denoted as Vu.
+3.3 Alignment Reranking
+In the entity retrieval stage, entities’ descriptions
+are encoded independently from each other. To
+further improve the EA results, we design an
+alignment reranking model which capture the in-
+teractions of entities’ features. Here a reranker
+built upon BERT is trained, which takes features
+of two entities as inputs, and predict the fine-
+grained similarities of entity pairs. Entity pairs are
+restricted to the candidates generated by the entity
+retrieval stage, which helps our approach to con-
+trol the computation costs in alignment reranking.
+LetC={(uj, Vuj)}l
+j=1be the alignment can-
+didates, where ujis a source entity and Vujis the
+set of its candidate equivalent entities. We con-
+struct a dataset for training our alignment rerank-
+ing model, let it be R={(uj, vj, Nj)}l
+j=1, where
+(uj, vj)∈Sis the pre-aligned entity pair and
+Nj=Vuj/{vj}is the set of candidate entities that
+are not equivalent to uj. The reranking model is
+trained by minimizing the following loss:
+
+LAR=−X
+(uj,vj,Nj)∈Rlogeδ(uj,vj)
+eδ(uj,vj)+P
+v′
+k∈Njeδ(uj,v′
+k)
+(5)
+Here δ(u, v)is the similarity score computed by
+the reranking model based on the inputs of two
+entities:
+δ(u, v) = MLP 
+BERT [CLS] (du, dv)
+(6)
+where duanddvrepresent the textual descriptions
+ofuandv, respectively.
+4 Experiments
+4.1 Datasets
+Datasets. To evaluate the performance of our ap-
+proach, we conduct experiments on both cross-
+lingual and monolingual datasets, including:
+• DBP15K(Sun et al., 2017) contains three
+cross-lingual EA datasets build from DB-
+pedia, including Chinese-English (ZH-EN),
+Japanese-English (JA-EN), and French-
+English (FR-EN).
+• D-W-15K(Sun et al., 2020b) is a monolin-
+gual EA dataset built from DBpedia and
+Wikipedia by using an iterative degree-based
+sampling method. Compared with DBP15K,
+D-W-15K contains KGs that are more like
+real-world ones.
+• MED-BBK-9K(Zhang et al., 2020) is a
+dataset built from two medical knowledge
+graphs, containing triples on diseases, symp-
+toms, drugs, and diagnosis methods. It poses
+a more complex and realistic scenario for EA
+compared to traditional datasets like DBpe-
+dia.
+Table 1 shows the detailed statistics of these
+datasets.
+4.2 Training Details
+We train the Entity Verbalization (EV), Entity Re-
+trieval (ER), and Alignment Reranking (AR) mod-
+els sequentially.
+EV Model. In the training of EV model, we em-
+ploy Deepspeed1with a context window length
+of 2048, the learning rate is set to 9.65e−
+1https://github.com/microsoft/
+DeepSpeedExamples6, and the batch size is 24 per GPU. For the
+base language models, we use Qwen1.5-7B-
+Chat(Bai et al., 2023) for DBP15K ZH-EN and
+MED-BBK-9K datasets, and use Mistral-7B-
+Instruct-v0.2(Jiang et al., 2023) for DBP15K JA-EN ,
+DBP15K FR-EN , and D-W-15K datasets. Gradient
+accumulation is set to 1. To optimize memory us-
+age and computation speed, we utilize Zero-Stage-
+3(Rajbhandari et al., 2020), gradient checkpoint-
+ing(Chen et al., 2016), and flash attention 2(Dao,
+2023). The model is trained on 8 NVIDIA A800
+GPU for 3 epochs using the AdamW optimizer.
+ER Model. In the training of ER model, for each
+positive entity, 64 negative entities are randomly
+sampled from the top-200 nearest ones. The learn-
+ing rate is set to 1e−5, and the batch size to 16.
+We utilize distributed negative sample sharing and
+gradient checkpointing(Chen et al., 2016), evalu-
+ate the model every 20 steps and saving the best
+model based on the MRR metric on the validation
+set. Training is performed on 2 NVIDIA A800
+GPUs for 5 epochs.
+AR Model. In the training of AR model, for each
+positive entity, 110 negative entities are randomly
+sampled from the top-200 nearest ones. The max-
+imum text length is set to 512; the learning rate to
+1e−5, and the batch size to 12 per GPU. Gra-
+dient accumulation steps are set to 8. We en-
+able gradient checkpointing, evaluate the model
+every 10 steps, and save the best model based on
+the Hits@1 metric on the validation set. Train-
+ing is carried out on 2 NVIDIA A800 GPUs for 5
+epochs.
+4.3 Results on DBP15K
+We compare our approach with four groups of
+baselines on DBP15K datasets, which are catego-
+rized by the used side information: (1) approaches
+using attributes as side information, including
+JAPE(Sun et al., 2017), GCN-Align(Wang et al.,
+2018), JarKA(Chen et al., 2020); (2) approaches
+using entity names as side information, including
+GMNN(Xu et al., 2019), SelfKG(Liu et al., 2022)
+and TEA-NSP, TEA-MLM(Zhao et al., 2023); (3)
+approaches using attributes and names as side in-
+formation, including HMAN(Yang et al., 2019),
+AttrGNN(Liu et al., 2020), BERT-INT(Tang et al.,
+2020), ICLEA(Zeng et al., 2022) and TEA-NSP,
+TEA-MLM(Zhao et al., 2023); (4) approaches
+using translated entity names as side informa-
+tion, including HGCN-JE(Wu et al., 2019b),
+
+Table 1: Statistics of Experimental Datasets
+Dataset Language Entities Relations Attributes Rel. Triples Attr. Triples
+DBP15K ZH-ENZH 19,388 1,701 8,113 70,414 379,684
+EN 19,572 1,323 7,173 95,142 567,755
+DBP15K JA-ENJA 19,814 1,299 5,882 77,214 354,619
+EN 19,780 1,153 6,066 93,484 497,230
+DBP15K FR-ENFR 19,661 903 4,547 105,998 354,619
+EN 19,993 1,208 6,422 115,722 497,230
+D-W-15K-V2EN 15,000 167 175 73,983 66,813
+EN 15,000 121 457 83,365 175,686
+MED-BBK-9KZH 9,162 32 19 158,357 11,467
+ZH 9,162 20 21 50,307 44,987
+RDGCN(Wu et al., 2019a), NMN(Wu et al.,
+2020), DATTI(Mao et al., 2022a), SEU(Mao et al.,
+2021), EASY(Ge et al., 2021), CPL(Ding et al.,
+2022), UED(Luo and Yu, 2022) and LigthEA(Mao
+et al., 2022b). Our approach is compared to base-
+lines in each group using the same inputs as them.
+Table 2 outlines the results of all the approaches
+on DBP15K datasets. The best results in each
+group are highlighted in boldface, the second best
+results are highlighted with underlines.
+Attributes as Side Information. Approaches in
+this group align entities based on relations and at-
+tributes in KGs. Compared with approaches in
+this group, our approach obtains significantly bet-
+ter results, with average improvements of 25.3%
+of Hits@1 and 20.7% of MRR over the second
+best approach on three datasets.
+Names as Side Information. Approaches in this
+group use entity names and relations to discover
+equivalent entities. Our approach gets the best
+results of Hits and MRR on ZH-EN and FR-EN
+datasets, it obtains 1.5% and 1.4% improvements
+of Hits@1 over the second best approach TEA-
+MLM. While on the JA-EN dataset, TEA-NSP
+gets slightly better results than ours.
+Names and Attributes as Side Information.
+When using both names and attributes, our ap-
+proach still obtain top-ranked results. Except for
+the Hits@10 on JA-EN and Hits@1 on FR-EN
+datasets, our approach gets the best results among
+all the compared approaches in this group.
+Translated Names as Side Information. Ap-
+proaches in this group use machine translation
+tool to convert non-English names into English
+ones, and takes translated names as side informa-
+tion. Some of the approaches (annotated with†)in this group also employ optimal transport strate-
+gies to draw final alignments from entity similari-
+ties, which can effectively promote the results. To
+be fairly compared with these approach, we also
+report the results of our approach with the optimal
+transport strategy. According to the results, our
+approach gets the best results among all the ap-
+proaches in this group. Among approaches with-
+out optimal transport strategies, our approach also
+gets the best results.
+4.4 Results of Hard Setting on DBP15K
+In the work of AttrGNN(Liu et al., 2020), a hard
+setting of evaluations on DBP15K was proposed.
+The purpose of this hard setting is to build more
+difficult testing set on DBP15K. Specifically, sim-
+ilarities of equivalent entities in the datasets are
+first measured using embeddings of their names,
+60% entity pairs with the lowest similarities are
+selected as the testing set, and the remaining en-
+tity pairs are randomly split into training set (30%)
+and validation set (10%).
+Table 3 shows that results of hard setting on
+DBP15K. Our approach is compared with eight
+baselines, including JAPE (Sun et al., 2017),
+BootEA(Sun et al., 2018), GCN-Align(Wang
+et al., 2018), MuGNN(Cao et al., 2019), Mul-
+tiKE(Zhang et al., 2019), RDGCN(Wu et al.,
+2019a), AttrGNN(Liu et al., 2020), and FG-
+WEA(Tang et al., 2023). According to the re-
+sults, our approach DERA gets the best Hits and
+MRR on all of the three datasets. Figure 3 com-
+pares the Hits@10 of approaches in regular set-
+ting and hard setting on DBP15K ZH_EN . All the
+baselines have significant decreases of Hits@10,
+while DERA (using names and attributes as side
+
+Table 2: Results on DBP15K Datasets
+Info. ModelDBP15K-ZH-EN DBP15K-JA-EN DBP15K-FR-EN
+Hits@1 Hits@10 MRR Hits@1 Hits@10 MRR Hits@1 Hits@10 MRRAttributesJAPE 0.412 0.745 0.490 0.363 0.685 0.476 0.324 0.667 0.430
+GCN-Align 0.413 0.744 0.549 0.399 0.745 0.546 0.373 0.745 0.532
+JarKA 0.706 0.878 0.766 0.646 0.855 0.708 0.704 0.888 0.768
+DERA(Ours) 0.946 0.982 0.961 0.921 0.959 0.937 0.949 0.985 0.964NamesGMNN 0.679 0.785 – 0.740 0.872 – 0.894 0.952 –
+SelfKG 0.745 0.866 – 0.816 0.913 – 0.957 0.992 –
+TEA-NSP 0.815 0.953 0.870 0.890 0.967 0.920 0.968 0.995 0.980
+TEA-MLM 0.831 0.957 0.880 0.883 0.966 0.910 0.968 0.994 0.980
+DERA(Ours) 0.846 0.962 0.900 0.866 0.951 0.889 0.980 0.996 0.987Names & AttributesHMAN 0.871 0.987 – 0.935 0.994 – 0.973 0.998 –
+AttrGNN 0.796 0.929 0.845 0.783 0.921 0.834 0.919 0.978 0.910
+BERT-INT 0.968 0.990 0.977 0.964 0.991 0.975 0.992 0.998 0.995
+ICLEA 0.884 0.972 – 0.924 0.978 – 0.991 0.999 –
+TEA-NSP 0.941 0.983 0.960 0.941 0.979 0.960 0.979 0.997 0.990
+TEA-MLM 0.935 0.982 0.950 0.939 0.978 0.950 0.987 0.996 0.990
+DERA(Ours) 0.968 0.994 0.979 0.967 0.992 0.978 0.989 0.999 0.995Translated NamesHGCN-JE 0.720 0.857 – 0.766 0.897 – 0.892 0.961 –
+RDGCN 0.708 0.846 0.746 0.767 0.895 0.812 0.886 0.957 0.911
+NMN 0.733 0.869 – 0.785 0.912 – 0.902 0.967 –
+DERA(Ours) 0.930 0.982 0.950 0.917 0.978 0.941 0.972 0.995 0.982
+DATTI†0.890 0.958 – 0.921 0.971 – 0.979 0.990 –
+SEU†0.900 0.965 0.924 0.956 0.991 0.969 0.988 0.999 0.992
+EASY†0.898 0.979 0.930 0.943 0.990 0.960 0.980 0.998 0.990
+CPL-OT†0.927 0.964 0.940 0.956 0.983 0.970 0.990 0.994 0.990
+UED†0.915 – – 0.941 – – 0.984 – –
+LightEA†0.952 0.984 0.964 0.981 0.997 0.987 0.995 0.998 0.996
+DERA†(Ours) 0.985 0.997 0.990 0.994 0.999 0.996 0.996 0.999 0.997
+Approaches with†employ optimal transport strategy.
+information) has only 0.1% decrease, showing its
+remarkable robustness.
+4.5 Results on DW-15K and MED-BBK-9K
+DW15K and MED-BBK-9K are two challenging
+datasets of entity alignment. DW-15K is built
+from Wikipedia, where entity names are replaced
+with ids; there are also significant missing and
+corrupted attribute values. The dataset of MED-
+BBK-9K is built from an authoritative medical
+KG and a KG built from a Chinese online ency-
+clopedia (Baidu Baike); many entities in MED-
+BBK-9K lack names and attributes, which makes
+the EA task more difficult. We compared our
+approach with seven approaches, three of them
+are probabilistic ones including LogMap(Jiménez-
+Ruiz and Cuenca Grau, 2011), PARIS(Suchanek
+et al., 2011), and PRASE(Qi et al., 2021); four
+of them are embedding-based ones including Mul-
+tiKE(Zhang et al., 2019), BootEA(Sun et al.,
+2018), RSNs(Guo et al., 2019) and FGWEA(Tanget al., 2023). Following the same evaluation set-
+tings of SOTA approaches on these two datasets,
+we report the Precision, Recall and F1 of all the
+compared approaches.
+Table 4 outlines the results. Our approach
+DERA obtains 98.2% and 84.1% F1 scores on
+D-W-15K-V2 and MED-BBK-9K, respectively.
+Compared to the former best approach FGWEA,
+DERA gets 5.5% and 1.8% improvements of F1
+scores on two datasets, respectively. It demon-
+strates DERA’s superior performances on difficult
+EA tasks.
+4.6 Ablation Study
+To analyze the effectiveness and contribution of
+each component in the proposed approach, we
+conduct ablation studies on DBP15K datasets. We
+ran two groups of experiments, one group uses at-
+tributes as side information, and the other group
+uses both names and attributes as side information.
+In each group, we ran three variations of DERA: 1)
+
+Figure 3: Hits@10 (%) of approaches under the regular setting and the hard setting on DBP15k.
+Table 3: Results of Hard Setting on DBP15K
+ModelDBP15K-ZH-EN DBP15K-JA-EN DBP15K-FR-EN
+Hits1 Hits10 MRR Hits1 Hits10 MRR Hits1 Hits10 MRR
+JAPE 0.350 0.566 0.451 0.311 0.520 0.410 0.253 0.483 0.361
+BootEA 0.513 0.746 0.593 0.493 0.746 0.578 0.513 0.769 0.603
+GCN-Align 0.366 0.647 0.464 0.339 0.653 0.448 0.303 0.637 0.414
+MuGNN 0.406 0.746 0.521 0.399 0.753 0.515 0.407 0.783 0.531
+MultiKE 0.279 0.352 0.306 0.482 0.557 0.509 0.647 0.695 0.665
+RDGCN 0.604 0.766 0.662 0.682 0.838 0.737 0.829 0.931 0.866
+AttrGNN 0.662 0.818 0.719 0.774 0.903 0.821 0.886 0.956 0.912
+FGWEA 0.756 0.868 0.796 0.788 0.897 0.828 0.983 0.997 0.988
+DERA(Ours) 0.967 0.993 0.977 0.959 0.992 0.973 0.987 1.000 0.993
+DEAR without EV module, triples of entities are
+directly serialized to generate inputs of ER mod-
+ule; 2) DERA without AR module, the final align-
+ments are returned based on the similarities com-
+puted by ER module; 3) DERA without EV and
+AR module. The results of the above variations
+of DERA are compared to the original version of
+DERA, changes in results are shown in small num-
+bers after the results.
+Table 5 shows the results of ablation study. Ac-
+cording to the results, we have the following ob-
+servations:
+(1) Removing the EV module in DERA leads
+to average 1.6% decrease of Hits@1 and 1.5% de-
+crease of MRR when using attributes as side infor-
+mation. The average decreases become 3.6% of
+Hits@1 and 3.2% of MRR when using attributes
+and names as side information. It shows that EV
+module has positive effects on the EA results. The
+performance decreases more on ZH-EN and JA-
+EN datasets, where the involving languages are
+more different than the FR-EN dataset. It indicatesthat EV module is important in handling language
+heterogeneity in EA tasks.
+(2) Removing the ER module in DERA leads
+to average 1.3% decrease of Hits@1 and 1.0%
+of MRR when using attributes on three datasets.
+If attributes and names are all used as side in-
+formation, DERA without AR module gets 1.5%
+decrease of Hits@1 and 1.1% decrease of MRR
+on ZH-EN and JA-EN datasets, 0.2% and 0.1%
+improvements of Hits@1 and MRR on FR-EN
+dataset. It shows that AR module works more ef-
+fectively on EA tasks with high heterogeneity and
+linguistic differences. When the alignment results
+are already good enough (e.g. >99% Hits@1 on
+FR-EN dataset), it is difficult for AR module to
+further improve the results.
+(3) Removing both AR and RR modules in
+DERA leads to significant performance drops on
+all the datasets, there are average 4.7% decrease
+of Hits@1 and 3.9% decrease of MRR when at-
+tributes are used as side information. The de-
+creases become 8.3% of Hits@1 and 6.8% of
+
+Table 4: Results on DW-15K and MED-BBK-9K Datasets
+ModelDW-15K-V2 MED-BBK-9K
+Precision Recall F1 Precision Recall F1
+LogMap – – – 86.4 44.1 58.4
+PARIS 95.0 85.0 89.7 77.9 36.7 49.9
+PRASE 94.8 90.0 92.3 83.7 61.9 71.1
+MultiKE 49.5 49.5 49.5 41.0 41.0 41.0
+BootEA 82.1 82.1 82.1 30.7 30.7 30.7
+RSNs 72.3 72.3 72.3 19.5 19.5 19.5
+FGWEA†95.2 90.3 92.7 93.9 73.2 82.3
+DERA†(Ours) 98.2 98.2 98.2 84.1 84.1 84.1
+Table 5: Results of Ablation Study
+EV ER ARDBP15K-ZH-EN DBP15K-JA-EN DBP15K-FR-EN
+Hits@1 MRR Hits@1 MRR Hits@1 MRRAttributes✓ ✓ ✓ 0.946 0.962 0.923 0.940 0.949 0.963
+×✓ ✓ 0.926 0.020↓0.943 0.019↓0.914 0.009↓0.928 0.012↓0.931 0.018↓0.948 0.015↓
+✓ ✓ × 0.927 0.019↓0.948 0.014↓0.903 0.020↓0.924 0.016↓0.948 0.001↓0.963 0.000−
+×✓× 0.892 0.054↓0.918 0.044↓0.859 0.064↓0.885 0.055↓0.927 0.022↓0.946 0.017↓Attrs.& Names✓ ✓ ✓ 0.968 0.979 0.967 0.978 0.989 0.994
+×✓ ✓ 0.926 0.042↓0.945 0.034↓0.909 0.058↓0.923 0.055↓0.980 0.009↓0.988 0.006↓
+✓ ✓ × 0.955 0.013↓0.970 0.009↓0.950 0.017↓0.965 0.013↓0.991 0.002↑0.995 0.001↑
+×✓× 0.883 0.085↓0.911 0.068↓0.812 0.155↓0.848 0.130↓0.980 0.009↓0.988 0.006↓
+MRR when attributes and names are used. Com-
+paring with DERA variation with EV and ER
+module, DERA also have significant performance
+drops, which shows that EV module is necessary
+for obtaining good results.
+5 Related Work
+5.1 Embedding-based EA
+Embedding-based KG alignment approaches em-
+ploy TransE and GNN to learn entities’ em-
+beddings, and then find equivalent entities in
+the vector spaces. Early approaches mainly
+rely on the structure information in KGs to find
+alignments, including TransE-based approaches
+MTransE (Chen et al., 2017), IPTransE (Zhu et al.,
+2017), BootEA (Sun et al., 2018), etc, and GNN-
+based approaches MuGNN (Cao et al., 2019),
+NAEA (Zhu et al., 2019), RDGCN (Wu et al.,
+2019a) and AliNet (Sun et al., 2020a), etc. To
+get improved results, some approaches utilize en-
+tity attributes or names in KGs. JAPE (Sun
+et al., 2017) performs attribute embedding by
+Skip-Gram model which captures the correlationsof attributes in KGs. GCN-Align (Wang et al.,
+2018) encodes attribute information of entities
+into their embeddings by using GCNs. Mul-
+tiKE (Zhang et al., 2019) uses a framework uni-
+fying the views of entity names, relations and at-
+tributes to learn embeddings for aligning entities.
+CEA (Zeng et al., 2020) combines structural, se-
+mantic and string features of entities, which are
+integrated with dynamically assigned weights.
+5.2 Language Model-based EA
+As Pre-trained Language Models(PLMs) being
+successfully used in various tasks, some ap-
+proaches utilize PLMs to model the semantic in-
+formation of entities in the task of KG align-
+ment. AttrGNN(Liu et al., 2020) uses BERT
+to encode attribute features of entities. It en-
+code each attribute and value separately, and then
+uses a graph attention network to compute the
+weighted average of attributes and values. BERT-
+INT(Tang et al., 2020) embeds names, descrip-
+tions, attributes and values of entities using a
+LM; pair-wise neighbor-view and attribute-view
+interactions are performed to get the matching
+
+score of entities. The interactions are time-
+consuming, thus BERT-INT cannot scale to large
+KGs. SDEA(Zhong et al., 2022) find-tunes BERT
+to encode attribute values of an entity into attribute
+embedding; attribute embeddings of neighbors are
+fed to BiGRU to get relation embedding of an en-
+tity. TEA(Zhao et al., 2023) sorts triples in alpha-
+betical order by relations and attributes to form
+sequences, and uses a textual entailment frame-
+work for entity alignment. TEA takes entity-pair
+sequence as the input of PLM, and let the PLM
+to predict the probability of entailment. It takes
+pairwise input, cannot scale to large KGs. Au-
+toAlign(Zhang et al., 2023) gets attribute char-
+acter embeddings and predicate-proximity-graph
+embeddings by using large language models. At-
+trGNN, BERT-INT and SDEA use BERT to en-
+code attribute information of entities, and then
+employ GNNs to incorporate relation information
+into entities’ embeddings. Being different from
+these approaches, our approach directly use lan-
+guage model to encode both the attributes and re-
+lations of entities. TEA uses similar way to encode
+attribute and relation information, but it takes en-
+tity pair as input, which cannot scale to large-scale
+KG alignment tasks.
+As the advent of Large Language Models
+(LLMs), there are several approaches exploring
+LLMs for EA. LLMEA(Yang et al., 2024) fuses
+the knowledge from KGs and LLMs to predict en-
+tity alignments. It first uses RAGAT to learn en-
+tity embeddings which are used to draws align-
+ment candidates; it then uses candidate alignments
+as options to generates multi-choice questions,
+which are passed to LLMs to predict the answer.
+ChatEA(Jiang et al., 2024a) first uses Simple-
+HHEA(Jiang et al., 2024b) to obtain candidate
+alignments, and then leverages LLMs’ reasoning
+abilities to predict the final results. LLMEA and
+ChatEA all explore the reasoning abilities of LLM
+to predict entity alignments. Because the number
+of potential alignments are usually huge, they use
+exiting EA methods to generate alignment candi-
+dates, from which LLMs are used to select the fi-
+nal results. According to the results, the improve-
+ments contributed by LLMs are restricted.
+6 Conclusion
+In this paper, we propose a dense entity retrieval
+approach, DERA, for entity alignment in knowl-
+edge graphs. DERA first converts entity triplesinto unified textual descriptions using an entity
+verbalization model, and then trains a language
+model-based embedding model to encode the en-
+tities. Candidate alignments are identified based
+on their similarities in the embedding space and
+are further reranked by an alignment reranking
+model. Experiments demonstrate that DERA
+achieves state-of-the-art results on entity align-
+ment tasks of varying difficulty levels.
+Limitations
+The primary limitation of DERA is its pipelined
+framework, where models in its three stages are
+trained sequentially. Consequently, the compo-
+nent models in DERA are not optimized jointly
+during training. Exploring efficient methods for
+the joint learning of these models would be a valu-
+able direction for future work, potentially enhanc-
+ing the results further. Additionally, DERA con-
+sumes more GPU power than traditional models,
+which is another limitation.
+References
+Jinze Bai, Shuai Bai, Yunfei Chu, Zeyu Cui, Kai
+Dang, Xiaodong Deng, Yang Fan, Wenbin Ge,
+Yu Han, Fei Huang, Binyuan Hui, Luo Ji, Mei
+Li, Junyang Lin, Runji Lin, Dayiheng Liu,
+Gao Liu, Chengqiang Lu, Keming Lu, Jianxin
+Ma, Rui Men, Xingzhang Ren, Xuancheng
+Ren, Chuanqi Tan, Sinan Tan, Jianhong Tu,
+Peng Wang, Shijie Wang, Wei Wang, Sheng-
+guang Wu, Benfeng Xu, Jin Xu, An Yang, Hao
+Yang, Jian Yang, Shusheng Yang, Yang Yao,
+Bowen Yu, Hongyi Yuan, Zheng Yuan, Jian-
+wei Zhang, Xingxuan Zhang, Yichang Zhang,
+Zhenru Zhang, Chang Zhou, Jingren Zhou, Xi-
+aohuan Zhou, and Tianhang Zhu. 2023. Qwen
+technical report.
+Christian Bizer, Jens Lehmann, Georgi Kobilarov,
+Sören Auer, Christian Becker, Richard Cyga-
+
+Zhenru Zhang, Chang Zhou, Jingren Zhou, Xi-
+aohuan Zhou, and Tianhang Zhu. 2023. Qwen
+technical report.
+Christian Bizer, Jens Lehmann, Georgi Kobilarov,
+Sören Auer, Christian Becker, Richard Cyga-
+niak, and Sebastian Hellmann. 2009. Dbpedia-
+a crystallization point for the web of data. Web
+Semantics: science, services andagents onthe
+world wide web, 7(3):154–165.
+Yixin Cao, Zhiyuan Liu, Chengjiang Li, Zhiyuan
+Liu, Juanzi Li, and Tat-Seng Chua. 2019.
+Multi-channel graph neural network for entity
+alignment. In Proceedings ofthe57th Annual
+Meeting oftheAssociation forComputational
+
+Linguistics, pages 1452–1461, Florence, Italy.
+Association for Computational Linguistics.
+Bo Chen, Jing Zhang, Xiaobin Tang, Hong Chen,
+and Cuiping Li. 2020. Jarka: Modeling
+attribute interactions for cross-lingual knowl-
+edge alignment. In Advances inKnowledge
+Discovery and Data Mining, pages 845–856,
+Cham. Springer International Publishing.
+Jianlv Chen, Shitao Xiao, Peitian Zhang, Kun
+Luo, Defu Lian, and Zheng Liu. 2024. Bge m3-
+embedding: Multi-lingual, multi-functionality,
+multi-granularity text embeddings through self-
+knowledge distillation.
+Muhao Chen, Yingtao Tian, Mohan Yang, and
+Carlo Zaniolo. 2017. Multilingual knowledge
+graph embeddings for cross-lingual knowledge
+alignment. In Proceedings oftheTwenty-Sixth
+International Joint Conference onArtificial
+Intelligence (AAAI2017), pages 1511–1517.
+Tianqi Chen, Bing Xu, Chiyuan Zhang, and Carlos
+Guestrin. 2016. Training deep nets with sublin-
+ear memory cost.
+Tri Dao. 2023. Flashattention-2: Faster attention
+with better parallelism and work partitioning.
+arXiv preprint arXiv:2307.08691.
+Qijie Ding, Daokun Zhang, and Jie Yin. 2022.
+Conflict-aware pseudo labeling via optimal
+transport for entity alignment. In 2022
+IEEE International Conference onData Mining
+(ICDM), pages 915–920.
+Congcong Ge, Xiaoze Liu, Lu Chen, Baihua
+Zheng, and Yunjun Gao. 2021. Make it easy:
+An effective end-to-end entity alignment frame-
+work. In Proceedings ofthe44th International
+ACM SIGIR Conference onResearch and
+Development inInformation Retrieval, SIGIR
+’21, pages 777–786, New York, NY , USA. As-
+sociation for Computing Machinery.
+Lingbing Guo, Zequn Sun, and Wei Hu. 2019.
+Learning to exploit long-term relational depen-
+dencies in knowledge graphs. In Proceedings of
+the36th International Conference onMachine
+Learning, volume 97 of Proceedings of
+Machine Learning Research, pages 2505–2514.
+PMLR.Albert Q. Jiang, Alexandre Sablayrolles, Arthur
+Mensch, Chris Bamford, Devendra Singh Chap-
+lot, Diego de las Casas, Florian Bressand,
+Gianna Lengyel, Guillaume Lample, Lucile
+Saulnier, Lélio Renard Lavaud, Marie-Anne
+Lachaux, Pierre Stock, Teven Le Scao, Thibaut
+Lavril, Thomas Wang, Timothée Lacroix, and
+William El Sayed. 2023. Mistral 7b.
+Xuhui Jiang, Yinghan Shen, Zhichao Shi,
+Chengjin Xu, Wei Li, Zixuan Li, Jian Guo,
+Huawei Shen, and Yuanzhuo Wang. 2024a. Un-
+locking the power of large language models for
+entity alignment.
+Xuhui Jiang, Chengjin Xu, Yinghan Shen,
+Yuanzhuo Wang, Fenglong Su, Zhichao Shi,
+Fei Sun, Zixuan Li, Jian Guo, and Huawei
+Shen. 2024b. Toward practical entity align-
+ment method design: Insights from new highly
+heterogeneous knowledge graph datasets. In
+Proceedings oftheACM onWeb Conference
+2024, WWW ’24, pages 2325–2336, New York,
+NY , USA. Association for Computing Machin-
+ery.
+Ernesto Jiménez-Ruiz and Bernardo Cuenca Grau.
+2011. Logmap: Logic-based and scal-
+able ontology matching. In Proceedings
+ofthe Tenth International Semantic Web
+Conference(ISWC2011), pages 273–288.
+Xiao Liu, Haoyun Hong, Xinghao Wang, Zeyi
+Chen, Evgeny Kharlamov, Yuxiao Dong, and
+Jie Tang. 2022. Selfkg: Self-supervised entity
+alignment in knowledge graphs. In Proceedings
+oftheACM Web Conference 2022, WWW ’22,
+pages 860–870, New York, NY , USA. Associa-
+tion for Computing Machinery.
+Zhiyuan Liu, Yixin Cao, Liangming Pan, Juanzi
+Li, Zhiyuan Liu, and Tat-Seng Chua. 2020. Ex-
+ploring and evaluating attributes, values, and
+structures for entity alignment. In Proceedings
+ofthe2020 Conference onEmpirical Methods
+inNatural Language Processing (EMNLP),
+pages 6355–6364, Online. Association for
+Computational Linguistics.
+Shengxuan Luo and Sheng Yu. 2022. An accurate
+unsupervised method for joint entity alignment
+and dangling entity detection. In Findings of
+theAssociation forComputational Linguistics:
+
+ACL 2022, pages 2330–2339, Dublin, Ireland.
+Association for Computational Linguistics.
+Xin Mao, Meirong Ma, Hao Yuan, Jianchao Zhu,
+ZongYu Wang, Rui Xie, Wei Wu, and Man
+Lan. 2022a. An effective and efficient entity
+alignment decoding algorithm via third-order
+tensor isomorphism. In Proceedings ofthe
+60th Annual Meeting oftheAssociation for
+Computational Linguistics (V olume 1:Long
+Papers), pages 5888–5898, Dublin, Ireland. As-
+sociation for Computational Linguistics.
+Xin Mao, Wenting Wang, Yuanbin Wu, and
+Man Lan. 2021. From alignment to assign-
+ment: Frustratingly simple unsupervised en-
+tity alignment. In Proceedings ofthe2021
+Conference onEmpirical Methods inNatural
+Language Processing, pages 2843–2853, On-
+line and Punta Cana, Dominican Republic. As-
+sociation for Computational Linguistics.
+Xin Mao, Wenting Wang, Yuanbin Wu, and Man
+Lan. 2022b. LightEA: A scalable, robust, and
+interpretable entity alignment framework via
+three-view label propagation. In Proceedings of
+the2022 Conference onEmpirical Methods in
+Natural Language Processing, pages 825–838,
+Abu Dhabi, United Arab Emirates. Association
+for Computational Linguistics.
+Natasha Noy, Markus Nentwig, Michael Har-
+tung, Axel-Cyrille Ngonga Ngomo, and Erhard
+Rahm. 2017. A survey of current link discovery
+frameworks. Semantic Web, 8(3):419–436.
+Zhiyuan Qi, Ziheng Zhang, Jiaoyan Chen,
+Xi Chen, Yuejia Xiang, Ningyu Zhang, and
+Yefeng Zheng. 2021. Unsupervised knowl-
+edge graph alignment by probabilistic reason-
+ing and semantic embedding. In Proceedings of
+theThirtieth International Joint Conference on
+Artificial Intelligence, IJCAI-21, pages 2019–
+2025. International Joint Conferences on Artifi-
+cial Intelligence Organization. Main Track.
+Samyam Rajbhandari, Jeff Rasley, Olatunji
+Ruwase, and Yuxiong He. 2020. Zero: Memory
+optimizations toward training trillion parame-
+ter models. In SC20: International Conference
+forHigh Performance Computing, Networking,
+Storage andAnalysis, pages 1–16. IEEE.
+Thomas Rebele, Fabian M. Suchanek, Johannes
+Hoffart, Joanna Asia Biega, Erdal Kuzey,and Gerhard Weikum. 2016. Yago: A
+multilingual knowledge base from wikipedia,
+wordnet, and geonames. In Proceedings
+oftheFifteenth International Semantic Web
+Conference (ISWC2016), pages 177–185.
+Fabian M. Suchanek, Serge Abiteboul, and Pierre
+Senellart. 2011. Paris: probabilistic align-
+ment of relations, instances, and schema. Proc.
+VLDB Endow., 5(3):157–168.
+Zequn Sun, Wei Hu, and Chengkai Li. 2017.
+Cross-lingual entity alignment via joint
+attribute-preserving embedding. In The
+Semantic Web–ISWC 2017: 16th International
+Semantic Web Conference, Vienna, Austria,
+October 21–25, 2017, Proceedings, Part I16,
+pages 628–644. Springer.
+Zequn Sun, Wei Hu, Qingheng Zhang, and
+Yuzhong Qu. 2018. Bootstrapping en-
+tity alignment with knowledge graph embed-
+ding. In Proceedings oftheTwenty-Seventh
+International Joint Conference onArtificial
+Intelligence, IJCAI-18, pages 4396–4402. In-
+ternational Joint Conferences on Artificial Intel-
+ligence Organization.
+Zequn Sun, Chengming Wang, Wei Hu, Muhao
+Chen, Jian Dai, Wei Zhang, and Yuzhong Qu.
+2020a. Knowledge graph alignment network
+with gated multi-hop neighborhood aggrega-
+tion. Proceedings oftheAAAI Conference on
+Artificial Intelligence, 34(01):222–229.
+Zequn Sun, Qingheng Zhang, Wei Hu, Cheng-
+ming Wang, Muhao Chen, Farahnaz Akrami,
+and Chengkai Li. 2020b. A benchmarking
+study of embedding-based entity alignment for
+knowledge graphs. Proceedings oftheVLDB
+Endowment, 13:2326 – 2340.
+Jianheng Tang, Kangfei Zhao, and Jia Li. 2023.
+A fused Gromov-Wasserstein framework for
+unsupervised knowledge graph entity align-
+ment. In Findings oftheAssociation for
+Computational Linguistics: ACL 2023, pages
+3320–3334, Toronto, Canada. Association for
+Computational Linguistics.
+Xiaobin Tang, Jing Zhang, Bo Chen, Yang Yang,
+Hong Chen, and Cuiping Li. 2020. BERT-
+INT:a bert-based interaction model for knowl-
+edge graph alignment. In Proceedings ofthe
+
+Twenty-Ninth International Joint Conference
+onArtificial Intelligence, IJCAI-20, pages
+3174–3180. International Joint Conferences on
+Artificial Intelligence Organization. Main
+track.
+Denny Vrande ˇci´c and Markus Krötzsch. 2014.
+Wikidata: a free collaborative knowledgebase.
+Commun. ACM, 57(10):78–85.
+Zhichun Wang, Qingsong Lv, Xiaohan Lan, and
+Yu Zhang. 2018. Cross-lingual knowledge
+graph alignment via graph convolutional net-
+works. In Proceedings ofthe2018 Conference
+onEmpirical Methods inNatural Language
+Processing, pages 349–357, Brussels, Belgium.
+Association for Computational Linguistics.
+Yuting Wu, Xiao Liu, Yansong Feng, Zheng
+Wang, Rui Yan, and Dongyan Zhao. 2019a.
+Relation-aware entity alignment for heteroge-
+neous knowledge graphs. In Proceedings ofthe
+Twenty-Eighth International Joint Conference
+onArtificial Intelligence, IJCAI-19, pages
+5278–5284. International Joint Conferences on
+Artificial Intelligence Organization.
+Yuting Wu, Xiao Liu, Yansong Feng, Zheng
+Wang, and Dongyan Zhao. 2019b. Jointly
+learning entity and relation representations
+for entity alignment. In Proceedings ofthe
+2019 Conference onEmpirical Methods in
+Natural Language Processing and the 9th
+International Joint Conference onNatural
+Language Processing (EMNLP-IJCNLP),
+pages 240–249, Hong Kong, China. Associa-
+tion for Computational Linguistics.
+Yuting Wu, Xiao Liu, Yansong Feng, Zheng
+Wang, and Dongyan Zhao. 2020. Neigh-
+borhood matching network for entity align-
+ment. In Proceedings ofthe58th Annual
+Meeting oftheAssociation forComputational
+Linguistics, pages 6477–6487, Online. Associ-
+ation for Computational Linguistics.
+Kun Xu, Liwei Wang, Mo Yu, Yansong Feng,
+Yan Song, Zhiguo Wang, and Dong Yu. 2019.
+Cross-lingual knowledge graph alignment via
+graph matching neural network. In Proceedings
+ofthe57th Annual Meeting oftheAssociation
+forComputational Linguistics, pages 3156–
+3161, Florence, Italy. Association for Compu-
+tational Linguistics.Hsiu-Wei Yang, Yanyan Zou, Peng Shi, Wei Lu,
+Jimmy Lin, and Xu Sun. 2019. Aligning
+cross-lingual entities with multi-aspect infor-
+mation. In Proceedings ofthe2019 Conference
+onEmpirical Methods inNatural Language
+Processing and the 9th International Joint
+Conference onNatural Language Processing
+(EMNLP-IJCNLP), pages 4431–4441, Hong
+Kong, China. Association for Computational
+Linguistics.
+Linyao Yang, Hongyang Chen, Xiao Wang, Jing
+Yang, Fei-Yue Wang, and Han Liu. 2024. Two
+heads are better than one: Integrating knowl-
+edge from knowledge graphs and large lan-
+guage models for entity alignment.
+Kaisheng Zeng, Zhenhao Dong, Lei Hou, Yixin
+Cao, Minghao Hu, Jifan Yu, Xin Lv, Lei Cao,
+Xin Wang, Haozhuang Liu, Yi Huang, Jun-
+lan Feng, Jing Wan, Juanzi Li, and Ling Feng.
+2022. Interactive contrastive learning for self-
+supervised entity alignment. In Proceedings
+ofthe31st ACM International Conference on
+Information &Knowledge Management, CIKM
+’22, pages 2465–2475, New York, NY , USA.
+Association for Computing Machinery.
+Weixin Zeng, Xiang Zhao, Jiuyang Tang, and
+Xuemin Lin. 2020. Collective entity align-
+ment via adaptive features. In 2020 IEEE 36th
+International Conference onData Engineering
+(ICDE), pages 1870–1873.
+Qingheng Zhang, Zequn Sun, Wei Hu, Muhao
+Chen, Lingbing Guo, and Yuzhong Qu. 2019.
+Multi-view knowledge graph embedding for
+entity alignment. In Proceedings ofthe
+Twenty-Eighth International Joint Conference
+onArtificial Intelligence, IJCAI-19, pages
+5429–5435. International Joint Conferences on
+Artificial Intelligence Organization.
+Rui Zhang, Yixin Su, Bayu Distiawan Trisedya,
+Xiaoyan Zhao, Min Yang, Hong Cheng, and
+Jianzhong Qi. 2023. Autoalign: Fully au-
+tomatic and effective knowledge graph align-
+ment enabled by large language models.
+IEEE Transactions onKnowledge and Data
+Engineering, pages 1–14.
+Ziheng Zhang, Hualuo Liu, Jiaoyan Chen,
+Xi Chen, Bo Liu, YueJia Xiang, and
+
+Yefeng Zheng. 2020. An industry evalua-
+tion of embedding-based entity alignment.
+InProceedings ofthe 28th International
+Conference on Computational Linguistics:
+Industry Track, pages 179–189, Online. In-
+ternational Committee on Computational
+Linguistics.
+Yu Zhao, Yike Wu, Xiangrui Cai, Ying Zhang,
+Haiwei Zhang, and Xiaojie Yuan. 2023. From
+alignment to entailment: A unified textual en-
+tailment framework for entity alignment. In
+Findings oftheAssociation forComputational
+Linguistics: ACL 2023, pages 8795–8806,
+Toronto, Canada. Association for Computa-
+tional Linguistics.
+Ziyue Zhong, Meihui Zhang, Ju Fan, and Chenx-
+iao Dou. 2022. Semantics driven embedding
+learning for effective entity alignment. In 2022
+IEEE 38th International Conference onData
+Engineering (ICDE), pages 2127–2140.
+Hao Zhu, Ruobing Xie, Zhiyuan Liu, and
+Maosong Sun. 2017. Iterative entity align-
+ment via joint knowledge embeddings. In
+Proceedings oftheTwenty-Sixth International
+Joint Conference onArtificial Intelligence,
+IJCAI-17, pages 4258–4264.
+Qiannan Zhu, Xiaofei Zhou, Jia Wu, Jianlong
+Tan, and Li Guo. 2019. Neighborhood-
+aware attentional representation for multilin-
+gual knowledge graphs. In Proceedings ofthe
+Twenty-Eighth International Joint Conference
+onArtificial Intelligence, IJCAI-19, pages
+1943–1949. International Joint Conferences on
+Artificial Intelligence Organization.
+

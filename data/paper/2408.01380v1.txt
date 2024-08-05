@@ -1,0 +1,617 @@
+Coalitions of Large Language Models Increase the
+Robustness of AI Agents
+Prattyush Mangal1*, Carol Mak1, Theo Kanakis1,
+Timothy Donovan1, Dave Braines1, Edward Pyzer-Knapp1*
+1IBM Research, Europe (UK).
+*Corresponding author(s). E-mail(s): prattyush.mangal@ibm.com;
+epyzerk3@uk.ibm.com;
+Abstract
+The emergence of Large Language Models (LLMs) have fundamentally altered
+the way we interact with digital systems and have led to the pursuit of LLM
+powered AI agents to assist in daily workflows. LLMs, whilst powerful and capable
+of demonstrating some emergent properties, are not logical reasoners and often
+struggle to perform well at all sub-tasks carried out by an AI agent to plan
+and execute a workflow. While existing studies tackle this lack of proficiency by
+generalised pretraining at a huge scale or by specialised fine-tuning for tool use,
+we assess if a system comprising of a coalition of pretrained LLMs, each exhibiting
+specialised performance at individual sub-tasks, can match the performance of
+single model agents. The coalition of models approach showcases its potential
+for building robustness and reducing the operational costs of these AI agents
+by leveraging traits exhibited by specific models. Our findings demonstrate that
+fine-tuning can be mitigated by considering a coalition of pretrained models and
+believe that this approach can be applied to other non-agentic systems which
+utilise LLMs.
+Keywords: Generative AI, Tool Use LLMs, Agents, Multi-Model
+1 Introduction
+Recent advances in AI methodologies, primarily driven by the emergence of Large
+Language Models (LLMs) [1–3] have fundamentally altered the way we interact with
+digital systems [4, 5]. This advance has coalesced with a longer, more deliberate set
+1arXiv:2408.01380v1  [cs.CL]  2 Aug 2024
+
+Fig. 1 Timeline depicting major events in the utilisation of APIs.
+of advances in the way that machines communicate through the internet to request
+and consume the output of, services – namely the development of the API (Figure
+1) [6, 7]. Given the ubiquity of their utilisation, it is therefore natural to consider
+whether LLMs are able to provide utility to the construction, execution and analysis
+of workflows constructed of API calls.
+LLMs, whilst powerful and capable of demonstrating some emergent properties,
+are not logical reasoners or planners [8]. However, we believe that through careful
+dissection and reasonably rich service description, there is a path to utility from which
+further advances can be built. It should be noted that throughout this work we use
+the term ‘planning’ loosely, to refer to the construction of useful workflows, verifiable
+through comparison to a gold standard, not the creative task of optimized planning,
+or indeed reasoning.
+In this paper, we follow a decomposition approach to workflow construction, see
+Figure 2, in which tasks are first extracted from a natural language interaction, then
+compared to a catalogue of capabilities known to the agent. After services are identi-
+fied, we then task the system with constructing correct (both in terms of content and
+semantics) payloads for these services (referred to as slot filling), which are then exe-
+cuted. Finally, the output from these services is then extracted and summarised into
+a natural language form, ready for consumption by the human agent. See Figure 3 for
+an example of the complete workflow.
+In classical approaches the LLMs used have been singular pretrained models
+with a large amount of model parameters (GPT-like models) [9–11] or singular fine-
+tuned models specifically tuned for tool use tasks [12–15]. The systems built around
+these models make use of different prompting techniques such as ReACT [16], Chain
+of Thought [17], Plan-and-solve [18] although others have been developed [19, 20].
+Whilst methodologies based around these approaches have had some successes they
+are subject to several limitations:
+2
+
+Fig. 2 Stages in a decomposed agentic workflow for API consumption as evaluated in this study.
+Fig. 3 An overview of the workflow to answer intents and queries by orchestrating calls to external
+tools. Sub-tasks involve planning tool usage, slot filling tool parameters and summarising the collected
+information to form a final natural language response to the initial query. Each sub-task is assigned
+to different LLMs to achieve more accurate workflow executions. Example tasks allocated to LLMs
+are identified by blue prompts and LLM responses are identified by purple messages.
+1. Specificity: Single model methods require a sufficiently general model to work across
+tasks, which requires either significant training or task specific tuning; both of
+which incur significant cost.
+2. Disruption: Single model methods are prone to disruption by the development of
+newer models, which might require a different approach to prompt construction.
+3
+
+Fig. 4 Example test case from the ToolAlpaca test dataset requiring multiple finance domain APIs
+for task completion.
+3. Cost: Models which are sufficiently general are likely to have large parameter counts,
+which are typically associated with large deployment requirements, and therefore
+costs.
+We propose a system which allocates the tasks of service identification and dis-
+covery, slot filling, and response forming to different open-source models, to increase
+robustness and address these limitations. Through demonstration on the ToolAlpaca
+benchmark [13] we show that this coalition approach improves upon standards, reached
+through solely using commonly used base models. We also show that, surprisingly,
+this coalition approach can outperform a single model fine-tuning approach and hence
+avoids incurring any of the costs of fine-tuning – although we note that this result
+is likely not general and fine tuning models specifically for model-task pairs would
+allow for more transferable performance gains across a broader workflow composition
+spectrum.
+2 Results
+The most common approaches for building AI agent systems for processing complex
+workflows fit into two categories - pretraining models at a huge scale or relying on
+fine-tuning models to unlock tool use capabilities [9, 12–15]. In both cases, there are
+associated costs of data generation and compute resources to learn the new model
+parameters.
+For evaluating whether a coalition of open-source pretrained (non-fine-tuned) mod-
+els can be used in the AI agent domain in-place of fine-tuned models, we use the
+ToolAlpaca test set which contains 114 test cases requiring 11 real cloud based ser-
+vices. These services and their functionalities are well documented, span a variety of
+domains (such as geographical, aeronautical, finance and entertainment) and include
+tests of varying difficulty. An average 1 .25 tools, (API endpoints) from the services,
+are required per test case, offering a non-trivial challenge in tool planning. An example
+test case is shown in Figure 4.
+4
+
+ConfigurationPlanner
+AccuracySlot Filling
+AccuracyOverall
+Procedural
+AccuracyResponse
+Evaluation
+Coalition
+of Open-Source Models
+(with best coalition)75.7% 61.3% 58.6%Cos: 0.662
+RLPre: 0.613
+RLRec: 0.219
+RLf: 0.286
+ToolAlpaca
+(using ToolAlpaca-7b model)82.6% 54.1% 45.6%Cos: 0.681
+RLPre: 0.610
+RLRec: 0.232
+RLf: 0.300
+ToolAlpaca
+(using ToolAlpaca-13b model)85.4% 57.3% 48.2%Cos: 0.725
+RLPre: 0.635
+RLRec: 0.264
+RLf: 0.342
+ToolAlpaca
+(using Vicuna-13b model)64.5% 48.4% 13.2%Cos: 0.644
+RLPre: 0.541
+RLRec: 0.238
+RLf: 0.292
+Table 1 Candidate coalition is assessed against the ToolAlpaca system utilising the Vicuna-13b
+model and the fine-tuned ToolAlpaca-7B and ToolAlpaca-13B models. The overall procedural
+accuracy assesses how accurately the system and configuration plan tool usage and execute the
+tools with the right parameters. The response evaluation column reports on the similarity of the
+system’s final response to human defined responses. The Cosmetric represents a measure of the
+semantic textual similarity between the defined responses and the final response. RLPre, RLRec
+amd RLf measurements report on the similarity based on the RougeL metrics.
+The developers of this test set also fine-tune the Vicuna-7B and Vicuna-13B models
+[13, 21] enabling a direct comparison of these fine-tuned models for tool use versus
+our coalition of non-fine-tuned models approach.
+We utilise the ToolAlpaca [13] test set along with custom built datasets to show
+that models working together, in a coalition, are more accurate then models working
+singularly for all tasks. As a result we show that, AI agents utilising the coalition
+approach can be more robust, by being more accurate, then those reliant on a single
+model approach.
+2.1 Coalitions of pretrained models outperform fine-tuned
+models
+Using the evaluation criteria and metrics detailed in Section 4, Table 1 shows that
+a coalition of pretrained open-source models outperforms the fine-tuned ToolAlpaca
+7B and 13B models. A system which utilises the coalition of general purpose models
+achieves an overall accuracy of 58.6%, beating the fine-tuned models by more than
+10%, without incurring any of the costs associated with fine-tuning.
+The gains in performance can be attributed to the fact that planning, slot filling and
+response forming tasks have been split in our system and can be assigned to different
+models, each exhibiting strengths in that specific task. This approach also allows for
+greater observability of the system enabling programmatic means for capturing and
+correcting generic hallucinations. An example of this is the ability to capture non-
+existent tools in the generated plans and removing or replacing those steps with real
+5
+
+ConfigurationPlanner
+AccuracySlot Filling
+AccuracyOverall
+Procedural
+AccuracyResponse
+Evaluation
+Coalition
+Planner: Mistral
+Executor: Mixtral
+JSON RAG: Flan
+Response Former: Mixtral75.7% 61.3% 58.6%Cos: 0.662
+RLPre: 0.613
+RLRec: 0.219
+RLf: 0.286
+Coalition
+Planner: Llama 2 70B Chat
+Executor: Mixtral
+JSON RAG: Flan
+Response Former: Mixtral69.3% 55.3% 49.1%Cos: 0.652
+RLPre: 0.585
+RLRec: 0.182
+RLf: 0.245
+Non-Coalition
+Mistral
+for all LLM
+interactions75.7% 56.1% 53.5%Cos: 0.662
+RLPre: 0.598
+RLRec: 0.178
+RLf: 0.238
+Non-Coalition
+Mixtral
+for all LLM
+interactions70.2% 60.5% 54.3%Cos: 0.650
+RLPre: 0.572
+RLRec: 0.204
+RLf: 0.268
+Non-Coalition
+LLama 2 70B Chat
+for all LLM
+interactions69.3% 49.1% 43.0%Cos: 0.676
+RLPre: 0.625
+RLRec: 0.144
+RLf: 0.209
+Non-Coalition
+Codellama 34B
+for all LLM
+interactions60.5% 51.8% 45.6%Cos: 0.612
+RLPre: 0.520
+RLRec: 0.231
+RLf: 0.058
+Non-Coalition
+Flan
+for all LLM
+interactions29.8% 6.1% 3.5%Cos: 0.459
+RLPre: 0.343
+RLRec: 0.242
+RLf: 0.257
+Table 2 Different coalition candidates are assessed against utilising single pretrained models for
+all tasks. The results identify that models working together for distributed tasks can outperform a
+single model being assigned all of the tasks. The overall procedural accuracy assesses how
+accurately the system and configuration plan tool usage and execute the tools with the right
+parameters. The response evaluation column reports on the similarity of the system’s final
+response to human defined responses. The Cosmetric represents a measure of the semantic
+textual similarity between the defined responses and the final response. RLPre, RLRec amd RLf
+measurements report on the similarity based on the RougeL metrics.
+tools. In contrast, the fine-tuned models are challenged with performing well in each
+of these tasks independently without opportunities for intervention. We note that the
+fine-tuned models often fail to meet the requirements of the system or the prompt,
+triggering parsing errors and downstream failures.
+Another major benefit of being able to utilise open-source pretrained models
+instead of fine-tuning models is that our system is able to plug and play newer, more
+performant models as they emerge in the community and leverage any improvements
+in capabilities to increase the accuracy of the overall agentic system.
+6
+
+2.2 Coalitions outperform using single models
+In Table 2 we show that employing a coalition approach can improve upon using any
+model singularly. Using the Mistral [22] and Mixtral [23] models independently, for
+planning, slot filling and response forming the overall system achieves an accuracy of
+53.5% and 54.3% respectively. When these models work in collaboration with each
+other, Mistral tasked with the tool planning and Mixtral tasked with slot filling, the
+overall system accuracy improves to 58.6%. Similarly, only using the Llama 2 70B Chat
+model [3] achieves an overall accuracy of 43%, brought down by its lack of accuracy
+in the slot filling task. But when Llama 2 is coupled with other models, in a coalition,
+the system improves its accuracy to 49.1% since the slot filling task can be offloaded
+to a model better suited to that task - validating the benefits of using a multi-model
+approach.
+The Mistral, Mixtral and Llama 2 models all show good performance in the plan-
+ning task. This could be attributed to the data they have been trained on, but could
+also be equally due to their model architectures. Each of these models utilitse Grouped
+Query Attention [24] which groups tokens and focuses attention to groups contain-
+ing the most relevant information. This potentially helps the models focus better on
+important features by removing additional verbosity in the prompts and hence these
+models may be better equipped to handle planning problems.
+The Mixtral model is built using a Mixture of Experts [23, 25] architecture and
+this may be the differentiating factor in its dominant performance at the slot filling
+task. In this architecture, the tokens are routed to specific experts at each layer. The
+Mixtral paper references that each of these experts may have developed specialisation
+to different domains, including specialisation for code, which may enable the model
+to perform better at slot filling as the model is being tasked with generating correctly
+formatted request payloads. The Mixtral model used in the coalition is a fine-tuned
+variant tuned for instruction following, enabling it to accurately respond to the slot
+filling prompts, following the specified response structure which again allows the sys-
+tem to process the model responses and capture hallucinations more easily, improving
+the accuracy of the overall system.
+Taking advantage of the best model at planning (Mistral) and the best model at slot
+filling (Mixtral) we are able to gain a ‘cost’ free accuracy improvement as no additional
+development, resources or fine-tuning was required to realize this performance upgrade.
+This offers validation to the idea that allocating tasks to different models unlocks
+accuracy gains as specific models may be better in different domains. The next section
+investigates this further.
+2.2.1 Specific models are better specific tasks
+The LLM community has been competing to build the ‘one model to rule them all’.
+But in this section we show that certain models exhibit traits, enabling them to per-
+form better at specific tasks and we ask whether utilising multiple models in complex
+workflows can offer performance improvements beyond using the same, single, model
+for all tasks.
+7
+
+Mistral Mixtral Llama2 70B Codellama 34B Flan UL2020406080100
+51.964.2
+54.7 55.770JSON RAG Success Rate (%)
+Fig. 5 Assessing different models for JSON RAG. The models have been assessed against a custom
+dataset to determine which model offers the best performance at the JSON RAG task which is applied
+to filter long JSON responses from tool executions. Flan UL2 20B model outperforms all other model
+choices at this task.
+Flan UL2 [26] is not the best model by generalised metrics and benchmarks [27, 28].
+But it outperforms all other models considered, at a very specific task we call JSON
+RAG. A common issue when using LLMs is the restriction of the context windows
+they can operate on. In the tool use domain, the responses of tools can be extremely
+large and often exceed these context windows. To overcome this problem, we devised
+a solution to filter and retrieve the meaningful contents from the JSON responses of
+the executed tools. This very specific approach is utilised in slot filling tool parame-
+ters following previous tool invocations and also by the response former to create a
+meaningful final response based on the responses of the executed tools. Using the eval-
+uation strategy defined in 4.5, Figure 5 shows that the Flan UL2 model outperforms
+other larger and more capable models in this very particular task of JSON RAG.
+The implementation of the JSON RAG task is very similar to what can be con-
+sidered a denoising task where the model is asked to fill in masked tokens with tokens
+already presented in the prompt. An example of the JSON RAG task is demonstrated
+in Figure 12 . Investigating the architecture of the Flan UL2 model we note that the
+model has been built using a Mixture of Denoisers approach [26]. This potentially offers
+an explanation as to why this model exhibits considerable performance improvement
+over the other model candidates in the coalition.
+Although Flan UL2 shines in the JSON RAG task, it does not perform well at oth-
+ers. Our coalition system makes use of critique prompting to improve upon the initial
+generated plans. This involves utilising another model to critique the plan generated
+by the model used for the planning task in an aim to remove hallucinations and gen-
+erally improve the plans, an example of critiquing is demonstrated in Figure 13. Using
+8
+
+Mistral Mixtral Llama2 70B Codellama 34B Flan UL2020406080100Planner Critique Success Rate (%)General Critique
+Assisted Critique
+Explicit Critique
+Fig. 6 Assessing plan critiquing capabilities by model and critique explicitness. The models have
+been assessed against a custom dataset to determine which model offers the best performance at the
+correction of generated plans and the level of explicitness a model requires to make that correction
+(General, assisted and explicit critique). Assisted critique refers to critique specific to the category
+of error such as critique based on ordering or too many steps, explicit critique provides exactly the
+correction to be made. For example specifying which steps need to be reordered or removed. General
+critique refers to an error agnostic critique message.
+the evalation strategy defined in Section 4.5, Figures 6 and 7 show that Flan UL2 is
+easily the least effective model for critiquing and correcting plans.
+For a model to be able to effectively critique complex plans it needs to be able
+to evoke exemplar reasoning and interactive linguistic capabilities. These capabilities
+are often acquired through fine-tuning or reinforcement learning with human feedback
+[20, 29], replicating reflection humans perform when assessing a chain of reasoning. The
+Mistral, Mixtral, Llama 2 70B and Codellama models assessed in this coalition, have
+all been fine-tuned for instruction following or for interactive, role-based prompting.
+These tuning efforts are missing from the Flan UL2 20B model, offering some insights
+as to why this model is the least accurate when tasked with critiquing generated plans.
+Combining the facts that Flan UL2 is the best at JSON RAG and the worst at
+planner critiquing, we can conclude that the best way to build an accurate system,
+without requiring tuning, would be to utilise different models for these different tasks -
+naturally identifying the benefit (and need in this case) for coalition based approaches
+for agentic systems.
+9
+
+Mistral Mixtral Llama2 70B Codellama 34B Flan UL2020406080100Planner Critique Success Rate (%)Reorder steps
+Add required step
+Remove step
+Remove multiple steps
+Fig. 7 Assessing model ability to correct different types of plan failures. The models have been
+assessed against a custom dataset to determine which model offers the best performance at the
+correcting generated plans containing different categories of failures such as badly ordered plans,
+plans missing steps or plans containing too many steps.
+2.3 Model specialisation leads to accuracy improvements and
+cost savings
+The previous sections have demonstrated that allocating different tasks to different
+models can improve the performance and accuracy of the overall system. Our results
+also challenge the trend: ‘bigger models are better models’ [30]. Although Flan UL2
+is a 20B parameter model which is much smaller then the Mixtral (45B), Codellama
+(34B) and Llama2 (70B) models [3, 23, 26, 31], the previous discussion showed that
+Flan UL2 can outperform these larger models at specific tasks.
+Models with larger parameter counts, impose larger hosting costs since GPU
+requirements scale with the number of parameters [32] and larger hosting costs are
+passed onto end consumers through larger inference costs.
+By splitting up tasks and using different models for the individual tasks, a system
+may be able to use smaller models to gain accuracy improvements while concurrently
+reducing the cost of the overall system. By recalling the relationship between inference
+cost with the model parameter count, in Figure 8 we see that while Flan UL2 is smaller
+then most of the other models (hence cheaper), it still outperforms the other models
+for the JSON RAG task.
+10
+
+0 20 40 60 805055606570
+MistralMixtral
+Llama2CodellamaFlan
+Estimated number of model parameters (Billions)JSON RAG Success Rate (%)
+Fig. 8 Assessing the effectiveness of a model for the JSON RAG task against the model’s parameter
+count. The cost of inferencing scales with model parameter size as higher parameters require more
+GPU memory for hosting. The Flan UL2 model outperforms all other models for JSON RAG while
+being a mid sized model.
+Similarly, utilising the coalition approach, when models exhibit similar performance
+for a specific task, the smallest model can be selected for that task, to cut expenses
+of the overall system. Considering the choice of model for the tool planning task, in
+Figure 9, Mistral, Mixtral and Llama2 show similar accuracy but since Mistral is so
+much smaller then the other two models, the coalition can utilise Mistral and operate
+with lower overheads.
+Beyond an academic setting building a system which can benefit from these
+cost reductions, while maintaining system accuracy, will enable cheaper and faster
+pathways to productisation and utilisation.
+3 Conclusion
+In this paper we introduced a coalition approach, comprising only of open-source
+pretrained models, as an alternate methodology to fine-tuning, for LLM powered, tool
+use agents. This new approach utilises a carefully curated coalition of multiple models,
+where each sub-task in an agent workflow, is allocated to the best performing model.
+This configuration allows us to choose the right model for the job and proves to
+be more robust, than using any single model (fine-tuned or not) for all tasks.
+Since models are allocated specific tasks, we find that this unlocks the ability to
+plug and play models from a diverse selection, and utilise smaller models for certain
+tasks, reducing energy consumption and associated costs without trading off accuracy
+or performance.
+We evaluate this coalition against the open-source ToolAlpaca dataset, focused on
+tool use agents, and show that agents using this coalition of open-source pretrained
+models are more accurate then agents reliant on single fine-tuned models.
+11
+
+0 20 40 60 80406080Mistral
+Mixtral Llama2
+Codellama
+Flan
+Estimated number of model parameters (Billions)Planner Success Rate (%)
+Fig. 9 Assessing the effectiveness of a model for the planning task against the model’s parameter
+count. The Mistral model exhibits the best performance and is the smallest of models considered,
+only using 7 billion parameters, making it the cheapest to use.
+This work suggests that LLM system developers should consider whether using a
+multi-model approach can offer cost-savings and performance enhancements in their
+workflows. We conclude with a question for consideration in a future study: If a coali-
+tion of pretrained models can outperform a single fine-tuned model, can a coalition of
+fine-tuned models achieve state of the art performance?
+4 Experimental
+The ToolAlpaca test dataset was extended and utilised to measure the accuracy of the
+coalition based approach compared to single model approaches. The different evalua-
+tions featured comparing generated plans, tool parameters used and the final responses
+of the systems.
+The evaluation criteria for these categories was adapted from that used by the
+ToolAlpaca study to reflect desired behaviour in these agentic systems.
+4.1 Evaluating Planning
+To evaluate the planning capabilities of the candidate systems and configurations,
+plans that matched expected, ground truth plans (which we refer to as golden plans),
+were considered as passes. Additionally, non-optimal plans which contained the golden
+plans as the final steps were marked as passes. This additional criterion was added as
+we believe the system should not be penalised for taking additional preliminary steps
+to perform data gathering and prefer non-optimal plans over those which use fewer
+steps but assume knowledge based on the pretraining of the model. For an example
+of this behaviour see Figure 10.
+12
+
+Fig. 10 Example of the planning evaluation criteria being met.
+Fig. 11 Example of the slot filling evaluation criteria being met in case of query based parameters.
+4.2 Evaluating Slot Filling (Parameter Inference)
+For evaluating the slot filling capabilities of these systems we measured success based
+on whether the system inferred the required tool parameters. Since the ToolAlpaca
+test set makes use of some APIs which require query-based question answering tools,
+we also assess whether the generated query was semantically similar to the expected
+query by measuring the semantic textual similarity and thresholding against a high
+value. For an example see Figure 11.
+4.3 Evaluating Procedural Accuracy
+To measure the systems’ procedural accuracy, we measured the number of cases which
+passed both, the planning and slot filling, evaluations. The overall procedural accu-
+racy assesses how accurately a system and configuration is able to plan for tool use
+and execute the tools with the right parameters, successfully completing the desired
+workflow.
+4.4 Evaluating System Responses
+The response evaluation is used to examine the effectiveness of the final response.
+Here we report a mixture of Semantic Textual Similarity (STS) and RougeL metrics
+between the system responses and hand-crafted responses expected to be present in
+the final response. The STS measurement is performed by using the all-MiniLM-L6-
+v2model to retrieve embeddings for the expected and actual responses. This metric is
+represented in our results tables as the Cosmetric. Similarly, the RougeL Precision,
+Recall and fMearure metrics are represented as RLPre, RLRec andRLf in our tables
+respectively.
+Although a LLM-as-a-judge [33] evaluation approach, which utilises a LLM to
+assess the alignment of a candidate response to the expected response, is an emergent
+13
+
+Fig. 12 Example of JSON RAG evaluation to select specific contents from a JSON response object
+from tool execution. In this example, the JSON RAG component is evaluated against its ability to
+select the country name, country leader and continent based on the given prompt.
+Fig. 13 Example of critiquing evaluation with a missing step pollution and tests with varying levels
+of critiquing feedback to generate the golden plan.
+strategy for evaluating system responses, we believe it lacks reproducibility, hence we
+have favoured the use of the STS and RougeL metrics instead. However, the response
+metrics should only be considered in partnership with the overall procedural accuracy
+metric to determine the best performing systems.
+4.5 Evaluating JSON RAG and Critiquing
+To evaluate the best model at JSON RAG, a custom dataset was built containing
+different prompts comprising different JSON contents to be processed. The evalua-
+tion assessed whether for a specific prompt/task, the model could select the relevant
+JSON fields. An example can be seen in Figure 12. The best performing model in this
+evaluation could then be selected to be used in the coalition.
+To evaluate the best model at plan critiquing, a custom dataset was built containing
+polluted plans and each model is tasked with correcting the plans based on some
+feedback. The pollution categories are:
+14
+
+•Ordering: Golden plans with the steps reordered.
+•Missing Step: Golden plans with required steps removed.
+•Added Step: Golden plans with an unnecessary step added.
+•Added Multiple Steps: Golden plans with many unnecessary steps added.
+The model is presented these polluted plans and instructed with feedback to correct
+the plan. Each model is tested with 3 levels of critique to understand the type of
+critique they need to correct the pollution:
+•General Critique - A pollution agnostic, general comment such as Can this plan be
+simplified or improved? .
+•Assisted Critique - A pollution specific, general comment such as It seems like the
+plan has some steps in the wrong order, can the plan be corrected? .
+•Explicit Critique - A pollution specific, explicit comment requesting the desired
+correction such as Reorder step 1 and 2 .
+An example of this evaluation can be seen in Figure 13. Given the polluted plans
+and the various levels of critique, the model which performs the best at correcting the
+most plans, with the greatest generality of critique can be chosen for the coalition.
+5 Data availability
+Supporting data for this manuscript is available via the link:
+https://doi.org/10.5281/zenodo.12924336.
+6 Code availability
+Implementation to demonstrate the topics covered in this work, as well as
+generated outputs used for quantitative analysis is available via the link:
+https://doi.org/10.5281/zenodo.12924336. The outcomes of this work can be repro-
+duced using actively developed frameworks for autonomous agent development.
+7 Acknowledgements
+The authors would like to acknowledge the financial support of the Hartree National
+Centre for Digital Innovation – a collaboration between the Science and Technology
+Facilities Council and IBM.
+8 Author contributions
+E.P-K conceived the project and incepted the coalition methodology. P.M. T.K and
+T.D designed the system, developed the computational pipeline and the evaluation
+frameworks. P.M, C.M and D.B designed and graded the performance of the system
+against the open sourced benchmarks, contributing the insights and claims described.
+P.M, C.M, E.P-K and D.B wrote the manuscript.
+15
+
+References
+[1] Zhao, W.X., Zhou, K., Li, J., Tang, T., Wang, X., Hou, Y., Min, Y., Zhang, B.,
+Zhang, J., Dong, Z., et al.: A survey of large language models. arXiv preprint
+arXiv:2303.18223 (2023)
+[2] Devlin, J., Chang, M.-W., Lee, K., Toutanova, K.: Bert: Pre-training of
+deep bidirectional transformers for language understanding. arXiv preprint
+arXiv:1810.04805 (2018)
+[3] Touvron, H., Martin, L., Stone, K., Albert, P., Almahairi, A., Babaei, Y., Bash-
+lykov, N., Batra, S., Bhargava, P., Bhosale, S., et al.: Llama 2: Open foundation
+and fine-tuned chat models. arXiv preprint arXiv:2307.09288 (2023)
+[4] Wang, L., Ma, C., Feng, X., Zhang, Z., Yang, H., Zhang, J., Chen, Z., Tang, J.,
+Chen, X., Lin, Y., et al.: A survey on large language model based autonomous
+agents. Frontiers of Computer Science Vol 18 (6), 186345 (2024)
+[5] Wu, Q., Bansal, G., Zhang, J., Wu, Y., Zhang, S., Zhu, E., Li, B., Jiang, L.,
+Zhang, X., Wang, C.: Autogen: Enabling next-gen llm applications via multi-agent
+conversation framework. arXiv preprint arXiv:2308.08155 (2023)
+[6] Fielding, R.T.: Architectural styles and the design of network-based software
+architectures. University of California, Irvine (2000)
+[7] Ofoeda, J., Boateng, R., Effah, J.: Application programming interface (api)
+research: A review of the past to inform the future. International Journal of
+Enterprise Information Systems (IJEIS) Vol 15 (3), 76–95 (2019)
+[8] Kambhampati, S., Valmeekam, K., Guan, L., Stechly, K., Verma, M., Bhambri,
+S., Saldyt, L., Murthy, A.: Llms can’t plan, but can help planning in llm-modulo
+frameworks. arXiv preprint arXiv:2402.01817 (2024)
+[9] Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya, I., Aleman, F.L., Almeida,
+D., Altenschmidt, J., Altman, S., Anadkat, S., et al.: Gpt-4 technical report.
+arXiv preprint arXiv:2303.08774 (2023)
+[10] Song, Y., Xiong, W., Zhu, D., Li, C., Wang, K., Tian, Y., Li, S.: Restgpt: Con-
+necting large language models with real-world applications via restful apis. arXiv
+preprint arXiv:2306.06624 (2023)
+[11] LangChain-AI: OpenGPTs. GitHub (2024). https://github.com/langchain-ai/
+opengpts
+[12] Qin, Y., Liang, S., Ye, Y., Zhu, K., Yan, L., Lu, Y., Lin, Y., Cong, X., Tang, X.,
+Qian, B., et al.: Toolllm: Facilitating large language models to master 16000+
+real-world apis. arXiv preprint arXiv:2307.16789 (2023)
+16
+
+[13] Tang, Q., Deng, Z., Lin, H., Han, X., Liang, Q., Sun, L.: ToolAlpaca: Generalized
+Tool Learning for Language Models with 3000 Simulated Cases (2023)
+[14] Schick, T., Dwivedi-Yu, J., Dess` ı, R., Raileanu, R., Lomeli, M., Hambro, E.,
+Zettlemoyer, L., Cancedda, N., Scialom, T.: Toolformer: Language models can
+teach themselves to use tools. Advances in Neural Information Processing Systems
+Vol 36 (2024)
+[15] Patil, S.G., Zhang, T., Wang, X., Gonzalez, J.E.: Gorilla: Large language model
+connected with massive apis. arXiv preprint arXiv:2305.15334 (2023)
+[16] Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., Cao, Y.:
+React: Synergizing reasoning and acting in language models. arXiv preprint
+arXiv:2210.03629 (2022)
+[17] Wei, J., Wang, X., Schuurmans, D., Bosma, M., Xia, F., Chi, E., Le, Q.V., Zhou,
+D., et al.: Chain-of-thought prompting elicits reasoning in large language models.
+Advances in neural information processing systems Vol 35, 24824–24837 (2022)
+[18] Wang, L., Xu, W., Lan, Y., Hu, Z., Lan, Y., Lee, R.K.-W., Lim, E.-P.: Plan-
+and-solve prompting: Improving zero-shot chain-of-thought reasoning by large
+language models. arXiv preprint arXiv:2305.04091 (2023)
+[19] Valmeekam, K., Marquez, M., Kambhampati, S.: Can large language models
+really improve by self-critiquing their own plans? arXiv preprint arXiv:2310.08118
+(2023)
+[20] Shinn, N., Cassano, F., Gopinath, A., Narasimhan, K., Yao, S.: Reflexion: Lan-
+guage agents with verbal reinforcement learning. Advances in Neural Information
+Processing Systems Vol 36 (2024)
+[21] Chiang, W.-L., Li, Z., Lin, Z., Sheng, Y., Wu, Z., Zhang, H., Zheng, L., Zhuang,
+S., Zhuang, Y., Gonzalez, J.E., Stoica, I., Xing, E.P.: Vicuna: An open-source
+chatbot impressing GPT-4 with 90%* ChatGPT quality (2023). https://lmsys.
+org/blog/2023-03-30-vicuna/
+[22] Jiang, A.Q., Sablayrolles, A., Mensch, A., Bamford, C., Chaplot, D.S., Casas,
+D.d.l., Bressand, F., Lengyel, G., Lample, G., Saulnier, L., et al.: Mistral 7b.
+arXiv preprint arXiv:2310.06825 (2023)
+[23] Jiang, A.Q., Sablayrolles, A., Roux, A., Mensch, A., Savary, B., Bamford, C.,
+Chaplot, D.S., Casas, D.d.l., Hanna, E.B., Bressand, F., et al.: Mixtral of experts.
+arXiv preprint arXiv:2401.04088 (2024)
+[24] Ainslie, J., Lee-Thorp, J., Jong, M., Zemlyanskiy, Y., Lebr´ on, F., Sanghai,
+S.: Gqa: Training generalized multi-query transformer models from multi-head
+checkpoints. arXiv preprint arXiv:2305.13245 (2023)
+17
+
+[25] Fedus, W., Dean, J., Zoph, B.: A review of sparse expert models in deep learning.
+arXiv preprint arXiv:2209.01667 (2022)
+[26] Tay, Y., Dehghani, M., Tran, V.Q., Garcia, X., Wei, J., Wang, X., Chung,
+H.W., Shakeri, S., Bahri, D., Schuster, T., et al.: Ul2: Unifying language learning
+paradigms. arXiv preprint arXiv:2205.05131 (2022)
+[27] Hendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M., Song, D., Stein-
+hardt, J.: Measuring massive multitask language understanding. arXiv preprint
+arXiv:2009.03300 (2020)
+[28] Multi-task Language Understanding on MMLU model performance (2024). https:
+//paperswithcode.com/sota/multi-task-language-understanding-on-mmlu
+[29] Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C., Mishkin, P., Zhang,
+C., Agarwal, S., Slama, K., Ray, A., et al.: Training language models to follow
+instructions with human feedback. Advances in neural information processing
+systems Vol 35, 27730–27744 (2022)
+[30] Sevilla, J., Heim, L., Ho, A., Besiroglu, T., Hobbhahn, M., Villalobos, P.: Com-
+pute trends across three eras of machine learning. In: 2022 International Joint
+Conference on Neural Networks (IJCNN), pp. 1–8 (2022). IEEE
+[31] Roziere, B., Gehring, J., Gloeckle, F., Sootla, S., Gat, I., Tan, X.E., Adi, Y., Liu,
+J., Remez, T., Rapin, J., et al.: Codellama: Open foundation models for code.
+arXiv preprint arXiv:2308.12950 (2023)
+[32] Gugger, S., Debut, L., Wolf, T., Schmid, P., Mueller, Z., Mangrulkar, S., Sun,
+M., Bossan, B.: Accelerate: Training and inference at scale made simple, efficient
+and adaptable. https://github.com/huggingface/accelerate (2022)
+[33] Zheng, L., Chiang, W.-L., Sheng, Y., Zhuang, S., Wu, Z., Zhuang, Y., Lin, Z.,
+Li, Z., Li, D., Xing, E., et al.: Judging llm-as-a-judge with mt-bench and chatbot
+arena. Advances in Neural Information Processing Systems Vol 36 (2024)
+18
+

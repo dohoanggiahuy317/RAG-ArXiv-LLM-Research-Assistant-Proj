@@ -1,0 +1,15 @@
+This paper describes IAI group's participation for automated check-worthiness
+estimation for claims, within the framework of the 2024 CheckThat! Lab "Task 1:
+Check-Worthiness Estimation". The task involves the automated detection of
+check-worthy claims in English, Dutch, and Arabic political debates and Twitter
+data. We utilized various pre-trained generative decoder and encoder
+transformer models, employing methods such as few-shot chain-of-thought
+reasoning, fine-tuning, data augmentation, and transfer learning from one
+language to another. Despite variable success in terms of performance, our
+models achieved notable placements on the organizer's leaderboard: ninth-best
+in English, third-best in Dutch, and the top placement in Arabic, utilizing
+multilingual datasets for enhancing the generalizability of check-worthiness
+detection. Despite a significant drop in performance on the unlabeled test
+dataset compared to the development test dataset, our findings contribute to
+the ongoing efforts in claim detection research, highlighting the challenges
+and potential of language-specific adaptations in claim verification systems.

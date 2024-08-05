@@ -1,0 +1,18 @@
+Transformers are deep architectures that define "in-context mappings" which
+enable predicting new tokens based on a given set of tokens (such as a prompt
+in NLP applications or a set of patches for vision transformers). This work
+studies in particular the ability of these architectures to handle an
+arbitrarily large number of context tokens. To mathematically and uniformly
+address the expressivity of these architectures, we consider the case that the
+mappings are conditioned on a context represented by a probability distribution
+of tokens (discrete for a finite number of tokens). The related notion of
+smoothness corresponds to continuity in terms of the Wasserstein distance
+between these contexts. We demonstrate that deep transformers are universal and
+can approximate continuous in-context mappings to arbitrary precision,
+uniformly over compact token domains. A key aspect of our results, compared to
+existing findings, is that for a fixed precision, a single transformer can
+operate on an arbitrary (even infinite) number of tokens. Additionally, it
+operates with a fixed embedding dimension of tokens (this dimension does not
+increase with precision) and a fixed number of heads (proportional to the
+dimension). The use of MLP layers between multi-head attention layers is also
+explicitly controlled.
