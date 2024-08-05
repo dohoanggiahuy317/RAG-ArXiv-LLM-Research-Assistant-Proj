@@ -52,6 +52,8 @@ Follow the instructions here to download and install Ollama on your machine. ##
     sh chat_core/command/chat_core.sh
     ```
 
+    The system responses and references will be saved in a `logs` folder under `chat_core`.
+
 
 ## Customizing Parameters
 
