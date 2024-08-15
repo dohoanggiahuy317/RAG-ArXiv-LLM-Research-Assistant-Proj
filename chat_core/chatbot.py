@@ -26,13 +26,15 @@ def main():
     parser.add_argument('--user_id', type=str, help='user id')
     parser.add_argument('--conversation_id', type=str, help='conversation id')
     parser.add_argument('--k', type=int, default=3, help='Number of relevant docs')
+    parser.add_argument('--embedding_type', type=int, default=1, help='embedding_type')
+
     args = parser.parse_args()
 
     # Set up logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Load neccessary components
-    embedding, retriever = load_retriever(db_path = args.db_path, k=args.k)
+    embedding, retriever = load_retriever(k=args.k, embedding_type=args.embedding_type, db_path = args.db_path)
     get_compressed_docs = load_CCCompressor( compressor_type = int(args.compressor_type))
 
     # Ranking the documents

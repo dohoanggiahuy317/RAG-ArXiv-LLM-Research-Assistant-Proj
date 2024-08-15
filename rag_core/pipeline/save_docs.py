@@ -1,11 +1,11 @@
 from rag_core.utils.document_loader import load_docs_from_folder
 from rag_core.utils.vectorstore.chroma_vectorstore import chroma_vectorstore
-from rag_core.utils.embedding import get_embedding
+from rag_core.utils.embedding import get_embedding, get_local_embedding
 
 import logging
 import argparse
 
-def save_embedding(folder_path, db_path=None):
+def save_embedding(folder_path, embedding_type=1, db_path=None):
 
     # Get the vector store
     vectorstore = chroma_vectorstore
@@ -24,7 +24,13 @@ def save_embedding(folder_path, db_path=None):
 
     # Load into database
     logging.info("Save documents to vector database")
-    embedding = get_embedding()
+    
+    # Get the embedding
+    if embedding_type == 1:
+        embedding = get_embedding()
+    else:
+        embedding = get_local_embedding()
+
     db = vectorstore(documents, embedding, db_path, ids)
     logging.info("Sucessfully saved documents to vector database")
 
@@ -35,9 +41,11 @@ def main():
     parser = argparse.ArgumentParser(description='RAG Application')
     parser.add_argument('--docs_path', type=str, help='User docs')
     parser.add_argument('--db_path', type=str, help='path to database')
+    parser.add_argument('--embedding_type', type=int, default=1, help='embedding_type')
+
     args = parser.parse_args()
     
-    save_embedding(folder_path=args.docs_path, db_path=args.db_path)
+    save_embedding(folder_path=args.docs_path, embedding_type=args.embedding_type, db_path=args.db_path)
 
 if __name__ == "__main__":
     main()
