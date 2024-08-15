@@ -39,7 +39,7 @@ def csv_2_label(csv_filename, output_dir):
             example = {
                 "query": None,
                 "pos": [],
-                "neg": []
+                "neg": ["[None]"]
             }
 
             # Save to example

@@ -7,6 +7,7 @@
 /chat_core/log/*
 /data/abstract/*
 /data/paper/*
+/finetune_retriever/model/*
 
 # Ignore Python bytecode
 __pycache__/
