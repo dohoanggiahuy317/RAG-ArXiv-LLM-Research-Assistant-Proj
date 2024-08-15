@@ -5,6 +5,8 @@
 /chat_core/database/*
 /rag_core/log/*
 /chat_core/log/*
+/data/abstract/*
+/data/paper/*
 
 # Ignore Python bytecode
 __pycache__/

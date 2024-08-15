@@ -113,7 +113,7 @@ def main():
             total += args.results_per_iteration
 
             # logging info
-            logging.error(f"Time sleep for {args.waitTime} seconds...")
+            logging.info(f"Time sleep for {args.waitTime} seconds...")
             time.sleep(int(args.waitTime))
    
         except Exception as e:
