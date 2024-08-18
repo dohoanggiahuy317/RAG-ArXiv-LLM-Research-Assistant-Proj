@@ -28,6 +28,16 @@ def load_input_example(dataset_path):
                 ] 
             ))
 
+        for i in range(len(example["pos"]) - 1):
+            for j in range(i+1, len(example["pos"])):
+                data_train.append(
+                    InputExample(
+                        texts=[
+                            example["pos"][i], 
+                            example["pos"][j],  
+                        ] 
+                    ))
+
     return data_train
 
 

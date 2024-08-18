@@ -3,8 +3,6 @@
 /web_scrape/data/*
 /rag_core/database/*
 /chat_core/database/*
-/rag_core/log/*
-/chat_core/log/*
 /data/abstract/*
 /data/paper/*
 /finetune_retriever/model/*
