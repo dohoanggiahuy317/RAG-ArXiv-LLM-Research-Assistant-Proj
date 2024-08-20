@@ -148,6 +148,8 @@ def main():
                 logging.error(f"Error processing URL {query}: {e}")
 
 
+
+
 # Run the main function
 if __name__ == "__main__":   
     main()

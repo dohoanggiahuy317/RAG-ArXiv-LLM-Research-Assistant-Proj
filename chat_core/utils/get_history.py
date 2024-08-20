@@ -6,7 +6,7 @@ import os
 
 def get_session_history(user_id, conversation_id):
     # Define the database path
-    database_path = "chat_core/database/memory.db"
+    database_path = "database/chat_core/memory.db"
     # Extract the directory from the path
     database_dir = os.path.dirname(database_path)
 

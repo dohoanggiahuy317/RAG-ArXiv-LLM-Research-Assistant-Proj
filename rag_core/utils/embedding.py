@@ -19,10 +19,10 @@ def get_embedding():
 
     return embedding
 
-def get_local_embedding():
+def get_local_embedding(model_path):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model_name = "finetune_retriever/model/finetune_v2"
+    model_name = model_path
     model_kwargs = {"device": device}
     encode_kwargs = {"normalize_embeddings": True}
     
