@@ -21,16 +21,16 @@ app = Flask(__name__)
 
 # Global variable to store embedder path
 class DefaultVar():
-    RAW_DATA_DIR="test/data"
-    RAW_DATA_CSV_PATH = "test/data/xxx.csv"
+    RAW_DATA_DIR="data"
+    RAW_DATA_CSV_PATH = "data/papers_abstract.csv"
     
-    FINETUNE_EMBEDDER_DATA_DIR = "test/finetune_embedder/data_test"
-    FINETUNE_MODEL_DIR = "test/finetune_embedder/model/"
+    FINETUNE_EMBEDDER_DATA_DIR = "finetune_embedder/data"
+    FINETUNE_MODEL_DIR = "finetune_embedder/models/"
 
-    ABSTRACT_DIR = "test/data/abstract"
-    VECTOR_DATABASE_DIR = "test/database/rag/"
+    ABSTRACT_DIR = "data/abstract"
+    VECTOR_DATABASE_DIR = "database/rag_core/"
 
-    DATABASE_VS_EMBEDDER_PATH="test/database/info.json"
+    DATABASE_VS_EMBEDDER_PATH="database/info.json"
 
 class CurrentVal():
     EMBEDDING_TYPE = 1
