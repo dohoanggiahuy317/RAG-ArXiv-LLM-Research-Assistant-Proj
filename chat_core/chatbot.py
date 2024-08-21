@@ -27,6 +27,7 @@ def chat(question, compressor_type,
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Load neccessary components
+    print(model_path)
     embedding, retriever = load_retriever(k=k, embedding_type=embedding_type, db_path = db_path, model_path=model_path)
     get_compressed_docs = load_CCCompressor( compressor_type = int(compressor_type))
 
@@ -57,6 +58,24 @@ def chat(question, compressor_type,
                             "conversation_id": conversation_id,
                         }},
             )
+
+            # Save the answer log to txt file
+            add_log(
+                "USER: " + question + "\n\n"
+                "SYSTEM: " + response  + "\n\n" + "-"*50 + "\n",
+                f"./chat_core/logs/{str(user_id)}-{conversation_id}/compressor_{str(compressor_type)}/chat/response.txt"
+            )
+
+            add_log(
+                "QUESTION: " + question + "\n\n" + "-"*50 + "\n\n"
+                "RESPONSE: " + response + "\n\n" + "-"*50 + "\n\n"
+                "METADATA: \n" + "\n".join(list(map(lambda x: str(x.metadata["source"]), compressed_docs))) + "\n\n" + "-"*50 + "\n\n"
+                "DOCUMENTS: \n" + pretty_print_docs(compressed_docs) + "\n\n" + ("-"*50 + "\n" + "-"*50 + "\n" + "-"*50) + "\n",
+                f"./chat_core/logs/{str(user_id)}-{conversation_id}/compressor_{str(compressor_type)}/info/response.txt"
+            )
+
+            logging.info(f"RESPONSE -- \n {response} \n")
+
             return response, []
         
         else:

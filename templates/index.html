@@ -28,7 +28,7 @@
             <p>Compressor Type: <span id="compressor_type_status"></span></p>
 
             <p>Vector DB: <span id="vector_db_name_status"></span></p>
-            <p>Embedding model: <span id="embedder_dir_status"></span></p>
+            <p>Embedding model: <span id="embedder_name_status"></span></p>
         </div>
         <div class="sidebar">
             <button id="new_thread">New Thread</button>
@@ -42,7 +42,7 @@
             <div id="chat_text">
                 <input type="text" id="user_input" placeholder="Type your question...">
                 <!-- <button id="send">Send</button> -->
-                <button><i class="fas fa-paper-plane"></i></button>
+                <button id="send"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
@@ -122,8 +122,8 @@
             <span class="close">&times;</span>
             <form>
                 <h2>Change User</h2>
-                <input type="text" id="new_user_id" placeholder="Enter User ID">
-                <button id="save_user_btn">Save</button>
+                <input type="text" id="new_user_id" placeholder="Enter User ID" required>
+                <button type="submit" id="save_user_btn">Save</button>
             </form>
         </div>
     </div>
@@ -135,9 +135,9 @@
             <form id="chat_config_form">
                 <h2>Change Compressor</h2>
                 <select id="compressor_type" name="compressor_type">
-                    <option value="1">Descending</option>
-                    <option value="2">Ascending</option>
-                    <option value="3">Ascending</option>
+                    <option value="1">LLM FILTER</option>
+                    <option value="2">LLM EXTRACT</option>
+                    <option value="3">EMBEDDING EXTRACT</option>
                 </select><br>
                 <h2>Change Vector Database</h2>
                 <select id="vector_db_name_chat" name="vector_db_name_chat">

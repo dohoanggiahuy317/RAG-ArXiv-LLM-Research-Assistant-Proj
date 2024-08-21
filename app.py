@@ -35,8 +35,8 @@ class DefaultVar():
 class CurrentVal():
     EMBEDDING_TYPE = 1
     COMPRESSOR_TYPE = 1
-    VECTOR_DB_NAME = None
-    EMBEDDER_DIR = None
+    VECTOR_DB_NAME = ""
+    EMBEDDER_NAME = None
 
     CONVERSATION_ID = 1
     USER_ID = None
@@ -45,11 +45,14 @@ class CurrentVal():
 
 @app.route('/get_current_status', methods=['GET'])
 def get_current_status():
+    data = load_json(DefaultVar.DATABASE_VS_EMBEDDER_PATH)
+    embedder_name = data[CurrentVal.VECTOR_DB_NAME.split("/")[-1]] if CurrentVal.VECTOR_DB_NAME.split("/")[-1] in data else ""
+
     status = {
         'embedding_type': CurrentVal.EMBEDDING_TYPE,
         'compressor_type': CurrentVal.COMPRESSOR_TYPE,
-        'vector_db_name': CurrentVal.VECTOR_DB_NAME,
-        'embedder_dir': CurrentVal.EMBEDDER_DIR,
+        'vector_db_name': CurrentVal.VECTOR_DB_NAME.split("/")[-1],
+        'embedder_name': embedder_name,
         'conversation_id': CurrentVal.CONVERSATION_ID,
         'user_id': CurrentVal.USER_ID,
         'k': CurrentVal.K,
@@ -177,7 +180,7 @@ def save_docs_route():
         CurrentVal.EMBEDDING_TYPE = 2
     else:
         CurrentVal.EMBEDDING_TYPE = 1
-        embedder_name = ""
+        embedder_name = "default_BGE_small_en"
         
     # Call the save_docs function
     save_embedding(
@@ -212,12 +215,11 @@ def update_chat_config():
     CurrentVal.COMPRESSOR_TYPE = int(compressor_type)
     CurrentVal.VECTOR_DB_NAME = DefaultVar.FINETUNE_EMBEDDER_DATA_DIR + "/" + vector_db_name
 
-
     data = load_json(DefaultVar.DATABASE_VS_EMBEDDER_PATH)
 
-    CurrentVal.EMBEDDER_DIR = data[vector_db_name]
+    CurrentVal.EMBEDDER_NAME = data[vector_db_name]
 
-    if CurrentVal.EMBEDDER_DIR == "":
+    if CurrentVal.EMBEDDER_NAME == "default_BGE_small_en":
         CurrentVal.EMBEDDING_TYPE = 1
     else:
         CurrentVal.EMBEDDING_TYPE = 2
@@ -237,15 +239,18 @@ def get_db_connection():
 
 @app.route('/get_chat_threads/<user_id>')
 def get_chat_threads(user_id):
-    conn = get_db_connection()
-    cursor = conn.execute('SELECT DISTINCT session_id FROM message_store WHERE session_id LIKE ?', (f'{user_id}--%',))
-    threads = [{'session_id': row['session_id'], 'conversation_id': row['session_id'].split('--')[1]} for row in cursor.fetchall()]
-    
-    CurrentVal.USER_ID = user_id
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.execute('SELECT DISTINCT session_id FROM message_store WHERE session_id LIKE ?', (f'{user_id}--%',))
+        threads = [{'session_id': row['session_id'], 'conversation_id': row['session_id'].split('--')[1]} for row in cursor.fetchall()]
+        
+        CurrentVal.USER_ID = user_id
+        conn.close()
 
-
-    return jsonify({'threads': threads})
+        return jsonify({'threads': threads})
+    except Exception as e:
+        CurrentVal.USER_ID = user_id
+        return jsonify({'threads': []})
 
 @app.route('/get_chat_messages/<user_id>/<conversation_id>')
 def get_chat_messages(user_id, conversation_id):
@@ -284,23 +289,28 @@ def process_message():
             conversation_id=CurrentVal.CONVERSATION_ID,
             k=int(CurrentVal.K),
             embedding_type=CurrentVal.EMBEDDING_TYPE,
-            model_path=CurrentVal.EMBEDDER_DIR)
-        
+            model_path=DefaultVar.FINETUNE_MODEL_DIR + CurrentVal.EMBEDDER_NAME)
+        print(source)
         return jsonify({'response': response, 'source': source})
     else:
         return jsonify({'error': 'No message received'}), 400
 
 @app.route('/get_max_conversation_id/<user_id>', methods=['GET'])
 def get_max_conversation_id(user_id):
-    conn = get_db_connection()
-    cursor = conn.execute('SELECT DISTINCT session_id FROM message_store WHERE session_id LIKE ?', (f'{user_id}--%',))
-    threads = [ int(row['session_id'].split('--')[1]) for row in cursor.fetchall()]
-    
-    CurrentVal.CONVERSATION_ID = max(threads) if len(threads) != 0 else 0
-    
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.execute('SELECT DISTINCT session_id FROM message_store WHERE session_id LIKE ?', (f'{user_id}--%',))
+        threads = [ int(row['session_id'].split('--')[1]) for row in cursor.fetchall()]
+        
+        CurrentVal.CONVERSATION_ID = max(threads) + 1 if len(threads) != 0 else 1
+        
+        conn.close()
+        return jsonify({'max_id': CurrentVal.CONVERSATION_ID if len(threads) != 0 else 1})
 
-    return jsonify({'max_id': CurrentVal.CONVERSATION_ID if len(threads) != 0 else 0})
+    except Exception as e:
+        return jsonify({'max_id': 1})
+
+
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5000)

@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Disable all buttons to prevent further actions
         Object.values(buttons).forEach(button => {
-            if (button.length) {
+            if (Array.isArray(button)) {
                 button.forEach(btn => btn.disabled = true);
             } else {
                 button.disabled = true;
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Enable all buttons
         Object.values(buttons).forEach(button => {
-            if (button.length) {
+            if (Array.isArray(button)) {
                 button.forEach(btn => btn.disabled = false);
             } else {
                 button.disabled = false;
@@ -52,16 +52,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-
-
     // ======================================================================================
     // ================================  UPDATE STATUS  =====================================
     // ======================================================================================
 
-
-
     function updateStatus() {
-        fetch('/get_current_status')
+        return fetch('/get_current_status')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('compressor_type_status').textContent = data.compressor_type;
@@ -70,15 +66,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('conversation_id_status').textContent = data.conversation_id;
                 document.getElementById('k_status').textContent = data.k;
                 document.getElementById('embedding_type_status').textContent = data.embedding_type;
-                document.getElementById('embedder_dir_status').textContent = data.embedder_dir || 'N/A';
+                document.getElementById('embedder_name_status').textContent = data.embedder_name || 'N/A';
             })
             .catch(error => {
                 console.error('Error fetching status:', error);
             });
     }
 
-    setTimeout(updateStatus, 0);
-
+    updateStatus()
 
     // ======================================================================================
     // ================================  OPEN WINDOW  =======================================
@@ -103,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     buttons.chatConfigBtn.addEventListener('click', function () {
         modals.chatConfigPopup.style.display = 'block';
-        loadCustomEmbedderOptions();
+        loadVectorDBOptions();
     });
 
     // Close modal when clicking the close button
@@ -148,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(response => response.json()).then(data => {
             hideProcessingMessage();
             statusDiv.textContent = data.status === 'success' ? 'Data fetched successfully.' : 'Error fetching data.';
+            updateStatus();  // Update status after fetching data
         }).catch(() => {
             hideProcessingMessage();
             statusDiv.textContent = 'Error fetching data.';
@@ -165,6 +161,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const embedderName = document.getElementById('embedder_name').value.trim();
 
+        if (!embedderName) {
+            alert('embedderName is required');
+            return;
+        }
+
         fetch('/finetune_embedder', {
             method: 'POST',
             headers: {
@@ -174,6 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(response => response.json()).then(data => {
             hideProcessingMessage();
             statusFinetune.textContent = data.message;
+            updateStatus();  // Update status after finetuning embedder
         }).catch(() => {
             hideProcessingMessage();
             statusFinetune.textContent = 'Error finetuning embedder.';
@@ -187,12 +189,16 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('save_docs_form').addEventListener('submit', function (event) {
         event.preventDefault();
 
-        showProcessingMessage();
-
-        const vectoDBName = document.getElementById('vector_db_name').value.trim();
+        const vectorDBName = document.getElementById('vector_db_name').value.trim();
         const embedderName = document.getElementById('custom_embedder_name').value.trim();
         const embedderType = document.getElementById('embedder_type').value.trim();
 
+        if (!vectorDBName) {
+            alert('vectorDBName is required');
+            return;
+        }
+        
+        showProcessingMessage();
 
         fetch('/save_docs', {
             method: 'POST',
@@ -202,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify({ 
                 embedder_type: embedderType,
                 embedder_name: embedderName,
-                vector_db_name: vectoDBName
+                vector_db_name: vectorDBName
             })
         }).then(response => response.json()).then(data => {
             hideProcessingMessage();
@@ -246,11 +252,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ======================================================================================
-    // ===============================  CUSTOM VECTOR DB  ===================================
+    // ===================================  VECTOR DB  ======================================
     // ======================================================================================
 
     // Load Custom Embedder Options
-    function loadCustomEmbedderOptions() {
+    function loadVectorDBOptions() {
         fetch('/get_vector_db')
             .then(response => response.json())
             .then(data => {
@@ -271,15 +277,37 @@ document.addEventListener('DOMContentLoaded', function () {
     // ======================================================================================
 
     // Handle Change User
-    document.getElementById('save_user_btn').addEventListener('click', function () {
+    document.getElementById('save_user_btn').addEventListener('click', function (event) {
+        event.preventDefault();
+
         const userId = document.getElementById('new_user_id').value.trim();
+
+        console.log(userId)
+        if (!userId) {
+            alert('userId is required');
+            return;
+        }
+
         if (userId) {
             currentUserId = userId;
-            modals.changeUserPopup.style.display = 'none';
             loadChatThreads(userId);
-            setTimeout(updateStatus, 0);
+            closeAllModals();
         }
         setTimeout(updateStatus, 0);
+
+        fetch(`/get_max_conversation_id/${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Increment the max_id by 1 to create a new thread
+            currentConversationId = data.max_id + 1;
+
+            // Clear the chat window for the new thread
+            document.getElementById('chat_window').innerHTML = '';
+        }).then(
+            () => {updateStatus()}
+        );
+
+
     });
 
     // ======================================================================================
@@ -292,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function () {
         showProcessingMessage();
 
         const compressorType = document.getElementById('compressor_type').value.trim();
-        const vectoDBName = document.getElementById('vector_db_name_chat').value.trim();
+        const vectorDBName = document.getElementById('vector_db_name_chat').value.trim();
 
 
         fetch('/chat_config', {
@@ -302,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: JSON.stringify({ 
                 compressor_type: compressorType,
-                vector_db_name: vectoDBName
+                vector_db_name: vectorDBName
             })
         }).then(response => response.json()).then(data => {
             hideProcessingMessage();
@@ -311,11 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
             hideProcessingMessage();
             statusFinetune.textContent = 'Error saveing docs to database.';
         });
-
         setTimeout(updateStatus, 0);
-
+        closeAllModals()
     });
-
 
 
 
@@ -338,8 +364,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                     chatThreadsList.appendChild(li);
                 });
-            });
-        setTimeout(updateStatus, 0);
+            }).then(
+                // Now update the status after threads are loaded
+                updateStatus()
+            );
     }
 
     // Load chat messages for a thread
@@ -383,6 +411,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Show processing message on the left
         chatWindow.innerHTML += `<div class="message ai" id="processing_message"><strong>Assistant:</strong> Processing...</div>`;
         
+        // Clear the input field
+        document.getElementById('user_input').value = '';
+
         // Disable input and send button
         document.getElementById('user_input').disabled = true;
         document.getElementById('send').disabled = true;
@@ -406,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 sources = `<br><em>Sources: ${data.source.join(', ')}</em>`;
             }
     
-            chatWindow.innerHTML += `<div class="message ai"><strong>Assistant:</strong> ${data.response}${sources}</div>`;
+            chatWindow.innerHTML += `<div class="message ai"><strong>Assistant:</strong> ${data.response}<br>${sources}</div>`;
             
             // Re-enable input and send button
             document.getElementById('user_input').disabled = false;
@@ -414,6 +445,8 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Clear the input field
             document.getElementById('user_input').value = '';
+
+            loadChatThreads(currentUserId);
         })
         .catch(error => {
             console.error('Error processing message:', error);
@@ -438,8 +471,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Clear the chat window for the new thread
                 document.getElementById('chat_window').innerHTML = '';
-            });
-        setTimeout(updateStatus, 0);
+            }).then(
+                () => {updateStatus()}
+            );
     });
 
 
