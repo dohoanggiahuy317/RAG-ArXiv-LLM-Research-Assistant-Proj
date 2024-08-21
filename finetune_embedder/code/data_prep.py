@@ -58,18 +58,18 @@ def csv_2_label(csv_filename, output_dir):
     return train_data
 
 
-def main():
-    parser = argparse.ArgumentParser(description='convert csv to docx')
-    parser.add_argument('--csv_filename', type=str, help='path to csv')    
-    parser.add_argument('--output_dir', type=str, help='path to csv')
-    args = parser.parse_args()
+# def main():
+#     parser = argparse.ArgumentParser(description='convert csv to docx')
+#     parser.add_argument('--csv_filename', type=str, help='path to csv')    
+#     parser.add_argument('--output_dir', type=str, help='path to csv')
+#     args = parser.parse_args()
 
-    # Set up logging
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+#     # Set up logging
+#     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    # Label data
-    csv_2_label(args.csv_filename, args.output_dir)
+#     # Label data
+#     csv_2_label(args.csv_filename, args.output_dir)
 
-# Run the main function
-if __name__ == "__main__":
-    main()
+# # Run the main function
+# if __name__ == "__main__":
+#     main()

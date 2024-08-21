@@ -41,7 +41,7 @@ def get_processed_link(output_filename):
     Returns:
     set: A set of processed URLs.
     """
-
+    print(output_filename)
     df = pd.read_csv(output_filename)
     processed_urls = set(df['link'])
     return processed_urls

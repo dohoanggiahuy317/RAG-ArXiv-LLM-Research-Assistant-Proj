@@ -14,4 +14,4 @@ python3 finetune_embedder/code/finetune.py \
     --model_name "BAAI/bge-small-en-v1.5" \
     --epoch 10 \
     --batch_size 16 \
-    --model_path "finetune_embedder/model/"
+    --model_path "finetune_embedder/model/v1"

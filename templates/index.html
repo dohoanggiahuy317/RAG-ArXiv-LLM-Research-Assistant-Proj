@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArXiv LLM Research Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+    <div id="processing" style="display: none; color: red; font-weight: bold;"></div>
+    <div class="header">
+        <button id="fetch_data_btn">Step 1</button>
+        <button id="finetune_embedder_btn">Step 2</button>
+        <button id="save_docs_btn">Step 3</button>
+        <button id="chat_config_btn">Step 4</button>
+        <button id="change_user_btn">Step 5</button>
+    </div>
+    <div class="container">
+        <div class="info">
+            <p>User: <span id="user_id_status"></span></p>
+            <p>Conversation ID: <span id="conversation_id_status"></span></p>
+
+
+            <p>Top k: <span id="k_status"></span></p>
+            <p>Embedding Type: <span id="embedding_type_status"></span></p>
+            <p>Compressor Type: <span id="compressor_type_status"></span></p>
+
+            <p>Vector DB: <span id="vector_db_name_status"></span></p>
+            <p>Embedding model: <span id="embedder_dir_status"></span></p>
+        </div>
+        <div class="sidebar">
+            <button id="new_thread">New Thread</button>
+            <div class="chat-thread-list">
+                <h3>Chat Threads</h3>
+                <ul id="chat_threads"></ul>
+            </div>
+        </div>
+        <div class="chat-area">
+            <div id="chat_window"></div>
+            <div id="chat_text">
+                <input type="text" id="user_input" placeholder="Type your question...">
+                <!-- <button id="send">Send</button> -->
+                <button><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Settings Popup -->
+    <div id="global_settings_popup" class="modal">
+        <div class="modal_content">
+            <span class="close">&times;</span>
+            <h2>Fetch Data Settings</h2>
+            <form id="fetch_data_form">
+                <label for="start_index">Start Index:</label>
+                <input type="number" id="start_index" name="start_index" value="0"><br>
+                <label for="total_results">Total Results:</label>
+                <input type="number" id="total_results" name="total_results" value="10"><br>
+                <label for="results_per_iteration">Results per Iteration:</label>
+                <input type="number" id="results_per_iteration" name="results_per_iteration" value="2"><br>
+                <label for="sort_by">Sort By:</label>
+                <select id="sort_by" name="sort_by">
+                    <option value="submittedDate">Submitted Date</option>
+                    <option value="relevance">Relevance</option>
+                </select><br>
+                <label for="sort_order">Sort Order:</label>
+                <select id="sort_order" name="sort_order">
+                    <option value="descending">Descending</option>
+                    <option value="ascending">Ascending</option>
+                </select><br>
+                <label for="wait_time">Wait Time (seconds):</label>
+                <input type="number" id="wait_time" name="wait_time" value="0.5" step="0.1"><br>
+                <button type="submit">Fetch Data</button>
+            </form>
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <!-- Fine-Tune Embedder Popup -->
+    <div id="finetune_embedder_popup" class="modal">
+        <div class="modal_content">
+            <span class="close">&times;</span>
+            <h2>Fine-Tune Embedder</h2>
+            <form id="finetune_embedder_form">
+                <label for="embedder_name">Embedder Name:</label>
+                <input type="text" id="embedder_name" name="embedder_name" placeholder="Enter embedder name" required>
+                <button type="submit">Fine-Tune</button>
+            </form>
+            <div id="status_finetune"></div>
+        </div>
+    </div>
+
+    <!-- Save Docs Popup -->
+    <div id="save_docs_popup" class="modal">
+        <div class="modal_content">
+            <span class="close">&times;</span>
+            <h2>Save Docs to Vector Database</h2>
+            <form id="save_docs_form">
+                <label for="vector_db_name">Vector Dabase Name:</label>
+                <input type="text" id="vector_db_name" name="vector_db_name" placeholder="Enter embedder name">
+                <label for="embedder_type">Embedder Type:</label>
+                <select id="embedder_type" name="embedder_type">
+                    <option value="default">Default</option>
+                    <option value="custom">Custom</option>
+                </select><br>
+                <div id="custom_embedder_options" style="display: none;">
+                    <label for="custom_embedder_name">Select Embedder:</label>
+                    <select id="custom_embedder_name" name="custom_embedder_name">
+                        <!-- Embedder options will be dynamically loaded here -->
+                    </select>
+                </div>
+                <button type="submit">Save</button>
+            </form>
+            <div id="status_save_docs"></div>
+        </div>
+    </div>
+
+    <!-- Change User Popup -->
+    <div id="change_user_popup" class="modal">
+        <div class="modal_content">
+            <span class="close">&times;</span>
+            <form>
+                <h2>Change User</h2>
+                <input type="text" id="new_user_id" placeholder="Enter User ID">
+                <button id="save_user_btn">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Config for chat User Popup -->
+    <div id="chat_config_popup" class="modal">
+        <div class="modal_content">
+            <span class="close">&times;</span>
+            <form id="chat_config_form">
+                <h2>Change Compressor</h2>
+                <select id="compressor_type" name="compressor_type">
+                    <option value="1">Descending</option>
+                    <option value="2">Ascending</option>
+                    <option value="3">Ascending</option>
+                </select><br>
+                <h2>Change Vector Database</h2>
+                <select id="vector_db_name_chat" name="vector_db_name_chat">
+                    <!-- Embedder options will be dynamically loaded here -->
+                </select>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+</body>
+
+</html>
