@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function showProcessingMessage() {
         const processingDiv = document.getElementById('processing');
         processingDiv.textContent = 'Processing...';
-        processingDiv.style.display = 'block';
+        processingDiv.style.display = 'flex';
 
         // Disable all buttons to prevent further actions
         Object.values(buttons).forEach(button => {
