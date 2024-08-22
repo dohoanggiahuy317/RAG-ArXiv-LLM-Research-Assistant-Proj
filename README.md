@@ -41,7 +41,7 @@ cd RAG-ArXiv-LLM-Research-Assistant
 
 #### 2.2.2. Set up the virtual environment
 
-OPTION 1: If you choose to download the provided virtual environment [here](AAA), activate it using:
+OPTION 1: If you choose to download the provided virtual environment [here](https://drive.google.com/drive/folders/14d0XrAmrnC_ruaK02Q0ZzScz7QBgKYu1?usp=drive_link), activate it using:
 
 ```bash
 pip install -r requirements.txt
@@ -78,10 +78,10 @@ The application follows these steps:
 
 Skip steps 1, 2, and 3 by downloading the prepared data and model:
 
-- [data](AAA): Save this folder into the root directory
-- [database](AAA): Save this folder into the root directory
-- [models](AAA): Save this folder under the `finetune_embedder` folder
-- [data_embedder](AAA): Save this folder under the `finetune_embedder` folder
+- [data](https://drive.google.com/drive/folders/1ytHke_rIvmSnK9Imw0zbvqeC5-SI3uvS?usp=drive_link): Save this folder into the root directory
+- [database](https://drive.google.com/drive/folders/1iGoU99kDmiNDZmu98jYO0zrykyMtYxa_?usp=drive_link): Save this folder into the root directory
+- [models](https://drive.google.com/drive/folders/1Zs3iMfS4rkteMVOW95Vy3Iwy2syTbe-D?usp=drive_link): Save this folder under the `finetune_embedder` folder
+- [data_embedder](https://drive.google.com/drive/folders/1NnhybR2tt8nw_G3_MqgBwViI0My1YpZh?usp=drive_link): Save this folder under the `finetune_embedder` folder
 
 ### 4.1. Step 1 (skip if you completed 4.0)
 
@@ -90,6 +90,8 @@ Fetch new Natural Language Processing papers from ArXiv. Adjust parameters in th
 ### 4.2. Step 2 (skip if you completed 4.0)
 
 Fine-tune your own retrieval model to improve the paper reference engine. Enter your chosen embedder name when prompted.
+
+![visualization embedding](https://github.com/user-attachments/assets/9676b67f-c6ee-4826-acde-e72ef17f6253)
 
 ### 4.3. Step 3 (skip if you completed 4.0)
 
@@ -105,6 +107,9 @@ Save the model configuration for chatting. Select the vector database to query a
 ### 4.5. Step 5
 
 Enter your username to start chatting. Access previous chats by using the same username.
+
+![Screenshot 2024-08-22 at 4 00 36 PM](https://github.com/user-attachments/assets/8e2a1e03-b677-4750-8196-8fa089064463)
+
 
 ## 5. Checking the references
 
