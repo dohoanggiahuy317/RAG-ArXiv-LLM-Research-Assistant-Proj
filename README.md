@@ -1,4 +1,30 @@
-# RAG-ArXiv LLM Research Assistant
+<h1> RAG-ArXiv LLM Research Assistant </h1> 
+
+
+## 0. Table of Contents
+
+
+- [0. Table of Contents](#0-table-of-contents)
+- [1. Motivation](#1-motivation)
+  - [1.1. Visualization of the RAG app architecture](#11-visualization-of-the-rag-app-architecture)
+- [2. Setup](#2-setup)
+  - [2.1. Prerequisites](#21-prerequisites)
+    - [2.1.1. Ollama](#211-ollama)
+    - [2.1.2. Python](#212-python)
+  - [2.2. Installation](#22-installation)
+    - [2.2.1. Clone the repository](#221-clone-the-repository)
+    - [2.2.2. Set up the virtual environment](#222-set-up-the-virtual-environment)
+- [3. Start the app](#3-start-the-app)
+- [4. How to use](#4-how-to-use)
+  - [4.0. Use pre-trained fetch data and model](#40-use-pre-trained-fetch-data-and-model)
+  - [4.1. Step 1 (skip if you completed 4.0)](#41-step-1-skip-if-you-completed-40)
+  - [4.2. Step 2 (skip if you completed 4.0)](#42-step-2-skip-if-you-completed-40)
+  - [4.3. Step 3 (skip if you completed 4.0)](#43-step-3-skip-if-you-completed-40)
+  - [4.4. Step 4](#44-step-4)
+  - [4.5. Step 5](#45-step-5)
+- [5. Checking the references](#5-checking-the-references)
+  - [5.1. Viewing chat history in the Database](#51-viewing-chat-history-in-the-database)
+- [6. Contribution](#6-contribution)
 
 ## 1. Motivation
 The RAG-ArXiv LLM Research Assistant project aims to create an intelligent system that scrapes recent Language Model (LLM) research papers from ArXiv, embeds them, and stores them in a vector database. This setup enables the system to rank and answer LLM-related questions using up-to-date information from the latest research.
