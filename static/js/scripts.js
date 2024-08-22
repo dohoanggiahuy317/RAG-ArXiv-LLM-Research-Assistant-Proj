@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chatWindow.innerHTML += `<div class="message human"><strong>You:</strong> ${userInput}</div>`;
         
         // Show processing message on the left
-        chatWindow.innerHTML += `<div class="message ai" id="processing_message"><strong>Assistant:</strong> Thinking about your question. Please wait 🤗. In the mean time, please check the terminal to see the process. <br> Tips: Recored the references at the end of my responses, or you can find it later in the log file under  chat_core/logs/{username)-{chat_id}/compressor_{no}/info...</div>`;
+        chatWindow.innerHTML += `<div class="message ai" id="processing_message"><strong>Assistant:</strong> Processing your request... <br>Please hold on 🤗.... <br>In the meantime, feel free to check the terminal for updates on the ongoing process. <br><br> Tip: Remember to note down the references provided at the end of my response. Alternatively, you can find them later in the log file located at chat_core/logs/{username}-{chat_id}/compressor_{no}/info...</div>`;
         
         // Clear the input field
         document.getElementById('user_input').value = '';
