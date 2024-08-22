@@ -67,10 +67,11 @@ cd RAG-ArXiv-LLM-Research-Assistant
 
 #### 2.2.2. Set up the virtual environment
 
-OPTION 1: If you choose to download the provided virtual environment [here](https://drive.google.com/drive/folders/14d0XrAmrnC_ruaK02Q0ZzScz7QBgKYu1?usp=drive_link), activate it using:
+OPTION 1: If you choose to download the provided virtual environment [here](https://drive.google.com/drive/folders/14d0XrAmrnC_ruaK02Q0ZzScz7QBgKYu1?usp=drive_link), activate it using conda or python, I'm using conda here:
 
 ```bash
-pip install -r requirements.txt
+conda deactivate
+conda activate ./.env
 ```
 
 OPTION 2: Set up a new virtual environment (you can use conda) with python 3.10, activate it, then install the required packages:
