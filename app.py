@@ -24,7 +24,7 @@ class DefaultVar():
     RAW_DATA_DIR="data"
     RAW_DATA_CSV_PATH = "data/papers_abstract.csv"
     
-    FINETUNE_EMBEDDER_DATA_DIR = "finetune_embedder/data"
+    FINETUNE_EMBEDDER_DATA_DIR = "finetune_embedder/data_embedder"
     FINETUNE_MODEL_DIR = "finetune_embedder/models/"
 
     ABSTRACT_DIR = "data/abstract"
