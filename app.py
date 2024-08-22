@@ -35,7 +35,7 @@ class DefaultVar():
 class CurrentVal():
     EMBEDDING_TYPE = 1
     COMPRESSOR_TYPE = 1
-    VECTOR_DB_NAME = ""
+    VECTOR_DB_DIR = ""
     EMBEDDER_NAME = None
 
     CONVERSATION_ID = 1
@@ -63,12 +63,12 @@ def get_current_status():
         with open(DefaultVar.DATABASE_VS_EMBEDDER_PATH, 'w') as file:
             json.dump(data, file) 
     
-    embedder_name = data[CurrentVal.VECTOR_DB_NAME.split("/")[-1]] if CurrentVal.VECTOR_DB_NAME.split("/")[-1] in data else ""
+    embedder_name = data[CurrentVal.VECTOR_DB_DIR.split("/")[-1]] if CurrentVal.VECTOR_DB_DIR.split("/")[-1] in data else ""
 
     status = {
         'embedding_type': CurrentVal.EMBEDDING_TYPE,
         'compressor_type': CurrentVal.COMPRESSOR_TYPE,
-        'vector_db_name': CurrentVal.VECTOR_DB_NAME.split("/")[-1],
+        'vector_db_name': CurrentVal.VECTOR_DB_DIR.split("/")[-1],
         'embedder_name': embedder_name,
         'conversation_id': CurrentVal.CONVERSATION_ID,
         'user_id': CurrentVal.USER_ID,
@@ -240,7 +240,7 @@ def update_chat_config():
 
     # Update var
     CurrentVal.COMPRESSOR_TYPE = int(compressor_type)
-    CurrentVal.VECTOR_DB_NAME = DefaultVar.FINETUNE_EMBEDDER_DATA_DIR + "/" + vector_db_name
+    CurrentVal.VECTOR_DB_DIR = DefaultVar.VECTOR_DATABASE_DIR + vector_db_name
 
     data = load_json(DefaultVar.DATABASE_VS_EMBEDDER_PATH)
 
@@ -311,13 +311,13 @@ def process_message():
         response, source = chat(
             question=user_message,
             compressor_type=CurrentVal.COMPRESSOR_TYPE,
-            db_path=DefaultVar.VECTOR_DATABASE_DIR + CurrentVal.VECTOR_DB_NAME,
+            db_path=CurrentVal.VECTOR_DB_DIR,
             user_id=CurrentVal.USER_ID,
             conversation_id=CurrentVal.CONVERSATION_ID,
             k=int(CurrentVal.K),
-            embedding_type=CurrentVal.EMBEDDING_TYPE,
+            embedding_type=int(CurrentVal.EMBEDDING_TYPE),
             model_path=DefaultVar.FINETUNE_MODEL_DIR + CurrentVal.EMBEDDER_NAME)
-        print(source)
+
         return jsonify({'response': response, 'source': source})
     else:
         return jsonify({'error': 'No message received'}), 400

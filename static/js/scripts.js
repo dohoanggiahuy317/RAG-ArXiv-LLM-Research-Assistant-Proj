@@ -60,7 +60,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return fetch('/get_current_status')
             .then(response => response.json())
             .then(data => {
-                document.getElementById('compressor_type_status').textContent = data.compressor_type;
+                const compressorType = data.compressor_type === 1 ? 'LLM FILTER' : 'LLM EXTRACT';
+                document.getElementById('compressor_type_status').textContent = compressorType;
                 document.getElementById('vector_db_name_status').textContent = data.vector_db_name || 'N/A';
                 document.getElementById('user_id_status').textContent = data.user_id || 'N/A';
                 document.getElementById('conversation_id_status').textContent = data.conversation_id;
@@ -383,7 +384,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     chatWindow.innerHTML += `<div class="message ${messageType}"><strong>${messageType === 'human' ? 'You' : 'Assistant'}:</strong> ${formattedContent}</div>`;
                 });
-            });
+            }).then(
+                updateStatus()
+            );
     }
 
     // Function to format the content by converting \n into line breaks and handling special formats
@@ -409,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chatWindow.innerHTML += `<div class="message human"><strong>You:</strong> ${userInput}</div>`;
         
         // Show processing message on the left
-        chatWindow.innerHTML += `<div class="message ai" id="processing_message"><strong>Assistant:</strong> Processing...</div>`;
+        chatWindow.innerHTML += `<div class="message ai" id="processing_message"><strong>Assistant:</strong> Thinking about your question. Please wait 🤗. In the mean time, please check the terminal to see the process. <br> Tips: Recored the references at the end of my responses, or you can find it later in the log file under  chat_core/logs/{username)-{chat_id}/compressor_{no}/info...</div>`;
         
         // Clear the input field
         document.getElementById('user_input').value = '';

@@ -2,7 +2,7 @@ from rag_core.utils.contextual_compression import llm_extract, llm_filter
 
 import logging
 
-def load_CCCompressor(compressor_type=3):
+def load_CCCompressor(compressor_type=2):
     
     # Set up logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

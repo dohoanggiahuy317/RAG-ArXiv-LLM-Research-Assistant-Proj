@@ -27,22 +27,20 @@ def chat(question, compressor_type,
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Load neccessary components
-    print(model_path)
     embedding, retriever = load_retriever(k=k, embedding_type=embedding_type, db_path = db_path, model_path=model_path)
     get_compressed_docs = load_CCCompressor( compressor_type = int(compressor_type))
 
     # Ranking the documents
     logging.info("Getting compressed_docs")
     abstracts = retriever.invoke(question)
+    llm = OllamaLLM(model="llama3")
 
+    # Get prompt for the question
+    prompt = prompt_template()
+    runnable = prompt | llm
 
     try:
         if len(abstracts) == 0:
-            llm = OllamaLLM(model="llama3")
-
-            # Get prompt for the question
-            prompt = prompt_template()
-            runnable = prompt | llm
 
             # Get chat history
             runnable_with_history = get_runnable_history(runnable)
@@ -69,8 +67,7 @@ def chat(question, compressor_type,
             add_log(
                 "QUESTION: " + question + "\n\n" + "-"*50 + "\n\n"
                 "RESPONSE: " + response + "\n\n" + "-"*50 + "\n\n"
-                "METADATA: \n" + "\n".join(list(map(lambda x: str(x.metadata["source"]), compressed_docs))) + "\n\n" + "-"*50 + "\n\n"
-                "DOCUMENTS: \n" + pretty_print_docs(compressed_docs) + "\n\n" + ("-"*50 + "\n" + "-"*50 + "\n" + "-"*50) + "\n",
+                "METADATA: \n" + "-"*50 + "\n\n",
                 f"./chat_core/logs/{str(user_id)}-{conversation_id}/compressor_{str(compressor_type)}/info/response.txt"
             )
 
@@ -79,7 +76,6 @@ def chat(question, compressor_type,
             return response, []
         
         else:
-
             # Get the docs id
             abstracts_filename = list(map(lambda x: x.metadata["source"].split("/")[-1], abstracts))
             papers = get_paper(abstracts_filename)
@@ -88,13 +84,7 @@ def chat(question, compressor_type,
             db = chroma_vectorstore(papers, embedding, save_local=False)
             paper_retriever = db.as_retriever()
 
-            llm = OllamaLLM(model="llama3")
             compressed_docs = get_compressed_docs(question, llm, paper_retriever)
-
-
-            # Get prompt for the question
-            prompt = prompt_template()
-            runnable = prompt | llm
             formatted_doc = format_docs(compressed_docs)
 
             # Get chat history
@@ -132,7 +122,7 @@ def chat(question, compressor_type,
             return response, abstracts_filename
         
     except Exception as e:
-        return "Error: " + e
+        return "Error: " + str(e), ""
 
 
 
