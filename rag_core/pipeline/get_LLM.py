@@ -29,7 +29,7 @@ def prompt_template():
 
 
 
-def get_LLM(compressed_docs, model="llama3"):
+def get_LLM(compressed_docs, model):
 
     # Set up logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

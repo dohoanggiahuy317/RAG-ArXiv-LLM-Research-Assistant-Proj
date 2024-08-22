@@ -33,7 +33,7 @@ def chat(question, compressor_type,
     # Ranking the documents
     logging.info("Getting compressed_docs")
     abstracts = retriever.invoke(question)
-    llm = OllamaLLM(model="llama3")
+    llm = OllamaLLM(model="llama3.1")
 
     # Get prompt for the question
     prompt = prompt_template()
