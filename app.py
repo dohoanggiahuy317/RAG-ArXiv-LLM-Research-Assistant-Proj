@@ -45,7 +45,24 @@ class CurrentVal():
 
 @app.route('/get_current_status', methods=['GET'])
 def get_current_status():
-    data = load_json(DefaultVar.DATABASE_VS_EMBEDDER_PATH)
+# Extract the directory path from the file path
+    directory = os.path.dirname(DefaultVar.DATABASE_VS_EMBEDDER_PATH)
+
+    # Check if the directory exists
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Directory {directory} did not exist, so it was created.")
+
+    # Check if the file exists
+    if os.path.exists(DefaultVar.DATABASE_VS_EMBEDDER_PATH):
+        with open(DefaultVar.DATABASE_VS_EMBEDDER_PATH, 'r') as file:
+            data = json.load(file)
+    else:
+        # Create the file with an empty dictionary
+        data = {}
+        with open(DefaultVar.DATABASE_VS_EMBEDDER_PATH, 'w') as file:
+            json.dump(data, file) 
+    
     embedder_name = data[CurrentVal.VECTOR_DB_NAME.split("/")[-1]] if CurrentVal.VECTOR_DB_NAME.split("/")[-1] in data else ""
 
     status = {
@@ -136,6 +153,11 @@ def finetune_embedder_route():
 @app.route('/get_custom_embedders')
 def get_custom_embedders():
     embedder_directory = DefaultVar.FINETUNE_MODEL_DIR
+
+    # Check if the directory exists
+    if not os.path.exists(embedder_directory):
+        os.makedirs(embedder_directory)
+
     embedders = [f for f in os.listdir(embedder_directory) if os.path.isdir(os.path.join(embedder_directory, f))]
     return jsonify({'embedders': embedders})
 
@@ -143,6 +165,11 @@ def get_custom_embedders():
 @app.route('/get_vector_db')
 def get_vector_DBs():
     vector_db_directory = DefaultVar.VECTOR_DATABASE_DIR
+
+    # Check if the directory exists
+    if not os.path.exists(vector_db_directory):
+        os.makedirs(vector_db_directory)
+
     vector_db = [f for f in os.listdir(vector_db_directory) if os.path.isdir(os.path.join(vector_db_directory, f))]
     return jsonify({'vectorDBs': vector_db})
 
