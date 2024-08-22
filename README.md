@@ -1,86 +1,119 @@
 # RAG-ArXiv LLM Research Assistant
 
-## Motivation
-The ArXiv LLM Research Assistant project aims to create an intelligent system capable of scraping recent research papers on Language Models (LLMs) from ArXiv, embedding the papers, and storing them in a vector database. This setup allows the system to rank and answer any LLM-related questions using up-to-date information from the latest research.
+## 1. Motivation
+The RAG-ArXiv LLM Research Assistant project aims to create an intelligent system that scrapes recent Language Model (LLM) research papers from ArXiv, embeds them, and stores them in a vector database. This setup enables the system to rank and answer LLM-related questions using up-to-date information from the latest research.
 
-<img width="1062" alt="viz" src="https://github.com/user-attachments/assets/9b256c6e-789a-44bc-a585-f6859fc00b41">
+### 1.1. Visualization of the RAG app architecture
+![Architecture Visualization](https://github.com/user-attachments/assets/9b256c6e-789a-44bc-a585-f6859fc00b41)
 
+## 2. Setup
 
-## Setup
+### 2.1. Prerequisites
 
-### Prerequisites
 Before you begin, ensure you have the following installed on your machine:
 
-- [Ollama](https://ollama.com/download): A powerful language model processing tool.
-- Python and pip: You can download `Python` from [here](https://www.python.org/downloads/) and install `pip` by following the instructions [here](https://pip.pypa.io/en/stable/installation/).
+#### 2.1.1. Ollama
 
-### Installation
-1. Clone the repository:
-   
-   ```bash
-   git clone [https://github.com/yourusername/RAG-LangChain-supreme-bot.git](https://github.com/dohoanggiahuy317/RAG-ArXiv-LLM-Research-Assistant-Proj.git
-   cd RAG-ArXiv-LLM-Research-Assistant
-   ```
+Set up [Ollama](https://ollama.com/download), a powerful local language model processing tool. Visit their [GitHub](https://github.com/ollama/ollama) to pull the Llama3.1 8B model to your local machine, or follow these steps:
 
-2. Install the required Python packages:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-3. Download and install Ollama:
-
-Follow the instructions here to download and install Ollama on your machine. ## 
- 
-## Instructions  
-   
-1. To parse the data, run the following script:
-
-
-    ```bash
-    sh parse_data/command/parse_data.sh
-    ``` 
-
-2. To embed the parsed data and save the documents, run:
-
-    ```bash
-    sh rag_core/command/save_docs.sh
-    ```
-    
-3. To interact with the bot and ask questions, use:
-
-    ```bash
-    sh chat_core/command/chat_core.sh
-    ```
-
-    The system responses and references will be saved in a `logs` folder under `chat_core`.
-
-
-## Customizing Parameters
-
-You can change the parameters in `chat_core.sh` to adjust the number of user and question threads. Open `chat_core.sh` in a text editor and modify the following lines:
+After downloading Ollama, run this command in your terminal:
 
 ```bash
-# chane user id to have different chat memory
-user_id=2
-
-# create new conversation
-conversation_id=5
+ollama pull llama3.1
 ```
 
-To get different papers on various topics, update the `search_query` parameter `in parse_data/command/parse_data.sh`, please refer to ArXiv API for further information:
+To use a different LLM, select any model from the Ollama website, then navigate to `chat_core/chatbot.py` and change `llm = OllamaLLM(model="llama3.1")` to your preferred model.
 
+#### 2.1.2. Python
+
+Download Python from https://www.python.org/downloads/. Python 3.10 is recommended for this app.
+
+### 2.2. Installation
+
+#### 2.2.1. Clone the repository
+
+Run the following commands in your terminal:
 
 ```bash
-# Update this line with your desired search query
-search_query="your_custom_search_query"
+git clone https://github.com/dohoanggiahuy317/RAG-ArXiv-LLM-Research-Assistant-Proj.git
+cd RAG-ArXiv-LLM-Research-Assistant
 ```
 
-Adjust the numbers according to your requirements.
+#### 2.2.2. Set up the virtual environment
 
+OPTION 1: If you choose to download the provided virtual environment [here](AAA), activate it using:
 
-### Viewing chat history the Database
+```bash
+pip install -r requirements.txt
+```
 
-To view the contents of the database, you can use an MySQLWorkbench application. Open your preferred SQL tool and connect it to the database file located at `chat_core/database/memory.db`. This will allow you to explore and query the database content.
+OPTION 2: Set up a new virtual environment (you can use conda) with python 3.10, activate it, then install the required packages:
 
-### Contribution
-We welcome contributions! If you have suggestions or improvements, please open an issue or submit a pull request.
+```bash
+pip install -r requirements.txt
+```
+
+## 3. Start the app
+
+To launch the application, run:
+
+```bash
+python app.py
+```
+
+The application will be accessible at http://127.0.0.1:5000/ in your browser.
+
+## 4. How to use
+
+The application follows these steps:
+1. Fetch data from ArXiv
+2. (Optional) Fine-tune your own embedder
+3. Save papers into your local vector database
+4. Save the model configuration for chatting
+5. Create username
+
+(You must complete all 5 steps before you can start chatting)
+
+### 4.0. Use pre-trained fetch data and model
+
+Skip steps 1, 2, and 3 by downloading the prepared data and model:
+
+- [data](AAA): Save this folder into the root directory
+- [database](AAA): Save this folder into the root directory
+- [models](AAA): Save this folder under the `finetune_embedder` folder
+- [data_embedder](AAA): Save this folder under the `finetune_embedder` folder
+
+### 4.1. Step 1 (skip if you completed 4.0)
+
+Fetch new Natural Language Processing papers from ArXiv. Adjust parameters in the window. Already scraped papers will be skipped to avoid duplicates.
+
+### 4.2. Step 2 (skip if you completed 4.0)
+
+Fine-tune your own retrieval model to improve the paper reference engine. Enter your chosen embedder name when prompted.
+
+### 4.3. Step 3 (skip if you completed 4.0)
+
+Save documents to the database using your selected embedder. Choose between the default Hugging Face embedder or any custom embedder you prefer.
+
+### 4.4. Step 4
+
+Save the model configuration for chatting. Select the vector database to query and the compressed document type. LLM Filter is generally more efficient for summarizing long text.
+
+- LLM Extract: Iterates over initially returned documents and extracts only content relevant to the query.
+- LLM Filter: A simpler but more robust compressor that uses an LLM chain to filter out irrelevant documents without manipulating their contents.
+
+### 4.5. Step 5
+
+Enter your username to start chatting. Access previous chats by using the same username.
+
+## 5. Checking the references
+
+All responses are referenced based on actual research papers. Citations are shown when the app first provides an answer. You can always find them in `chat_core/logs` using your username, conversation ID, and compression type.
+
+### 5.1. Viewing chat history in the Database
+
+To explore the database contents, use MySQLWorkbench or your preferred SQL tool. Connect to the database file located at `chat_core/database/memory.db` to query and explore the data.
+
+## 6. Contribution
+
+We welcome contributions! If you have suggestions or improvements, please open an issue or submit a pull request on our GitHub repository.
