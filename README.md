@@ -76,6 +76,16 @@ conda activate ./.env
 
 OPTION 2: Set up a new virtual environment (you can use conda) with python 3.10, activate it, then install the required packages:
 
+You can use the following command to create a virtual environment using conda
+
+```bash
+conda create --prefix .env python=3.10
+conda deactivate
+conda activate ./.env
+```
+
+Then, pip install packages
+
 ```bash
 pip install -r requirements.txt
 ```
