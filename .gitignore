@@ -4,7 +4,7 @@
 /data/*
 /database/*
 /finetune_embedder/models/*
-/finetune_embedder/data/*
+/finetune_embedder/data_embedder/*
 
 
 
