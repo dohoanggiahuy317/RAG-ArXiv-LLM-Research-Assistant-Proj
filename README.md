@@ -1,12 +1,14 @@
 <h1> RAG-ArXiv LLM Research Assistant </h1> 
 
 
-## 0. Table of Contents
+<h2>Table of Contents</h2>
 
 
-- [0. Table of Contents](#0-table-of-contents)
-- [1. Motivation](#1-motivation)
-  - [1.1. Visualization of the RAG app architecture](#11-visualization-of-the-rag-app-architecture)
+- [0. Motivation](#1-motivation)
+  - [0.1. Visualization of the RAG app architecture](#01-visualization-of-the-rag-app-architecture)
+- [1. Demo videos for Setup and tutorial](#1-Demo-videos-for-Setup-and-tutorial)
+  - [1.1. How to quickly setup](#11-How-to-quickly-setup)
+  - [1.2. How to quickly use](#11-How-to-quickly-use)
 - [2. Setup](#2-setup)
   - [2.1. Prerequisites](#21-prerequisites)
     - [2.1.1. Ollama](#211-ollama)
@@ -26,11 +28,26 @@
   - [5.1. Viewing chat history in the Database](#51-viewing-chat-history-in-the-database)
 - [6. Contribution](#6-contribution)
 
-## 1. Motivation
+## 0. Motivation
 The RAG-ArXiv LLM Research Assistant project aims to create an intelligent system that scrapes recent Language Model (LLM) research papers from ArXiv, embeds them, and stores them in a vector database. This setup enables the system to rank and answer LLM-related questions using up-to-date information from the latest research.
 
-### 1.1. Visualization of the RAG app architecture
+### 0.1. Visualization of the RAG app architecture
 ![Architecture Visualization](https://github.com/user-attachments/assets/9b256c6e-789a-44bc-a585-f6859fc00b41)
+
+
+## 1. Demo videos for Setup and tutorial
+
+### 1.1. How to quickly setup
+
+
+https://github.com/user-attachments/assets/129dedad-f7fa-4711-a776-d82bd66d48b7
+
+
+### 1.2. How to quickly use
+
+https://github.com/user-attachments/assets/bc57e68e-1ee1-4b12-a35e-7bec517621ad
+
+
 
 ## 2. Setup
 
