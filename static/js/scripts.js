@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             let sources = '';
             if (data.source && data.source.length > 0) {
-                sources = `<br><em>Sources: ${data.source.join(', ')}</em>`;
+                sources = `<br><em>Sources: ${data.source.map(source => `<a href="${'https://arxiv.org/abs/' + source.replace('.txt', '')}">${source.replace('.txt', '')}</a>`).join(', ')}</em>`;
             }
     
             chatWindow.innerHTML += `<div class="message ai"><strong>Assistant:</strong> ${data.response}<br>${sources}</div>`;

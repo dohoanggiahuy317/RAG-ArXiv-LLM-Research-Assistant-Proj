@@ -4,11 +4,11 @@
 <h2>Table of Contents</h2>
 
 
-- [0. Motivation](#1-motivation)
+- [0. Motivation](#0-motivation)
   - [0.1. Visualization of the RAG app architecture](#01-visualization-of-the-rag-app-architecture)
-- [1. Demo videos for Setup and tutorial](#1-Demo-videos-for-Setup-and-tutorial)
-  - [1.1. How to quickly setup](#11-How-to-quickly-setup)
-  - [1.2. How to quickly use](#11-How-to-quickly-use)
+- [1. Demo videos for Setup and tutorial](#1-demo-videos-for-setup-and-tutorial)
+  - [1.1. How to quickly setup](#11-how-to-quickly-setup)
+  - [1.2. How to quickly use](#12-how-to-quickly-use)
 - [2. Setup](#2-setup)
   - [2.1. Prerequisites](#21-prerequisites)
     - [2.1.1. Ollama](#211-ollama)
@@ -65,7 +65,7 @@ After downloading Ollama, run this command in your terminal:
 ollama pull llama3.1
 ```
 
-To use a different LLM, select any model from the Ollama website, then navigate to `chat_core/chatbot.py` and change `llm = OllamaLLM(model="llama3.1")` to your preferred model.
+To use a different LLM, select any model from the Ollama website, then navigate to `chat_core/global_var.py.py` and change `LLM_NAME = "llama3.1"` to your preferred model.
 
 #### 2.1.2. Python
 

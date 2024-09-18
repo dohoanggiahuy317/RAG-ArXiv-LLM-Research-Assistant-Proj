@@ -12,6 +12,7 @@ from rag_core.utils.contextual_compression.pretty_print import pretty_print_docs
 from rag_core.utils.contextual_compression.get_paper import get_paper
 from rag_core.utils.vectorstore.chroma_vectorstore import chroma_vectorstore
 
+from chat_core import global_var
 
 import argparse
 import logging
@@ -33,7 +34,7 @@ def chat(question, compressor_type,
     # Ranking the documents
     logging.info("Getting compressed_docs")
     abstracts = retriever.invoke(question)
-    llm = OllamaLLM(model="llama3.1")
+    llm = OllamaLLM(model=global_var.LLM_NAME)
 
     # Get prompt for the question
     prompt = prompt_template()
